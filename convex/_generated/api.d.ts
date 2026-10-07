@@ -40,6 +40,7 @@ import type * as tenants from "../tenants.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as verifications from "../verifications.js";
 import type * as reports from "../reports.js";
+import type * as admin from "../admin.js";
 
 import type {
   ApiFromModules,
@@ -80,6 +81,7 @@ declare const fullApi: ApiFromModules<{
   subscriptions: typeof subscriptions;
   verifications: typeof verifications;
   reports: typeof reports;
+  admin: typeof admin;
 }>;
 
 /**
