@@ -55,7 +55,7 @@ export const reviewIdentity = mutation({
     const owner = await ctx.db.get("owners", args.ownerId)
     if (!owner || owner.identityVerificationStatus !== "pending_review") throw new Error("Review identitas sudah diputuskan atau tidak ditemukan.")
     if (args.decision === "rejected" && !args.reason?.trim()) throw new Error("Alasan penolakan wajib diisi.")
-    await ctx.db.patch("owners", owner._id, { identityVerificationStatus: args.decision === "approved" ? "verified" : "rejected" })
+    await ctx.db.patch("owners", owner._id, { identityVerificationStatus: args.decision === "approved" ? "verified" : "rejected", identityVerificationReviewedAt: Date.now(), identityVerificationRejectionReason: args.decision === "rejected" ? args.reason?.trim() : undefined })
     return { reviewerOwnerId: admin._id }
   },
 })
@@ -67,7 +67,7 @@ export const reviewProperty = mutation({
     const property = await ctx.db.get("properties", args.propertyId)
     if (!property || property.propertyVerificationStatus !== "pending_review") throw new Error("Review properti sudah diputuskan atau tidak ditemukan.")
     if (args.decision === "rejected" && !args.reason?.trim()) throw new Error("Alasan penolakan wajib diisi.")
-    await ctx.db.patch("properties", property._id, { propertyVerificationStatus: args.decision === "approved" ? "verified" : "rejected" })
+    await ctx.db.patch("properties", property._id, { propertyVerificationStatus: args.decision === "approved" ? "verified" : "rejected", propertyVerificationReviewedAt: Date.now(), propertyVerificationRejectionReason: args.decision === "rejected" ? args.reason?.trim() : undefined })
     return null
   },
 })

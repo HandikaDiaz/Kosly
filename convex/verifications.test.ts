@@ -19,3 +19,12 @@ test("admin can approve pending identity once", async () => {
   await admin.mutation(api.verifications.reviewIdentity, { ownerId: owner, decision: "approved" })
   await expect(admin.mutation(api.verifications.reviewIdentity, { ownerId: owner, decision: "approved" })).rejects.toThrow("sudah diputuskan")
 })
+
+test("identity rejection persists the admin reason", async () => {
+  const t = convexTest(schema, modules)
+  const owner = await t.run(async (ctx) => ctx.db.insert("owners", { tokenIdentifier: "identity-owner-3", role: "owner", identityVerificationStatus: "pending_review" }))
+  await t.run(async (ctx) => { await ctx.db.insert("owners", { tokenIdentifier: "identity-admin-2", role: "admin" }) })
+  await t.withIdentity({ tokenIdentifier: "identity-admin-2" }).mutation(api.verifications.reviewIdentity, { ownerId: owner, decision: "rejected", reason: "Foto tidak jelas" })
+  const reviewed = await t.run(async (ctx) => ctx.db.get("owners", owner))
+  expect(reviewed?.identityVerificationRejectionReason).toBe("Foto tidak jelas")
+})

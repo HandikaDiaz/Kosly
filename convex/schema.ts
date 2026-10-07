@@ -12,6 +12,8 @@ export default defineSchema({
     email: v.optional(v.string()),
     role: v.optional(v.union(v.literal("owner"), v.literal("admin"))),
     identityVerificationStatus: v.optional(v.union(v.literal("not_submitted"), v.literal("pending_review"), v.literal("verified"), v.literal("rejected"))),
+    identityVerificationReviewedAt: v.optional(v.number()),
+    identityVerificationRejectionReason: v.optional(v.string()),
     ktpStorageId: v.optional(v.id("_storage")),
     selfieStorageId: v.optional(v.id("_storage")),
     onboardingCompleted: v.optional(v.boolean()),
@@ -24,6 +26,8 @@ export default defineSchema({
     slug: v.string(),
     isActive: v.boolean(),
     propertyVerificationStatus: v.optional(v.union(v.literal("not_submitted"), v.literal("pending_review"), v.literal("verified"), v.literal("rejected"))),
+    propertyVerificationReviewedAt: v.optional(v.number()),
+    propertyVerificationRejectionReason: v.optional(v.string()),
     ownershipProofStorageId: v.optional(v.id("_storage")),
   }).index("by_owner", ["ownerId"]).index("by_slug", ["slug"]),
   subscriptions: defineTable({
