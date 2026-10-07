@@ -1,5 +1,5 @@
 import { expect, test } from "vitest"
-import { getTierForRoomCount, getTierPrice } from "./lib/subscription-tiers"
+import { getTierForRoomCount, getTierPrice } from "./lib/subscription_tiers"
 import { convexTest } from "convex-test"
 import { api } from "./_generated/api"
 import schema from "./schema"
