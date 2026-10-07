@@ -17,7 +17,9 @@ export const getBillingOverview = query({
     const ownerById = new Map(owners.map((owner) => [owner._id, owner]))
     const pending = await Promise.all(subscriptions.filter((item) => item.status === "pending_payment").map(async (subscription) => ({ subscription, owner: ownerById.get(subscription.ownerId) ?? null, proofUrl: subscription.proofStorageId ? await ctx.storage.getUrl(subscription.proofStorageId) : null })))
     const pastDue = subscriptions.filter((item) => item.status === "past_due").map((subscription) => ({ subscription, owner: ownerById.get(subscription.ownerId) ?? null }))
+    const subscribedOwnerIds = new Set(subscriptions.map((subscription) => subscription.ownerId))
     const tierCounts = subscriptions.reduce<Record<string, number>>((counts, subscription) => { counts[subscription.tier] = (counts[subscription.tier] ?? 0) + 1; return counts }, {})
+    tierCounts.free = (tierCounts.free ?? 0) + owners.filter((owner) => !subscribedOwnerIds.has(owner._id)).length
     const monthlyRevenue = subscriptions.filter((item) => item.status === "active" && item.tier !== "free").reduce((total, item) => total + (item.billingCycle === "annual" ? item.priceAmount / 12 : item.priceAmount), 0)
     return { pending, pastDue, tierCounts, monthlyRevenue }
   },
@@ -53,7 +55,9 @@ export const getVerificationOverview = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx)
-    return null
+    const owners = await ctx.db.query("owners").take(100)
+    const properties = await ctx.db.query("properties").take(100)
+    return { identity: owners.filter((owner) => owner.identityVerificationStatus === "pending_review"), properties: properties.filter((property) => property.propertyVerificationStatus === "pending_review") }
   },
 })
 

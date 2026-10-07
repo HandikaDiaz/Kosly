@@ -72,6 +72,7 @@ export const processSubscriptionPeriods = internalMutation({
       const existing = (await ctx.db.query("notification_log").withIndex("by_owner_and_type", (q) => q.eq("ownerId", subscription.ownerId)).take(100)).find((item) => item.type === "subscription_past_due" && item.occurredOn === occurredOn)
       if (!existing) {
         await ctx.db.insert("notification_log", { ownerId: subscription.ownerId, type: "subscription_past_due", channel: "log_only", occurredOn, status: "logged", payload: JSON.stringify({ subscriptionId: subscription._id }) })
+        await ctx.scheduler.runAfter(0, internal.bots.delivery.sendReminderNotice, { ownerId: subscription.ownerId, text: "Subscription Anda sudah melewati masa aktif. Silakan hubungi admin untuk memperpanjang langganan." })
         processed += 1
       }
     }

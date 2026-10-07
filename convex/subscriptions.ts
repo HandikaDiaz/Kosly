@@ -10,7 +10,11 @@ const cycleValidator = v.union(v.literal("monthly"), v.literal("annual"), v.lite
 
 export const recalculateForOwner = mutation({
   args: { ownerId: v.id("owners") },
-  handler: async (ctx, args) => recalculateForOwnerInContext(ctx, args.ownerId),
+  handler: async (ctx, args) => {
+    const owner = await requireOwner(ctx)
+    if (owner._id !== args.ownerId) throw new Error("Akses subscription ditolak.")
+    return await recalculateForOwnerInContext(ctx, args.ownerId)
+  },
 })
 
 export const recalculateForOwnerInContext = async (ctx: MutationCtx, ownerId: Id<"owners">) => {
