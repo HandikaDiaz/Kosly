@@ -37,6 +37,7 @@ import type * as rentals from "../rentals.js";
 import type * as roomMedia from "../roomMedia.js";
 import type * as rooms from "../rooms.js";
 import type * as tenants from "../tenants.js";
+import type * as subscriptions from "../subscriptions.js";
 
 import type {
   ApiFromModules,
@@ -74,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   roomMedia: typeof roomMedia;
   rooms: typeof rooms;
   tenants: typeof tenants;
+  subscriptions: typeof subscriptions;
 }>;
 
 /**
