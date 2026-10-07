@@ -1,15 +1,25 @@
-import { Geist, Geist_Mono } from "next/font/google"
-
+import type { Metadata } from "next"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { cn } from "@/lib/utils";
+import { ConvexProvider } from "@/components/convex-provider"
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'})
-
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-})
+export const metadata: Metadata = {
+  title: "BotKos | Platform Manajemen Kos Modern & Otomatisasi Bot",
+  description: "Kelola properti, penyewa, pembayaran, dan notifikasi bot otomatis secara efisien dengan BotKos.",
+  metadataBase: new URL("https://botkos.id"),
+  icons: {
+    icon: "/BotKos-Logo.png",
+    shortcut: "/BotKos-Logo.png",
+    apple: "/BotKos-Logo.png",
+  },
+  openGraph: {
+    title: "BotKos | Platform Manajemen Kos Modern",
+    description: "Kelola properti, penyewa, pembayaran, dan notifikasi bot otomatis secara efisien dengan BotKos.",
+    url: "https://botkos.id",
+    siteName: "BotKos",
+    locale: "id_ID",
+    type: "website",
+  },
+}
 
 export default function RootLayout({
   children,
@@ -17,13 +27,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", geist.variable)}
-    >
+    <html lang="id" suppressHydrationWarning>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ConvexProvider>{children}</ConvexProvider>
       </body>
     </html>
   )
