@@ -30,6 +30,15 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
+  readonly AUTH_GOOGLE_ID: string | undefined;
+  readonly AUTH_GOOGLE_SECRET: string | undefined;
+  readonly META_APP_SECRET: string | undefined;
+  readonly SITE_URL: string | undefined;
+  readonly TELEGRAM_BOT_TOKEN: string | undefined;
+  readonly TELEGRAM_WEBHOOK_SECRET: string | undefined;
+  readonly WHATSAPP_ACCESS_TOKEN: string | undefined;
+  readonly WHATSAPP_PHONE_NUMBER_ID: string | undefined;
+  readonly WHATSAPP_VERIFY_TOKEN: string | undefined;
 };
 
 /**
