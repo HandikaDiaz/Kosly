@@ -11,13 +11,18 @@ type LedgerItem = {
   amount: string
   status: Status
   period?: string
+  actions?: React.ReactNode
 }
 
 const PAGE_SIZE = 5
 
-export function LedgerTable({ items }: { items: LedgerItem[] }) {
+export function LedgerTable({ items, primaryLabel = "Kamar" }: { items: LedgerItem[]; primaryLabel?: string }) {
   const [page, setPage] = useState(1)
   const hasPeriod = items.some((item) => Boolean(item.period))
+  const hasActions = items.some((item) => Boolean(item.actions))
+  const gridClass = hasPeriod
+    ? hasActions ? "grid-cols-[1fr_1.2fr_1fr_1fr_1fr_auto_auto]" : "grid-cols-[1fr_1.2fr_1fr_1fr_1fr_auto]"
+    : hasActions ? "grid-cols-[1fr_1.5fr_1fr_1fr_auto_auto]" : "grid-cols-[1fr_1.5fr_1fr_1fr_auto]"
 
   // Calculate pagination
   const totalPages = Math.ceil(items.length / PAGE_SIZE)
@@ -31,29 +36,22 @@ export function LedgerTable({ items }: { items: LedgerItem[] }) {
         <div className="min-w-[640px]">
           {/* ── Table Header ── */}
           <div
-            className={`grid ${
-              hasPeriod
-                ? "grid-cols-[1fr_1.2fr_1fr_1fr_1fr_auto]"
-                : "grid-cols-[1fr_1.5fr_1fr_1fr_auto]"
-            } gap-4 border-b border-[var(--line)] px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)]`}
+            className={`grid ${gridClass} gap-4 border-b border-[var(--line)] px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)]`}
           >
-            <span>Kamar</span>
+            <span>{primaryLabel}</span>
             <span>Penyewa</span>
             {hasPeriod && <span>Periode</span>}
             <span>Tanggal</span>
             <span className="text-right">Jumlah</span>
             <span>Status</span>
+            {hasActions ? <span className="text-right">Review</span> : null}
           </div>
 
           {/* ── Table Body ── */}
           {paginatedItems.map((item, idx) => (
             <div
               key={`${item.room}-${item.date}-${idx}`}
-              className={`grid ${
-                hasPeriod
-                  ? "grid-cols-[1fr_1.2fr_1fr_1fr_1fr_auto]"
-                  : "grid-cols-[1fr_1.5fr_1fr_1fr_auto]"
-              } items-center gap-4 border-b border-[var(--line)] px-5 py-3.5 text-sm transition-colors hover:bg-[#fffdfa]`}
+                className={`grid ${gridClass} items-center gap-4 border-b border-[var(--line)] px-5 py-3.5 text-sm transition-colors hover:bg-[#fffdfa]`}
             >
               <span className="font-mono font-semibold text-[var(--ink)]">
                 {item.room}
@@ -71,6 +69,7 @@ export function LedgerTable({ items }: { items: LedgerItem[] }) {
                 {item.amount}
               </span>
               <StatusBadge status={item.status} />
+              {hasActions ? <div className="flex justify-end gap-2">{item.actions}</div> : null}
             </div>
           ))}
         </div>
