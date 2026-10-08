@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as bookings from "../bookings.js";
 import type * as botLinks from "../botLinks.js";
@@ -25,22 +26,22 @@ import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_subscription_tiers from "../lib/subscription_tiers.js";
 import type * as notifications from "../notifications.js";
 import type * as owners from "../owners.js";
 import type * as payments from "../payments.js";
 import type * as properties from "../properties.js";
-import type * as propertyPhotos from "../propertyPhotos.js";
 import type * as propertyFacilities from "../propertyFacilities.js";
+import type * as propertyPhotos from "../propertyPhotos.js";
 import type * as publicRegistration from "../publicRegistration.js";
 import type * as rentCharges from "../rentCharges.js";
 import type * as rentals from "../rentals.js";
+import type * as reports from "../reports.js";
 import type * as roomMedia from "../roomMedia.js";
 import type * as rooms from "../rooms.js";
-import type * as tenants from "../tenants.js";
 import type * as subscriptions from "../subscriptions.js";
+import type * as tenants from "../tenants.js";
 import type * as verifications from "../verifications.js";
-import type * as reports from "../reports.js";
-import type * as admin from "../admin.js";
 
 import type {
   ApiFromModules,
@@ -49,6 +50,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   auth: typeof auth;
   bookings: typeof bookings;
   botLinks: typeof botLinks;
@@ -66,22 +68,22 @@ declare const fullApi: ApiFromModules<{
   dashboard: typeof dashboard;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  "lib/subscription_tiers": typeof lib_subscription_tiers;
   notifications: typeof notifications;
   owners: typeof owners;
   payments: typeof payments;
   properties: typeof properties;
-  propertyPhotos: typeof propertyPhotos;
   propertyFacilities: typeof propertyFacilities;
+  propertyPhotos: typeof propertyPhotos;
   publicRegistration: typeof publicRegistration;
   rentCharges: typeof rentCharges;
   rentals: typeof rentals;
+  reports: typeof reports;
   roomMedia: typeof roomMedia;
   rooms: typeof rooms;
-  tenants: typeof tenants;
   subscriptions: typeof subscriptions;
+  tenants: typeof tenants;
   verifications: typeof verifications;
-  reports: typeof reports;
-  admin: typeof admin;
 }>;
 
 /**

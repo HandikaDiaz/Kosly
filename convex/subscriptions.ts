@@ -3,7 +3,7 @@ import type { MutationCtx } from "./_generated/server"
 import type { Id } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { requireOwner } from "./lib/auth"
-import { getTierForRoomCount, getTierPrice, tierRank, type BillingCycle, type SubscriptionTier } from "./lib/subscription-tiers"
+import { getTierForRoomCount, getTierPrice, tierRank, type BillingCycle, type SubscriptionTier } from "./lib/subscription_tiers"
 
 const tierValidator = v.union(v.literal("free"), v.literal("starter"), v.literal("growth"), v.literal("pro"))
 const cycleValidator = v.union(v.literal("monthly"), v.literal("annual"), v.literal("none"))
