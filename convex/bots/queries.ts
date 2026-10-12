@@ -1,6 +1,7 @@
 import { internalQuery } from "../_generated/server"
 import { v } from "convex/values"
 import type { Id } from "../_generated/dataModel"
+import { getTierForRoomCount, tierRank } from "../lib/subscription_tiers"
 import type { BotChannel } from "./types"
 import {
   buildStatusMessage,
@@ -130,8 +131,17 @@ export const getResponse = internalQuery({
         totalRooms: rooms.length,
       })
     }
-
-    return buildStatusMessage({ properties: propertyDataList }, channel, args.now)
+    const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).unique()
+    let subscriptionAttention: string | undefined
+    if (subscription) {
+      const totalRooms = propertyDataList.reduce((sum, property) => sum + property.totalRooms, 0)
+      const recommendedTier = getTierForRoomCount(totalRooms)
+      const daysRemaining = subscription.currentPeriodEnd ? Math.ceil((subscription.currentPeriodEnd - args.now) / 86400000) : null
+      if (subscription.status === "past_due") subscriptionAttention = "Subscription Anda past due. Gunakan /langganan untuk melihat detail dan /upgrade untuk memperpanjang."
+      else if (daysRemaining !== null && daysRemaining < 7) subscriptionAttention = `Subscription Anda jatuh tempo dalam ${Math.max(daysRemaining, 0)} hari. Gunakan /langganan untuk detail.`
+      else if (tierRank[recommendedTier] > tierRank[subscription.tier]) subscriptionAttention = `Jumlah kamar sudah masuk tier ${recommendedTier}. Gunakan /upgrade untuk melihat pilihan upgrade.`
+    }
+    return buildStatusMessage({ properties: propertyDataList, subscriptionAttention }, channel, args.now)
   },
 })
 

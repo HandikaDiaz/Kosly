@@ -37,3 +37,17 @@ export const sendResponse = internalAction({
     return null
   },
 })
+
+export const sendTextResponse = internalAction({
+  args: { channel: v.union(v.literal("telegram"), v.literal("whatsapp")), chatId: v.string(), text: v.string() },
+  handler: async (_ctx, args) => {
+    if (args.channel === "telegram") {
+      if (!botEnv.TELEGRAM_BOT_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN belum dikonfigurasi.")
+      await sendTelegramText(botEnv.TELEGRAM_BOT_TOKEN, args.chatId, args.text, { parseMode: "HTML" })
+    } else {
+      if (!botEnv.WHATSAPP_ACCESS_TOKEN || !botEnv.WHATSAPP_PHONE_NUMBER_ID) throw new Error("Kredensial WhatsApp belum dikonfigurasi.")
+      await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, args.chatId, args.text)
+    }
+    return null
+  },
+})

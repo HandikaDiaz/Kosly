@@ -4,9 +4,11 @@ import { internal } from "./_generated/api"
 import { normalizeTelegramUpdate, normalizeWhatsAppEvent, verifyTelegramSecret, verifyWhatsAppChallenge, verifyWhatsAppSignature } from "./bots/webhooks"
 import { answerTelegramCallback } from "./bots/telegram"
 import { auth } from "./auth"
+import { serve as serveSensitiveFile } from "./sensitiveFiles"
 
 const http = httpRouter()
 auth.addHttpRoutes(http)
+http.route({ path: "/sensitive-file", method: "GET", handler: serveSensitiveFile })
 const asRecord = (value: unknown): Record<string, unknown> | null => typeof value === "object" && value !== null ? value as Record<string, unknown> : null
 const botEnv = env as typeof env & Record<string, string | undefined>
 
@@ -20,7 +22,7 @@ http.route({
     if (!event) return new Response("Ignored", { status: 200 })
     const result = await ctx.runMutation(internal.bots.processor.processEvent, event)
     if (event.callbackQueryId && botEnv.TELEGRAM_BOT_TOKEN) {
-      const callbackText = result.status === "confirmed" ? "Pembayaran dikonfirmasi." : result.status === "rejected" ? "Pembayaran ditolak." : result.status === "invalid" ? "Pembayaran tidak ditemukan atau sudah diproses." : "Perintah diterima."
+      const callbackText = result.status === "invalid" ? "Pembayaran tidak ditemukan atau sudah diproses." : "Perintah diterima."
       try {
         await answerTelegramCallback(botEnv.TELEGRAM_BOT_TOKEN, event.callbackQueryId, callbackText)
       } catch (err) {
@@ -28,6 +30,8 @@ http.route({
       }
     }
     if (result.status === "query") await ctx.runAction(internal.bots.queryDelivery.sendResponse, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, query: result.query })
+    if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text })
+    if (result.status === "photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveSubscriptionProof, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, sessionId: result.sessionId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
     return new Response("OK", { status: 200 })
   }),
 })
@@ -54,6 +58,8 @@ http.route({
     if (!event) return new Response("Ignored", { status: 200 })
     const result = await ctx.runMutation(internal.bots.processor.processEvent, event)
     if (result.status === "query") await ctx.runAction(internal.bots.queryDelivery.sendResponse, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, query: result.query })
+    if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text })
+    if (result.status === "photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveSubscriptionProof, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, sessionId: result.sessionId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
     return new Response("OK", { status: 200 })
   }),
 })

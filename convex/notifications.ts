@@ -31,6 +31,19 @@ export const getOwnerBotLinks = internalQuery({
   handler: async (ctx, args) => ctx.db.query("bot_links").withIndex("by_owner_and_channel", (q) => q.eq("ownerId", args.ownerId)).take(10),
 })
 
+export const getAdminBotLinks = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const admins = (await ctx.db.query("owners").take(100)).filter((owner) => owner.role === "admin")
+    const links = []
+    for (const admin of admins) {
+      const adminLinks = await ctx.db.query("bot_links").withIndex("by_owner_and_channel", (q) => q.eq("ownerId", admin._id)).take(10)
+      links.push(...adminLinks.filter((link) => link.status === "active").map((link) => ({ ...link, ownerId: admin._id })))
+    }
+    return links
+  },
+})
+
 export const recordDelivery = internalMutation({
   args: { paymentId: v.id("payments"), ownerId: v.id("owners"), channel: v.union(v.literal("telegram"), v.literal("whatsapp")), status: v.union(v.literal("logged"), v.literal("failed")), externalMessageId: v.optional(v.string()), errorMessage: v.optional(v.string()) },
   handler: async (ctx, args) => {

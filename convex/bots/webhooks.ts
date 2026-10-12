@@ -21,7 +21,12 @@ export const normalizeTelegramUpdate = (body: UnknownRecord): NormalizedBotEvent
   }
   const message = body.message as UnknownRecord | undefined
   const chat = message?.chat as UnknownRecord | undefined
-  if (message && chat && (typeof chat.id === "number" || typeof chat.id === "string") && typeof message.text === "string") return { channel: "telegram", eventId: String(updateId), chatId: String(chat.id), text: message.text }
+  if (message && chat && (typeof chat.id === "number" || typeof chat.id === "string")) {
+    const photos = Array.isArray(message.photo) ? message.photo : []
+    const lastPhoto = photos.at(-1) as UnknownRecord | undefined
+    if (typeof lastPhoto?.file_id === "string") return { channel: "telegram", eventId: String(updateId), chatId: String(chat.id), text: typeof message.caption === "string" ? message.caption : undefined, photoFileId: lastPhoto.file_id }
+    if (typeof message.text === "string") return { channel: "telegram", eventId: String(updateId), chatId: String(chat.id), text: message.text }
+  }
   return null
 }
 
@@ -34,8 +39,11 @@ export const normalizeWhatsAppEvent = (body: UnknownRecord): NormalizedBotEvent 
   const messages = Array.isArray(value?.messages) ? value.messages : []
   const message = messages[0] as UnknownRecord | undefined
   const text = message?.text as UnknownRecord | undefined
-  if (!message || typeof message.id !== "string" || typeof message.from !== "string" || typeof text?.body !== "string") return null
-  return { channel: "whatsapp", eventId: message.id, chatId: message.from, text: text.body }
+  const image = message?.image as UnknownRecord | undefined
+  if (!message || typeof message.id !== "string" || typeof message.from !== "string") return null
+  if (typeof image?.id === "string") return { channel: "whatsapp", eventId: message.id, chatId: message.from, text: typeof image.caption === "string" ? image.caption : undefined, photoMediaId: image.id }
+  if (typeof text?.body === "string") return { channel: "whatsapp", eventId: message.id, chatId: message.from, text: text.body }
+  return null
 }
 
 const toHex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes)).map((byte) => byte.toString(16).padStart(2, "0")).join("")

@@ -1,4 +1,6 @@
 import { mutation, query } from "./_generated/server"
+import type { MutationCtx } from "./_generated/server"
+import type { Id } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { requireAdmin } from "./lib/auth"
 
@@ -25,30 +27,32 @@ export const getBillingOverview = query({
   },
 })
 
-export const approveSubscription = mutation({
-  args: { subscriptionId: v.id("subscriptions") },
-  handler: async (ctx, args) => {
-    const admin = await requireAdmin(ctx)
-    const subscription = await ctx.db.get("subscriptions", args.subscriptionId)
+export const approveSubscriptionForAdmin = async (ctx: MutationCtx, adminId: Id<"owners">, subscriptionId: Id<"subscriptions">) => {
+    const subscription = await ctx.db.get("subscriptions", subscriptionId)
     if (!subscription || subscription.status !== "pending_payment") throw new Error("Subscription tidak sedang menunggu review.")
     const now = Date.now()
     const currentPeriodEnd = monthEnd(now, subscription.billingCycle === "annual" ? 12 : 1)
-    await ctx.db.patch("subscriptions", subscription._id, { status: "active", currentPeriodEnd, reviewedByOwnerId: admin._id, reviewedAt: now, rejectionReason: undefined })
+    await ctx.db.patch("subscriptions", subscription._id, { status: "active", currentPeriodEnd, reviewedByOwnerId: adminId, reviewedAt: now, rejectionReason: undefined })
     return { currentPeriodEnd }
-  },
+}
+
+export const approveSubscription = mutation({
+  args: { subscriptionId: v.id("subscriptions") },
+  handler: async (ctx, args) => { const admin = await requireAdmin(ctx); return await approveSubscriptionForAdmin(ctx, admin._id, args.subscriptionId) },
 })
+
+export const rejectSubscriptionForAdmin = async (ctx: MutationCtx, adminId: Id<"owners">, subscriptionId: Id<"subscriptions">, reason: string) => {
+    const trimmedReason = reason.trim()
+    if (!trimmedReason) throw new Error("Alasan penolakan wajib diisi.")
+    const subscription = await ctx.db.get("subscriptions", subscriptionId)
+    if (!subscription || subscription.status !== "pending_payment") throw new Error("Subscription tidak sedang menunggu review.")
+    await ctx.db.patch("subscriptions", subscription._id, { status: "canceled", reviewedByOwnerId: adminId, reviewedAt: Date.now(), rejectionReason: trimmedReason })
+    return null
+}
 
 export const rejectSubscription = mutation({
   args: { subscriptionId: v.id("subscriptions"), reason: v.string() },
-  handler: async (ctx, args) => {
-    const admin = await requireAdmin(ctx)
-    const reason = args.reason.trim()
-    if (!reason) throw new Error("Alasan penolakan wajib diisi.")
-    const subscription = await ctx.db.get("subscriptions", args.subscriptionId)
-    if (!subscription || subscription.status !== "pending_payment") throw new Error("Subscription tidak sedang menunggu review.")
-    await ctx.db.patch("subscriptions", subscription._id, { status: "canceled", reviewedByOwnerId: admin._id, reviewedAt: Date.now(), rejectionReason: reason })
-    return null
-  },
+  handler: async (ctx, args) => { const admin = await requireAdmin(ctx); return await rejectSubscriptionForAdmin(ctx, admin._id, args.subscriptionId, args.reason) },
 })
 
 export const getVerificationOverview = query({

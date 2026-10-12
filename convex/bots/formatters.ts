@@ -12,6 +12,7 @@ export type PropertyStatusData = {
 
 export type StatusOverviewData = {
   properties: PropertyStatusData[]
+  subscriptionAttention?: string
 }
 
 export type UnpaidItemData = {
@@ -82,6 +83,10 @@ export const buildStatusMessage = (
       return `${header}\n\n${pendingText}\n${restText}`
     }
 
+    if (data.subscriptionAttention) {
+      return `🔑 ${propName} berjalan normal, tetapi ada satu hal yang perlu diperhatikan.\n\n${data.subscriptionAttention}`
+    }
+
     // Condition 2: Has vacant rooms (0 pending)
     if (p.vacantCount > 0) {
       const openings = [
@@ -141,7 +146,7 @@ export const buildStatusMessage = (
     return `${nameStr} — Aman\n• Seluruh kamar terisi (${b(`${p.activeTenantsCount} tenant aktif`)})\n• Tidak ada antrean verifikasi`
   })
 
-  return `${topHeader}\n\n${propBlocks.join("\n\n")}`
+  return `${topHeader}\n\n${propBlocks.join("\n\n")}${data.subscriptionAttention ? `\n\n⚠️ ${data.subscriptionAttention}` : ""}`
 }
 
 /**
