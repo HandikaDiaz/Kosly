@@ -35,7 +35,8 @@ export const processEvent = internalMutation({
     }
 
     const parsed = args.callbackAction && args.callbackReference ? { kind: args.callbackAction, reference: args.callbackReference, reason: "Ditolak melalui bot Telegram." } : parseBotCommand(args.text ?? "")
-    if (actor.role === "admin") {
+    const isAdminCommand = parsed.kind === "pending" || parsed.kind === "summary" || parsed.kind === "admin_decision" || (parsed.kind === "yes" && session?.kind === "admin_confirmation")
+    if (actor.role === "admin" && isAdminCommand) {
       if (parsed.kind === "pending") {
         const owners = await ctx.db.query("owners").take(100)
         const ownerName = new Map(owners.map((item) => [String(item._id), item.name ?? item.email ?? "Owner"]))
