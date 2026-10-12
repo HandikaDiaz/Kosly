@@ -1,4 +1,6 @@
 import { mutation, query } from "./_generated/server"
+import type { MutationCtx } from "./_generated/server"
+import type { Id } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { requirePropertyOwner } from "./lib/auth"
 import { recalculateForOwnerInContext } from "./subscriptions"
@@ -16,14 +18,8 @@ export const create = mutation({
     propertyId: v.id("properties"), roomNumber: v.string(), monthlyRent: v.number(), floor: v.optional(v.string()), roomType: v.optional(v.string()), sizeSqm: v.optional(v.number()), maxOccupants: v.optional(v.number()), genderCategory: v.optional(v.union(v.literal("male"), v.literal("female"), v.literal("mixed"))), bathroomType: v.optional(v.union(v.literal("private"), v.literal("shared"), v.literal("none"))), bathroomFacilities: v.optional(v.array(v.string())), furnitureElectronics: v.optional(v.array(v.string())), bedSize: v.optional(v.string()), annualRent: v.optional(v.number()), depositFee: v.optional(v.number()), dpAmount: v.optional(v.number()), dp_max_days: v.optional(v.number()), electricityStatus: v.optional(v.union(v.literal("included"), v.literal("metered"), v.literal("excluded"))), additionalFees: v.optional(v.string()), description: v.optional(v.string())
   },
   handler: async (ctx, args) => {
-    await requirePropertyOwner(ctx, args.propertyId)
-    const roomNumber = args.roomNumber.trim()
-    if (!roomNumber || args.monthlyRent <= 0) throw new Error("Nomor kamar dan harga sewa wajib valid.")
-    const duplicate = (await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", args.propertyId)).take(100)).find((room) => room.roomNumber === roomNumber)
-    if (duplicate) throw new Error("Nomor kamar sudah ada.")
-    const roomId = await ctx.db.insert("rooms", { propertyId: args.propertyId, roomNumber, monthlyRent: args.monthlyRent, status: "available", ...roomDetails(args) })
-    await recalculateForOwnerInContext(ctx, (await requirePropertyOwner(ctx, args.propertyId)).owner._id)
-    return roomId
+    const { owner } = await requirePropertyOwner(ctx, args.propertyId)
+    return await createRoomForOwnerInContext(ctx, owner._id, args)
   },
 })
 
@@ -34,17 +30,52 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const room = await ctx.db.get("rooms", args.roomId)
     if (!room) throw new Error("Kamar tidak ditemukan.")
-    await requirePropertyOwner(ctx, room.propertyId)
-    if (!args.roomNumber.trim() || args.monthlyRent <= 0) throw new Error("Data kamar belum valid.")
-    await ctx.db.patch("rooms", room._id, {
-      roomNumber: args.roomNumber.trim(),
-      monthlyRent: args.monthlyRent,
-      status: args.status ?? room.status,
-      ...roomDetails(args)
-    })
-    return null
+    const { owner } = await requirePropertyOwner(ctx, room.propertyId)
+    return await updateRoomForOwnerInContext(ctx, owner._id, args)
   },
 })
+
+type RoomDetailsArgs = {
+  floor?: string; roomType?: string; sizeSqm?: number; maxOccupants?: number
+  genderCategory?: "male" | "female" | "mixed"; bathroomType?: "private" | "shared" | "none"
+  bathroomFacilities?: string[]; furnitureElectronics?: string[]; bedSize?: string
+  annualRent?: number; depositFee?: number; dpAmount?: number; dp_max_days?: number
+  electricityStatus?: "included" | "metered" | "excluded"; additionalFees?: string; description?: string
+}
+
+type CreateRoomArgs = RoomDetailsArgs & { propertyId: Id<"properties">; roomNumber: string; monthlyRent: number }
+type UpdateRoomArgs = RoomDetailsArgs & { roomId: Id<"rooms">; roomNumber: string; monthlyRent: number; status?: "available" | "booked" | "occupied" }
+
+const assertOwnerProperty = async (ctx: MutationCtx, ownerId: Id<"owners">, propertyId: Id<"properties">) => {
+  const property = await ctx.db.get("properties", propertyId)
+  if (!property || property.ownerId !== ownerId) throw new Error("Akses properti ditolak.")
+  return property
+}
+
+export const createRoomForOwnerInContext = async (ctx: MutationCtx, ownerId: Id<"owners">, args: CreateRoomArgs) => {
+  await assertOwnerProperty(ctx, ownerId, args.propertyId)
+  const roomNumber = args.roomNumber.trim()
+  if (!roomNumber || args.monthlyRent <= 0) throw new Error("Nomor kamar dan harga sewa wajib valid.")
+  const duplicate = (await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", args.propertyId)).take(100)).find((room) => room.roomNumber === roomNumber)
+  if (duplicate) throw new Error("Nomor kamar sudah ada.")
+  const roomId = await ctx.db.insert("rooms", { propertyId: args.propertyId, roomNumber, monthlyRent: args.monthlyRent, status: "available", ...roomDetails(args) })
+  await recalculateForOwnerInContext(ctx, ownerId)
+  return roomId
+}
+
+export const updateRoomForOwnerInContext = async (ctx: MutationCtx, ownerId: Id<"owners">, args: UpdateRoomArgs) => {
+  const room = await ctx.db.get("rooms", args.roomId)
+  if (!room) throw new Error("Kamar tidak ditemukan.")
+  await assertOwnerProperty(ctx, ownerId, room.propertyId)
+  if (!args.roomNumber.trim() || args.monthlyRent <= 0) throw new Error("Data kamar belum valid.")
+  await ctx.db.patch("rooms", room._id, {
+    roomNumber: args.roomNumber.trim(),
+    monthlyRent: args.monthlyRent,
+    status: args.status ?? room.status,
+    ...roomDetails(args),
+  })
+  return null
+}
 
 export const remove = mutation({
   args: { roomId: v.id("rooms") },
@@ -64,9 +95,7 @@ export const remove = mutation({
   },
 })
 
-const roomDetails = (args: {
-  floor?: string; roomType?: string; sizeSqm?: number; maxOccupants?: number; genderCategory?: "male" | "female" | "mixed"; bathroomType?: "private" | "shared" | "none"; bathroomFacilities?: string[]; furnitureElectronics?: string[]; bedSize?: string; annualRent?: number; depositFee?: number; dpAmount?: number; dp_max_days?: number; electricityStatus?: "included" | "metered" | "excluded"; additionalFees?: string; description?: string
-}) => ({
+const roomDetails = (args: RoomDetailsArgs) => ({
   floor: args.floor?.trim() || undefined,
   roomType: args.roomType?.trim() || undefined,
   sizeSqm: args.sizeSqm && args.sizeSqm > 0 ? args.sizeSqm : undefined,

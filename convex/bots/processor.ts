@@ -8,15 +8,28 @@ import { reviewIdentityForAdmin, reviewPropertyForAdmin } from "../verifications
 import { updateStatusForAdmin } from "../reports"
 import { getTierForRoomCount, getTierPrice, tierRank, type BillingCycle } from "../lib/subscription_tiers"
 import { getRoomCountForOwner } from "../subscriptions"
+import { createRoomForOwnerInContext, updateRoomForOwnerInContext } from "../rooms"
 import { confirmPaymentForOwner, rejectPaymentForOwner } from "../payments"
 import { createPaymentReference, createQueueReference, parseBotCommand } from "./commands"
 import { parseQueryCommand } from "./queries"
 import { buildTelegramCancelMarkup, buildTelegramUpgradeMessage } from "./telegram"
+import { parseRoomWizardInput } from "./roomWizard"
+import { finalizeAddRoomInContext, type RoomWizardData } from "./roomFlow"
 
 const channelValidator = v.union(v.literal("telegram"), v.literal("whatsapp"))
 const decisionValidator = v.union(v.literal("approve"), v.literal("reject"))
 const response = (channel: "telegram" | "whatsapp", chatId: string, text: string, replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> }) => ({ status: "response" as const, channel, chatId, text, ...(replyMarkup ? { replyMarkup } : {}) })
 const dateText = (value?: number) => value ? new Date(value).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "belum ditentukan"
+const roomFeatureGateText = "Fitur tambah/edit kamar via bot khusus untuk tier Growth dan Pro. Gunakan /upgrade untuk melihat pilihan."
+const roomStatusMap = { kosong: "available", tersedia: "available", available: "available", terisi: "occupied", occupied: "occupied", dipesan: "booked", booked: "booked" } as const
+const roomStatusLabel = { available: "Tersedia", occupied: "Terisi", booked: "Dipesan" } as const
+
+const getOwnerSubscriptionTier = async (ctx: MutationCtx, ownerId: Id<"owners">) => {
+  const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).unique()
+  return subscription?.tier ?? "free"
+}
+
+const isRoomFeatureAllowed = (tier: keyof typeof tierRank) => tier === "growth" || tier === "pro"
 
 export const processEvent = internalMutation({
     args: { channel: channelValidator, eventId: v.string(), chatId: v.string(), text: v.optional(v.string()), callbackAction: v.optional(v.union(v.literal("confirm"), v.literal("reject"), v.literal("upgrade"), v.literal("cancel"))), callbackReference: v.optional(v.string()), callbackQueryId: v.optional(v.string()), photoFileId: v.optional(v.string()), photoMediaId: v.optional(v.string()) },
@@ -31,9 +44,49 @@ export const processEvent = internalMutation({
     if (!actor) return { status: "invalid" as const }
 
     const session = (await ctx.db.query("bot_sessions").withIndex("by_chat", (q) => q.eq("channel", args.channel).eq("chatId", chatId).eq("status", "active")).take(5)).find((item) => item.expiresAt > Date.now())
+    let conversation = (await ctx.db.query("bot_conversation_state").withIndex("by_chat_and_status", (q) => q.eq("channel", args.channel).eq("chatId", chatId).eq("status", "active")).take(5)).find((item) => item.flowType === "tambah_kamar")
+    const incomingText = (args.text ?? "").trim()
+    if (conversation && conversation.expiresAt <= Date.now()) {
+      await ctx.db.patch("bot_conversation_state", conversation._id, { status: "expired" })
+      conversation = undefined
+      if (incomingText.toUpperCase() !== "/TAMBAHKAMAR") return response(args.channel, chatId, "⌛ Sesi tambah kamar sebelumnya sudah dibatalkan karena tidak ada aktivitas selama 10 menit. Kirim /tambahkamar untuk memulai lagi.")
+    }
     if (args.photoFileId || args.photoMediaId) {
+      if (conversation?.currentStep === "photo") return { status: "room_photo" as const, channel: args.channel, chatId, ownerId: link.ownerId, stateId: conversation._id, photoFileId: args.photoFileId, photoMediaId: args.photoMediaId }
       if (actor.role === "owner" && session?.kind === "upgrade_payment") return { status: "photo" as const, channel: args.channel, chatId, ownerId: link.ownerId, sessionId: session._id, photoFileId: args.photoFileId, photoMediaId: args.photoMediaId }
       return { status: "invalid" as const }
+    }
+
+    if (conversation) {
+      if (incomingText.toUpperCase() === "BATAL" || incomingText.toUpperCase() === "CANCEL") {
+        await ctx.db.patch("bot_conversation_state", conversation._id, { status: "canceled" })
+        return response(args.channel, chatId, "❌ Sesi tambah kamar dibatalkan.")
+      }
+      if (conversation.currentStep === "property") {
+        const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", link.ownerId)).take(50)
+        const selection = Number(incomingText)
+        const property = Number.isInteger(selection) ? properties[selection - 1] : properties.find((item) => item.name.toLowerCase() === incomingText.toLowerCase())
+        if (!property) return response(args.channel, chatId, "Pilih nomor properti yang valid, atau ketik BATAL.")
+        await ctx.db.patch("bot_conversation_state", conversation._id, { currentStep: "room_number", collectedData: { propertyId: property._id } })
+        return response(args.channel, chatId, "Properti " + property.name + " dipilih.\n\nNomor atau nama kamar?")
+      }
+      const parsedWizard = parseRoomWizardInput(conversation.currentStep, incomingText)
+      if (!parsedWizard.ok) return response(args.channel, chatId, parsedWizard.message)
+      const data: RoomWizardData = { ...conversation.collectedData }
+      if (conversation.currentStep === "room_number") {
+        data.roomNumber = String(parsedWizard.value)
+        await ctx.db.patch("bot_conversation_state", conversation._id, { currentStep: "monthly_rent", collectedData: data })
+        return response(args.channel, chatId, "Harga sewa bulanan untuk " + data.roomNumber + "?\n\nContoh: 1500000")
+      }
+      if (conversation.currentStep === "monthly_rent") {
+        data.monthlyRent = Number(parsedWizard.value)
+        await ctx.db.patch("bot_conversation_state", conversation._id, { currentStep: "photo", collectedData: data })
+        return response(args.channel, chatId, "Kirim foto kamar ini, atau ketik \"lewati\".")
+      }
+      if (parsedWizard.value === "skip") {
+        const result = await finalizeAddRoomInContext(ctx, conversation._id, link.ownerId, data)
+        return response(args.channel, chatId, "✅ Kamar " + result.roomNumber + " ditambahkan — Rp" + result.monthlyRent.toLocaleString("id-ID") + "/bulan, status Tersedia.\nLengkapi fasilitas & detail lain di dashboard: /dashboard/properties/" + result.propertyId)
+      }
     }
 
     const parsed = args.callbackAction === "upgrade" && args.callbackReference
@@ -43,6 +96,94 @@ export const processEvent = internalMutation({
         : args.callbackAction && args.callbackReference
           ? { kind: args.callbackAction, reference: args.callbackReference, reason: "Ditolak melalui bot Telegram." }
           : parseBotCommand(args.text ?? "")
+
+    if (parsed.kind === "add_room") {
+      const tier = await getOwnerSubscriptionTier(ctx, link.ownerId)
+      if (!isRoomFeatureAllowed(tier)) return response(args.channel, chatId, "🚀 " + roomFeatureGateText)
+      const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", link.ownerId)).take(50)
+      if (properties.length === 0) return response(args.channel, chatId, "Belum ada properti. Tambahkan properti dari dashboard terlebih dahulu.")
+      const hasSingleProperty = properties.length === 1
+      await ctx.db.insert("bot_conversation_state", {
+        channel: args.channel,
+        chatId,
+        ownerId: link.ownerId,
+        flowType: "tambah_kamar",
+        currentStep: hasSingleProperty ? "room_number" : "property",
+        status: "active",
+        collectedData: hasSingleProperty ? { propertyId: properties[0]._id } : {},
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      })
+      if (hasSingleProperty) return response(args.channel, chatId, "Nomor atau nama kamar?\n\nKetik BATAL kapan saja untuk membatalkan.")
+      return response(args.channel, chatId, "Pilih properti untuk kamar baru:\n\n" + properties.map((property, index) => (index + 1) + ". " + property.name).join("\n") + "\n\nBalas nomor properti. Ketik BATAL untuk membatalkan.")
+    }
+
+    if (parsed.kind === "edit_room") {
+      const tier = await getOwnerSubscriptionTier(ctx, link.ownerId)
+      if (!isRoomFeatureAllowed(tier)) return response(args.channel, chatId, "🚀 " + roomFeatureGateText)
+      const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", link.ownerId)).take(50)
+      let room: Awaited<ReturnType<typeof ctx.db.get<"rooms">>> | undefined
+      for (const property of properties) {
+        const candidate = await ctx.db.query("rooms").withIndex("by_property_and_room_number", (q) => q.eq("propertyId", property._id).eq("roomNumber", parsed.roomNumber)).unique()
+        if (candidate) {
+          room = candidate
+          break
+        }
+      }
+      if (!room) return response(args.channel, chatId, "Kamar " + parsed.roomNumber + " tidak ditemukan di properti Anda.")
+      if (parsed.field === "price") {
+        const price = parseRoomWizardInput("monthly_rent", parsed.value)
+        if (!price.ok) return response(args.channel, chatId, price.message)
+        await updateRoomForOwnerInContext(ctx, link.ownerId, {
+          roomId: room._id,
+          roomNumber: room.roomNumber,
+          monthlyRent: Number(price.value),
+          status: room.status,
+          floor: room.floor,
+          roomType: room.roomType,
+          sizeSqm: room.sizeSqm,
+          maxOccupants: room.maxOccupants,
+          genderCategory: room.genderCategory,
+          bathroomType: room.bathroomType,
+          bathroomFacilities: room.bathroomFacilities,
+          furnitureElectronics: room.furnitureElectronics,
+          bedSize: room.bedSize,
+          annualRent: room.annualRent,
+          depositFee: room.depositFee,
+          dpAmount: room.dpAmount,
+          dp_max_days: room.dp_max_days,
+          electricityStatus: room.electricityStatus,
+          additionalFees: room.additionalFees,
+          description: room.description,
+        })
+        return response(args.channel, chatId, "✅ Harga kamar " + room.roomNumber + " diubah menjadi Rp" + Number(price.value).toLocaleString("id-ID") + "/bulan.")
+      }
+      const nextStatus = roomStatusMap[parsed.value.toLowerCase() as keyof typeof roomStatusMap]
+      if (!nextStatus) return response(args.channel, chatId, "Status tidak dikenali. Gunakan: kosong, terisi, atau dipesan.")
+      await updateRoomForOwnerInContext(ctx, link.ownerId, {
+        roomId: room._id,
+        roomNumber: room.roomNumber,
+        monthlyRent: room.monthlyRent,
+        status: nextStatus,
+        floor: room.floor,
+        roomType: room.roomType,
+        sizeSqm: room.sizeSqm,
+        maxOccupants: room.maxOccupants,
+        genderCategory: room.genderCategory,
+        bathroomType: room.bathroomType,
+        bathroomFacilities: room.bathroomFacilities,
+        furnitureElectronics: room.furnitureElectronics,
+        bedSize: room.bedSize,
+        annualRent: room.annualRent,
+        depositFee: room.depositFee,
+        dpAmount: room.dpAmount,
+        dp_max_days: room.dp_max_days,
+        electricityStatus: room.electricityStatus,
+        additionalFees: room.additionalFees,
+        description: room.description,
+      })
+      return response(args.channel, chatId, "✅ Status kamar " + room.roomNumber + " diubah menjadi " + roomStatusLabel[nextStatus] + ".")
+    }
+
     const isAdminCommand = parsed.kind === "pending" || parsed.kind === "summary" || parsed.kind === "admin_decision" || (parsed.kind === "yes" && session?.kind === "admin_confirmation")
     if (actor.role === "admin" && isAdminCommand) {
       if (parsed.kind === "pending") {

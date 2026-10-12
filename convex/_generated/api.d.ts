@@ -18,6 +18,8 @@ import type * as bots_formatters from "../bots/formatters.js";
 import type * as bots_processor from "../bots/processor.js";
 import type * as bots_queries from "../bots/queries.js";
 import type * as bots_queryDelivery from "../bots/queryDelivery.js";
+import type * as bots_roomFlow from "../bots/roomFlow.js";
+import type * as bots_roomWizard from "../bots/roomWizard.js";
 import type * as bots_subscriptionFlow from "../bots/subscriptionFlow.js";
 import type * as bots_telegram from "../bots/telegram.js";
 import type * as bots_types from "../bots/types.js";
@@ -62,6 +64,8 @@ declare const fullApi: ApiFromModules<{
   "bots/processor": typeof bots_processor;
   "bots/queries": typeof bots_queries;
   "bots/queryDelivery": typeof bots_queryDelivery;
+  "bots/roomFlow": typeof bots_roomFlow;
+  "bots/roomWizard": typeof bots_roomWizard;
   "bots/subscriptionFlow": typeof bots_subscriptionFlow;
   "bots/telegram": typeof bots_telegram;
   "bots/types": typeof bots_types;

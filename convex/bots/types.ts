@@ -30,5 +30,7 @@ export type BotCommand =
   | { kind: "admin_decision"; decision: "approve" | "reject"; reference: string }
   | { kind: "selection"; value: string }
   | { kind: "cancel"; value: string }
+  | { kind: "add_room" }
+  | { kind: "edit_room"; roomNumber: string; field: "price" | "status"; value: string }
   | { kind: "yes" }
   | { kind: "invalid" }

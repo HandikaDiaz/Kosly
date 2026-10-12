@@ -97,6 +97,39 @@ export const receiveSubscriptionProof = internalAction({
   },
 })
 
+export const receiveRoomPhoto = internalAction({
+  args: { channel: v.union(v.literal("telegram"), v.literal("whatsapp")), chatId: v.string(), ownerId: v.id("owners"), stateId: v.id("bot_conversation_state"), photoFileId: v.optional(v.string()), photoMediaId: v.optional(v.string()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    let response: Response
+    if (args.channel === "telegram") {
+      if (!args.photoFileId || !botEnv.TELEGRAM_BOT_TOKEN) throw new Error("Foto Telegram belum dapat dibaca.")
+      const fileResponse = await fetch(`https://api.telegram.org/bot${botEnv.TELEGRAM_BOT_TOKEN}/getFile?file_id=${encodeURIComponent(args.photoFileId)}`)
+      const fileData = await fileResponse.json() as { ok: boolean; result?: { file_path?: string } }
+      if (!fileData.ok || !fileData.result?.file_path) throw new Error("File Telegram tidak ditemukan.")
+      response = await fetch(`https://api.telegram.org/file/bot${botEnv.TELEGRAM_BOT_TOKEN}/${fileData.result.file_path}`)
+    } else {
+      if (!args.photoMediaId || !botEnv.WHATSAPP_ACCESS_TOKEN) throw new Error("Foto WhatsApp belum dapat dibaca.")
+      const mediaResponse = await fetch(`https://graph.facebook.com/v22.0/${args.photoMediaId}`, { headers: { authorization: `Bearer ${botEnv.WHATSAPP_ACCESS_TOKEN}` } })
+      const media = await mediaResponse.json() as { url?: string }
+      if (!media.url) throw new Error("Media WhatsApp tidak ditemukan.")
+      response = await fetch(media.url, { headers: { authorization: `Bearer ${botEnv.WHATSAPP_ACCESS_TOKEN}` } })
+    }
+    if (!response.ok) throw new Error("Gagal mengunduh foto kamar.")
+    const storageId = await ctx.storage.store(await response.blob())
+    const result = await ctx.runMutation(internal.bots.roomFlow.finalizeAddRoom, { ownerId: args.ownerId, stateId: args.stateId, storageId })
+    const message = "✅ Kamar " + result.roomNumber + " ditambahkan — Rp" + result.monthlyRent.toLocaleString("id-ID") + "/bulan, status Tersedia.\nFoto kamar juga sudah disimpan.\nLengkapi fasilitas & detail lain di dashboard: /dashboard/properties/" + result.propertyId
+    if (args.channel === "telegram") {
+      if (!botEnv.TELEGRAM_BOT_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN belum dikonfigurasi.")
+      await sendTelegramText(botEnv.TELEGRAM_BOT_TOKEN, args.chatId, message)
+    } else {
+      if (!botEnv.WHATSAPP_ACCESS_TOKEN || !botEnv.WHATSAPP_PHONE_NUMBER_ID) throw new Error("Kredensial WhatsApp belum dikonfigurasi.")
+      await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, args.chatId, message)
+    }
+    return null
+  },
+})
+
 export const sendAdminQueueNotice = internalAction({
   args: { text: v.string() },
   handler: async (ctx, args) => {

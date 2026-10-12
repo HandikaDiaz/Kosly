@@ -199,6 +199,20 @@ export default defineSchema({
     createdAt: v.number(),
     expiresAt: v.number(),
   }).index("by_chat", ["channel", "chatId", "status"]).index("by_owner", ["ownerId", "status"]),
+  bot_conversation_state: defineTable({
+    chatId: v.string(),
+    channel: v.union(v.literal("telegram"), v.literal("whatsapp")),
+    ownerId: v.id("owners"),
+    flowType: v.string(),
+    currentStep: v.union(v.literal("property"), v.literal("room_number"), v.literal("monthly_rent"), v.literal("photo")),
+    status: v.union(v.literal("active"), v.literal("expired"), v.literal("completed"), v.literal("canceled")),
+    collectedData: v.object({
+      propertyId: v.optional(v.id("properties")),
+      roomNumber: v.optional(v.string()),
+      monthlyRent: v.optional(v.number()),
+    }),
+    expiresAt: v.number(),
+  }).index("by_chat_and_status", ["channel", "chatId", "status"]).index("by_owner_and_status", ["ownerId", "status"]),
   bookings: defineTable({
     propertyId: v.id("properties"),
     roomId: v.id("rooms"),

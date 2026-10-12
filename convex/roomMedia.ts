@@ -1,4 +1,6 @@
 import { mutation, query } from "./_generated/server"
+import type { MutationCtx } from "./_generated/server"
+import type { Id } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { requirePropertyOwner } from "./lib/auth"
 
@@ -34,14 +36,22 @@ export const attach = mutation({
   handler: async (ctx, args) => {
     const room = await ctx.db.get("rooms", args.roomId)
     if (!room) throw new Error("Kamar tidak ditemukan.")
-    await requirePropertyOwner(ctx, room.propertyId)
-    const file = await ctx.db.system.get("_storage", args.storageId)
-    if (!file) throw new Error("File media tidak ditemukan.")
-    const isValidType = args.kind === "photo" ? file.contentType?.startsWith("image/") : file.contentType?.startsWith("video/")
-    if (!isValidType) throw new Error(args.kind === "photo" ? "Media harus berupa foto." : "Media harus berupa video.")
-    return await ctx.db.insert("room_media", { roomId: args.roomId, storageId: args.storageId, kind: args.kind, sortOrder: Math.max(0, Math.floor(args.sortOrder)), caption: args.caption?.trim() || undefined, createdAt: Date.now() })
+    const { owner } = await requirePropertyOwner(ctx, room.propertyId)
+    return await attachRoomMediaForOwnerInContext(ctx, owner._id, args)
   },
 })
+
+export const attachRoomMediaForOwnerInContext = async (ctx: MutationCtx, ownerId: Id<"owners">, args: { roomId: Id<"rooms">; storageId: Id<"_storage">; kind: "photo" | "video"; sortOrder: number; caption?: string }) => {
+  const room = await ctx.db.get("rooms", args.roomId)
+  if (!room) throw new Error("Kamar tidak ditemukan.")
+  const property = await ctx.db.get("properties", room.propertyId)
+  if (!property || property.ownerId !== ownerId) throw new Error("Akses kamar ditolak.")
+  const file = await ctx.db.system.get("_storage", args.storageId)
+  if (!file) throw new Error("File media tidak ditemukan.")
+  const isValidType = args.kind === "photo" ? file.contentType?.startsWith("image/") : file.contentType?.startsWith("video/")
+  if (!isValidType) throw new Error(args.kind === "photo" ? "Media harus berupa foto." : "Media harus berupa video.")
+  return await ctx.db.insert("room_media", { roomId: args.roomId, storageId: args.storageId, kind: args.kind, sortOrder: Math.max(0, Math.floor(args.sortOrder)), caption: args.caption?.trim() || undefined, createdAt: Date.now() })
+}
 
 export const remove = mutation({
   args: { mediaId: v.id("room_media") },

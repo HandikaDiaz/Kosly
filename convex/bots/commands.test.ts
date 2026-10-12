@@ -18,4 +18,10 @@ describe("parseBotCommand", () => {
   test("parses upgrade cancellation", () => {
     expect(parseBotCommand("BATAL")).toEqual({ kind: "cancel", value: "upgrade" })
   })
+
+  test("parses room commands with structured fields", () => {
+    expect(parseBotCommand("/tambahkamar")).toEqual({ kind: "add_room" })
+    expect(parseBotCommand("/editkamar 12 harga 1600000")).toEqual({ kind: "edit_room", roomNumber: "12", field: "price", value: "1600000" })
+    expect(parseBotCommand("/editkamar 12 status kosong")).toEqual({ kind: "edit_room", roomNumber: "12", field: "status", value: "kosong" })
+  })
 })

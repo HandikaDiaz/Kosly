@@ -15,6 +15,7 @@ export const parseBotCommand = (text: string): BotCommand => {
   if (upperNormalized === "/UPGRADE") return { kind: "upgrade" }
   if (upperNormalized === "/PENDING") return { kind: "pending" }
   if (upperNormalized === "/RINGKASAN") return { kind: "summary" }
+  if (upperNormalized === "/TAMBAHKAMAR") return { kind: "add_room" }
 
   const [command, reference, ...reasonParts] = normalized.split(" ")
   const upperCommand = command.toUpperCase()
@@ -31,6 +32,12 @@ export const parseBotCommand = (text: string): BotCommand => {
     if (!upperReference || !referencePattern.test(upperReference)) return { kind: "invalid" }
     const reason = reasonParts.join(" ").trim().slice(0, maxReasonLength)
     return { kind: "reject", reference: upperReference, reason: reason || "Bukti belum dapat diverifikasi." }
+  }
+  if (upperCommand === "/EDITKAMAR") {
+    const field = reasonParts[0]?.toLowerCase()
+    const value = reasonParts.slice(1).join(" ").trim()
+    if (!reference || !value || (field !== "harga" && field !== "price" && field !== "status")) return { kind: "invalid" }
+    return { kind: "edit_room", roomNumber: reference.trim(), field: field === "harga" || field === "price" ? "price" : "status", value }
   }
   if (upperCommand.startsWith("/")) return { kind: "invalid" }
   if (/^(STARTER|GROWTH|PRO|1|2|3)(?:\s+(MONTHLY|ANNUAL|BULANAN|TAHUNAN))?$/.test(upperNormalized)) return { kind: "selection", value: upperNormalized }

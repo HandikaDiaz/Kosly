@@ -32,6 +32,7 @@ http.route({
     if (result.status === "query") await ctx.runAction(internal.bots.queryDelivery.sendResponse, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, query: result.query })
     if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text, replyMarkup: result.replyMarkup })
     if (result.status === "photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveSubscriptionProof, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, sessionId: result.sessionId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
+    if (result.status === "room_photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveRoomPhoto, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, stateId: result.stateId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
     return new Response("OK", { status: 200 })
   }),
 })
@@ -60,6 +61,7 @@ http.route({
     if (result.status === "query") await ctx.runAction(internal.bots.queryDelivery.sendResponse, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, query: result.query })
     if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text, replyMarkup: result.replyMarkup })
     if (result.status === "photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveSubscriptionProof, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, sessionId: result.sessionId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
+    if (result.status === "room_photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveRoomPhoto, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, stateId: result.stateId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
     return new Response("OK", { status: 200 })
   }),
 })
