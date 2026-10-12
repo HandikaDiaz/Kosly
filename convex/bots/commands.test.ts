@@ -14,4 +14,8 @@ describe("parseBotCommand", () => {
     expect(parseBotCommand("tolong cek pembayaran Nadia")).toEqual({ kind: "invalid" })
     expect(parseBotCommand("KONFIRMASI")).toEqual({ kind: "invalid" })
   })
+
+  test("parses upgrade cancellation", () => {
+    expect(parseBotCommand("BATAL")).toEqual({ kind: "cancel", value: "upgrade" })
+  })
 })

@@ -6,6 +6,7 @@ import { env } from "../_generated/server"
 import { internal } from "../_generated/api"
 import { sendTelegramText } from "./telegram"
 import { sendWhatsAppText } from "./whatsapp"
+import type { TelegramReplyMarkup } from "./telegram"
 
 const botEnv = env as typeof env & Record<string, string | undefined>
 
@@ -39,11 +40,16 @@ export const sendResponse = internalAction({
 })
 
 export const sendTextResponse = internalAction({
-  args: { channel: v.union(v.literal("telegram"), v.literal("whatsapp")), chatId: v.string(), text: v.string() },
+  args: {
+    channel: v.union(v.literal("telegram"), v.literal("whatsapp")),
+    chatId: v.string(),
+    text: v.string(),
+    replyMarkup: v.optional(v.object({ inline_keyboard: v.array(v.array(v.object({ text: v.string(), callback_data: v.string() }))) })),
+  },
   handler: async (_ctx, args) => {
     if (args.channel === "telegram") {
       if (!botEnv.TELEGRAM_BOT_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN belum dikonfigurasi.")
-      await sendTelegramText(botEnv.TELEGRAM_BOT_TOKEN, args.chatId, args.text, { parseMode: "HTML" })
+      await sendTelegramText(botEnv.TELEGRAM_BOT_TOKEN, args.chatId, args.text, { parseMode: "HTML", replyMarkup: args.replyMarkup as TelegramReplyMarkup | undefined })
     } else {
       if (!botEnv.WHATSAPP_ACCESS_TOKEN || !botEnv.WHATSAPP_PHONE_NUMBER_ID) throw new Error("Kredensial WhatsApp belum dikonfigurasi.")
       await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, args.chatId, args.text)

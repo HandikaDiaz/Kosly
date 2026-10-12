@@ -1,12 +1,13 @@
 export type BotChannel = "telegram" | "whatsapp"
 export type BotAction = "confirm" | "reject"
+export type BotCallbackAction = BotAction | "upgrade" | "cancel"
 
 export type NormalizedBotEvent = {
   channel: BotChannel
   eventId: string
   chatId: string
   text?: string
-  callbackAction?: BotAction
+  callbackAction?: BotCallbackAction
   callbackReference?: string
   callbackQueryId?: string
   photoFileId?: string
@@ -28,5 +29,6 @@ export type BotCommand =
   | { kind: "status" | "subscription" | "upgrade" | "pending" | "summary" }
   | { kind: "admin_decision"; decision: "approve" | "reject"; reference: string }
   | { kind: "selection"; value: string }
+  | { kind: "cancel"; value: string }
   | { kind: "yes" }
   | { kind: "invalid" }

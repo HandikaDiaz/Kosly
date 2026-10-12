@@ -1,6 +1,9 @@
 import type { PaymentReviewSummary } from "./types"
 import { buildReviewMessage } from "./formatters"
 
+export type TelegramInlineButton = { text: string; callback_data: string }
+export type TelegramReplyMarkup = { inline_keyboard: TelegramInlineButton[][] }
+
 export const buildTelegramReviewMessage = (summary: PaymentReviewSummary) => {
   const { text } = buildReviewMessage(summary, "telegram")
   return {
@@ -15,6 +18,27 @@ export const buildTelegramReviewMessage = (summary: PaymentReviewSummary) => {
     },
   }
 }
+
+export type UpgradeOption = { tier: "starter" | "growth" | "pro"; monthlyPrice: number; annualPrice: number }
+const formatPrice = (value: number) => `Rp ${value.toLocaleString("id-ID")}`
+const titleTier = (tier: UpgradeOption["tier"]) => tier.charAt(0).toUpperCase() + tier.slice(1)
+
+export const buildTelegramUpgradeMessage = (options: ReadonlyArray<UpgradeOption>) => ({
+  text: "⬆️ <b>Pilih tier upgrade</b>\n\nPilih paket dan siklus tagihan di bawah ini:",
+  reply_markup: {
+    inline_keyboard: [
+      ...options.map((option) => [
+        { text: `${titleTier(option.tier)} · Bulanan (${formatPrice(option.monthlyPrice)})`, callback_data: `upgrade:${option.tier}:monthly` },
+        { text: `${titleTier(option.tier)} · Tahunan (${formatPrice(option.annualPrice)})`, callback_data: `upgrade:${option.tier}:annual` },
+      ]),
+      [{ text: "Batal", callback_data: "cancel:upgrade" }],
+    ],
+  } satisfies TelegramReplyMarkup,
+})
+
+export const buildTelegramCancelMarkup = (): TelegramReplyMarkup => ({
+  inline_keyboard: [[{ text: "Batal", callback_data: "cancel:upgrade" }]],
+})
 
 export const sendTelegramPaymentReview = async (
   token: string,
@@ -69,12 +93,13 @@ export const sendTelegramText = async (
   token: string,
   chatId: string,
   text: string,
-  options?: { parseMode?: "HTML" | "Markdown" }
+  options?: { parseMode?: "HTML" | "Markdown"; replyMarkup?: TelegramReplyMarkup }
 ) => {
   const payload: Record<string, unknown> = { chat_id: chatId, text }
   if (options?.parseMode) {
     payload.parse_mode = options.parseMode
   }
+  if (options?.replyMarkup) payload.reply_markup = options.replyMarkup
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "content-type": "application/json" },

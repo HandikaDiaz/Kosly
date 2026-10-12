@@ -9,6 +9,7 @@ export const parseBotCommand = (text: string): BotCommand => {
   const upperNormalized = normalized.toUpperCase()
   if (upperNormalized === "/START" || upperNormalized === "/HELP") return { kind: "help" }
   if (upperNormalized === "YA" || upperNormalized === "YES") return { kind: "yes" }
+  if (upperNormalized === "BATAL" || upperNormalized === "CANCEL") return { kind: "cancel", value: "upgrade" }
   if (upperNormalized === "/STATUS") return { kind: "status" }
   if (upperNormalized === "/LANGGANAN") return { kind: "subscription" }
   if (upperNormalized === "/UPGRADE") return { kind: "upgrade" }

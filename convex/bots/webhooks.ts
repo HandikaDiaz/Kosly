@@ -15,8 +15,11 @@ export const normalizeTelegramUpdate = (body: UnknownRecord): NormalizedBotEvent
     const callbackFrom = callback.from as UnknownRecord | undefined
     const rawChatId = chat?.id ?? callbackFrom?.id
     const action = data[0]?.toLowerCase()
-    if (data.length === 2 && (action === "confirm" || action === "reject") && typeof data[1] === "string" && typeof callback.id === "string" && (typeof rawChatId === "number" || typeof rawChatId === "string")) {
-      return { channel: "telegram", eventId: String(updateId), chatId: String(rawChatId), callbackAction: action as "confirm" | "reject", callbackReference: data[1].trim().toUpperCase(), callbackQueryId: callback.id }
+    const isPaymentAction = data.length === 2 && (action === "confirm" || action === "reject")
+    const isUpgradeAction = data.length === 3 && action === "upgrade"
+    const isCancelAction = data.length === 2 && action === "cancel"
+    if ((isPaymentAction || isUpgradeAction || isCancelAction) && typeof callback.id === "string" && (typeof rawChatId === "number" || typeof rawChatId === "string")) {
+      return { channel: "telegram", eventId: String(updateId), chatId: String(rawChatId), callbackAction: action as "confirm" | "reject" | "upgrade" | "cancel", callbackReference: data.slice(1).join(":").trim().toUpperCase(), callbackQueryId: callback.id }
     }
   }
   const message = body.message as UnknownRecord | undefined

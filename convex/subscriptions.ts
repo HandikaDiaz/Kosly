@@ -19,9 +19,7 @@ export const recalculateForOwner = mutation({
 })
 
 export const recalculateForOwnerInContext = async (ctx: MutationCtx, ownerId: Id<"owners">) => {
-  const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).take(50)
-  let roomCount = 0
-  for (const property of properties) roomCount += (await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(500)).length
+  const roomCount = await getRoomCountForOwner(ctx, ownerId)
   const recommendedTier = getTierForRoomCount(roomCount)
   let subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).unique()
   if (!subscription) {
@@ -34,12 +32,25 @@ export const recalculateForOwnerInContext = async (ctx: MutationCtx, ownerId: Id
   return { roomCount, activeTier: subscription.tier, recommendedTier, shouldNotify: tierRank[recommendedTier] > tierRank[subscription.tier] }
 }
 
+export const getRoomCountForOwner = async (ctx: Pick<MutationCtx, "db">, ownerId: Id<"owners">) => {
+  const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).take(50)
+  let roomCount = 0
+  for (const property of properties) {
+    roomCount += (await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(500)).length
+  }
+  return roomCount
+}
+
 export const getMine = query({
   args: {},
   handler: async (ctx) => {
     const owner = await requireOwner(ctx)
     const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", owner._id)).unique()
-    const roomCount = subscription?.roomCountAtLastCheck ?? 0
+    const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", owner._id)).take(50)
+    let roomCount = 0
+    for (const property of properties) {
+      roomCount += (await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(500)).length
+    }
     const activeTier = subscription?.tier ?? "free"
     const recommendedTier = getTierForRoomCount(roomCount)
     return { subscription, roomCount, activeTier, recommendedTier, upgradeRequired: tierRank[recommendedTier] > tierRank[activeTier] }

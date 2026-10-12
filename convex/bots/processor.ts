@@ -6,18 +6,20 @@ import { normalizeChatId } from "../botLinks"
 import { approveSubscriptionForAdmin, rejectSubscriptionForAdmin } from "../admin"
 import { reviewIdentityForAdmin, reviewPropertyForAdmin } from "../verifications"
 import { updateStatusForAdmin } from "../reports"
-import { getTierForRoomCount, getTierPrice, tierRank, type BillingCycle, type SubscriptionTier } from "../lib/subscription_tiers"
+import { getTierForRoomCount, getTierPrice, tierRank, type BillingCycle } from "../lib/subscription_tiers"
+import { getRoomCountForOwner } from "../subscriptions"
 import { confirmPaymentForOwner, rejectPaymentForOwner } from "../payments"
 import { createPaymentReference, createQueueReference, parseBotCommand } from "./commands"
 import { parseQueryCommand } from "./queries"
+import { buildTelegramCancelMarkup, buildTelegramUpgradeMessage } from "./telegram"
 
 const channelValidator = v.union(v.literal("telegram"), v.literal("whatsapp"))
 const decisionValidator = v.union(v.literal("approve"), v.literal("reject"))
-const response = (channel: "telegram" | "whatsapp", chatId: string, text: string) => ({ status: "response" as const, channel, chatId, text })
+const response = (channel: "telegram" | "whatsapp", chatId: string, text: string, replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> }) => ({ status: "response" as const, channel, chatId, text, ...(replyMarkup ? { replyMarkup } : {}) })
 const dateText = (value?: number) => value ? new Date(value).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "belum ditentukan"
 
 export const processEvent = internalMutation({
-  args: { channel: channelValidator, eventId: v.string(), chatId: v.string(), text: v.optional(v.string()), callbackAction: v.optional(v.union(v.literal("confirm"), v.literal("reject"))), callbackReference: v.optional(v.string()), callbackQueryId: v.optional(v.string()), photoFileId: v.optional(v.string()), photoMediaId: v.optional(v.string()) },
+    args: { channel: channelValidator, eventId: v.string(), chatId: v.string(), text: v.optional(v.string()), callbackAction: v.optional(v.union(v.literal("confirm"), v.literal("reject"), v.literal("upgrade"), v.literal("cancel"))), callbackReference: v.optional(v.string()), callbackQueryId: v.optional(v.string()), photoFileId: v.optional(v.string()), photoMediaId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const duplicate = await ctx.db.query("notification_log").withIndex("by_provider_event", (q) => q.eq("providerEventId", args.eventId)).unique()
     if (duplicate) return { status: "duplicate" as const }
@@ -34,7 +36,13 @@ export const processEvent = internalMutation({
       return { status: "invalid" as const }
     }
 
-    const parsed = args.callbackAction && args.callbackReference ? { kind: args.callbackAction, reference: args.callbackReference, reason: "Ditolak melalui bot Telegram." } : parseBotCommand(args.text ?? "")
+    const parsed = args.callbackAction === "upgrade" && args.callbackReference
+      ? { kind: "selection" as const, value: args.callbackReference.replace(":", " ") }
+      : args.callbackAction === "cancel" && args.callbackReference
+        ? { kind: "cancel" as const, value: args.callbackReference }
+        : args.callbackAction && args.callbackReference
+          ? { kind: args.callbackAction, reference: args.callbackReference, reason: "Ditolak melalui bot Telegram." }
+          : parseBotCommand(args.text ?? "")
     const isAdminCommand = parsed.kind === "pending" || parsed.kind === "summary" || parsed.kind === "admin_decision" || (parsed.kind === "yes" && session?.kind === "admin_confirmation")
     if (actor.role === "admin" && isAdminCommand) {
       if (parsed.kind === "pending") {
@@ -74,11 +82,16 @@ export const processEvent = internalMutation({
       return { status: "invalid" as const }
     }
 
+    if (parsed.kind === "cancel" && (session?.kind === "upgrade_selection" || session?.kind === "upgrade_payment")) {
+      await ctx.db.patch("bot_sessions", session._id, { status: "expired" })
+      return response(args.channel, chatId, "❌ Proses upgrade dibatalkan.")
+    }
+
     const query = parseQueryCommand(args.text ?? "")
     if (query === "status" || query === "unpaid" || query === "vacant") return { status: "query" as const, query, ownerId: link.ownerId, channel: args.channel, chatId }
     if (parsed.kind === "subscription") {
       const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", link.ownerId)).unique()
-      const rooms = subscription?.roomCountAtLastCheck ?? 0
+      const rooms = await getRoomCountForOwner(ctx, link.ownerId)
       const tier = subscription?.tier ?? "free"
       const recommended = getTierForRoomCount(rooms)
       return response(args.channel, chatId, `📦 Langganan BotKos\n\nTier aktif: ${tier}\nJumlah kamar: ${rooms}\nJatuh tempo: ${dateText(subscription?.currentPeriodEnd)}\nStatus: ${subscription?.status ?? "active"}${tierRank[recommended] > tierRank[tier] ? `\n\n⚠️ Tier yang disarankan: ${recommended}\nGunakan /upgrade untuk melihat pilihan.` : ""}`)
@@ -90,7 +103,11 @@ export const processEvent = internalMutation({
       if (!tiers.length) return response(args.channel, chatId, "Anda sudah berada di tier tertinggi. Tidak ada pilihan upgrade.")
       if (session) await ctx.db.patch("bot_sessions", session._id, { status: "expired" })
       await ctx.db.insert("bot_sessions", { channel: args.channel, chatId, ownerId: link.ownerId, kind: "upgrade_selection", status: "active", createdAt: Date.now(), expiresAt: Date.now() + 30 * 60 * 1000 })
-      return response(args.channel, chatId, `⬆️ Pilih tier upgrade (balas nama tier + siklus):\n\n${tiers.map((tier, index) => `${index + 1}. ${tier} — Rp ${getTierPrice(tier, "monthly").toLocaleString("id-ID")}/bulan atau Rp ${getTierPrice(tier, "annual").toLocaleString("id-ID")}/tahun`).join("\n")}\n\nContoh: GROWTH MONTHLY`)
+      if (args.channel === "telegram") {
+        const upgradeMessage = buildTelegramUpgradeMessage(tiers.map((tier) => ({ tier, monthlyPrice: getTierPrice(tier, "monthly"), annualPrice: getTierPrice(tier, "annual") })))
+        return response(args.channel, chatId, upgradeMessage.text, upgradeMessage.reply_markup)
+      }
+      return response(args.channel, chatId, `⬆️ Pilih tier upgrade (balas nama tier + siklus):\n\n${tiers.map((tier, index) => `${index + 1}. ${tier} — Rp ${getTierPrice(tier, "monthly").toLocaleString("id-ID")}/bulan atau Rp ${getTierPrice(tier, "annual").toLocaleString("id-ID")}/tahun`).join("\n")}\n\nContoh: GROWTH MONTHLY\n\nKetik BATAL untuk membatalkan.`)
     }
     if (parsed.kind === "selection" && session?.kind === "upgrade_selection") {
       const [selection, cycle = "MONTHLY"] = parsed.value.split(" ")
@@ -99,7 +116,8 @@ export const processEvent = internalMutation({
       const billingCycle: BillingCycle = cycle === "ANNUAL" || cycle === "TAHUNAN" ? "annual" : "monthly"
       if (!tier) return response(args.channel, chatId, "Pilihan tier tidak dikenali. Balas STARTER, GROWTH, atau PRO + MONTHLY/ANNUAL.")
       await ctx.db.patch("bot_sessions", session._id, { kind: "upgrade_payment", selectedTier: tier, selectedBillingCycle: billingCycle })
-      return response(args.channel, chatId, `✅ Pilihan ${tier} ${billingCycle} dicatat.\n\nTransfer manual ke rekening/QRIS admin sebesar Rp ${getTierPrice(tier, billingCycle).toLocaleString("id-ID")}, lalu upload foto bukti transfer di chat ini. Pengajuan akan menunggu review admin.`)
+      const selectionText = `✅ Pilihan ${tier} ${billingCycle} dicatat.\n\nTransfer manual ke rekening/QRIS admin sebesar Rp ${getTierPrice(tier, billingCycle).toLocaleString("id-ID")}, lalu upload foto bukti transfer di chat ini. Pengajuan akan menunggu review admin.`
+      return response(args.channel, chatId, selectionText, args.channel === "telegram" ? buildTelegramCancelMarkup() : undefined)
     }
     if (parsed.kind === "confirm" || parsed.kind === "reject") {
       const allPayments = await ctx.db.query("payments").take(500)

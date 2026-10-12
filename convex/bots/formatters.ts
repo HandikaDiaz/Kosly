@@ -122,14 +122,19 @@ export const buildStatusMessage = (
     return scoreB - scoreA
   })
 
-  const headerPool = [
-    `🔑 Ringkasan Properti Anda (${properties.length} Kos)`,
-    `🔑 Perkembangan ${properties.length} Properti Kos Anda Hari Ini`,
-    `🔑 Laporan Kondisi Properti (${properties.length} Kos)`,
-  ]
-  const topHeader = pickFromPool(headerPool, seed)
+  const totalRooms = properties.reduce((sum, property) => sum + property.totalRooms, 0)
+  const totalTenants = properties.reduce((sum, property) => sum + property.activeTenantsCount, 0)
+  const totalVacant = properties.reduce((sum, property) => sum + property.vacantCount, 0)
+  const totalPending = properties.reduce((sum, property) => sum + property.pendingCount, 0)
+  const topHeader = `📊 ${b("Ringkasan properti")} (${properties.length} kos)`
+  const overview = [
+    `Kamar: ${b(String(totalRooms))}`,
+    `Tenant aktif: ${b(String(totalTenants))}`,
+    `Kamar kosong: ${b(String(totalVacant))}`,
+    `Perlu ditinjau: ${b(String(totalPending))}`,
+  ].join(" · ")
 
-  const propBlocks = sorted.map((p) => {
+  const legacyPropBlocks = sorted.map((p) => {
     const nameStr = b(p.name)
     if (p.pendingCount > 0) {
       const pendingLine = `• ${b(`${p.pendingCount} item`)} menunggu verifikasi`
@@ -146,7 +151,23 @@ export const buildStatusMessage = (
     return `${nameStr} — Aman\n• Seluruh kamar terisi (${b(`${p.activeTenantsCount} tenant aktif`)})\n• Tidak ada antrean verifikasi`
   })
 
-  return `${topHeader}\n\n${propBlocks.join("\n\n")}${data.subscriptionAttention ? `\n\n⚠️ ${data.subscriptionAttention}` : ""}`
+  const propBlocks = sorted.map((p) => {
+    const status = p.pendingCount > 0 ? "Perlu ditinjau" : p.vacantCount > 0 ? "Ada kamar kosong" : "Aman"
+    const lines = [
+      `🏠 ${b(p.name)} — ${status}`,
+      `Total kamar: ${b(String(p.totalRooms))} · Tenant aktif: ${b(String(p.activeTenantsCount))} · Kamar kosong: ${b(String(p.vacantCount))}`,
+    ]
+    if (p.pendingCount > 0) lines.push(`Menunggu verifikasi: ${b(String(p.pendingCount))} item`)
+    if (p.vacantRooms.length > 0) {
+      lines.push("Kamar tersedia:")
+      for (const room of p.vacantRooms) {
+        lines.push(`• ${escapeHtml(room.roomNumber)} — Rp ${room.monthlyRent.toLocaleString("id-ID")}/bulan`)
+      }
+    }
+    return lines.join("\n")
+  })
+
+  return `${topHeader}\n${overview}\n\n${propBlocks.join("\n\n")}${data.subscriptionAttention ? `\n\n⚠️ ${data.subscriptionAttention}` : ""}`
 }
 
 /**

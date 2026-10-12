@@ -115,6 +115,21 @@ test("buildStatusMessage - Multi-property sorting priorities", () => {
   expect(posAdaKosong).toBeLessThan(posAman)
 })
 
+test("buildStatusMessage - Multi-property summary stays scannable", () => {
+  const msg = buildStatusMessage({
+    properties: [
+      { id: "prop1", name: "Kos Melati", activeTenantsCount: 4, pendingCount: 1, vacantCount: 2, vacantRooms: [{ roomNumber: "101", monthlyRent: 1200000 }, { roomNumber: "102", monthlyRent: 1300000 }], totalRooms: 6 },
+      { id: "prop2", name: "Kos Anggrek", activeTenantsCount: 3, pendingCount: 0, vacantCount: 0, vacantRooms: [], totalRooms: 3 },
+    ],
+  }, "whatsapp", 1000)
+  expect(msg).toContain("📊 *Ringkasan properti*")
+  expect(msg).toContain("🏠 *Kos Melati*")
+  expect(msg).toContain("Total kamar: *6*")
+  expect(msg).toContain("Kamar kosong: *2*")
+  expect(msg).toContain("• 101 — Rp 1.200.000/bulan")
+  expect(msg).toContain("🏠 *Kos Anggrek*")
+})
+
 test("buildUnpaidMessage - empty vs items", () => {
   const emptyMsgSeed1 = buildUnpaidMessage([], "whatsapp", 0)
   expect(emptyMsgSeed1).toContain("Tidak ada tenant yang menunggak")

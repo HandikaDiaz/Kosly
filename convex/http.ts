@@ -30,7 +30,7 @@ http.route({
       }
     }
     if (result.status === "query") await ctx.runAction(internal.bots.queryDelivery.sendResponse, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, query: result.query })
-    if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text })
+    if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text, replyMarkup: result.replyMarkup })
     if (result.status === "photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveSubscriptionProof, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, sessionId: result.sessionId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
     return new Response("OK", { status: 200 })
   }),
@@ -58,7 +58,7 @@ http.route({
     if (!event) return new Response("Ignored", { status: 200 })
     const result = await ctx.runMutation(internal.bots.processor.processEvent, event)
     if (result.status === "query") await ctx.runAction(internal.bots.queryDelivery.sendResponse, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, query: result.query })
-    if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text })
+    if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text, replyMarkup: result.replyMarkup })
     if (result.status === "photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveSubscriptionProof, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, sessionId: result.sessionId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
     return new Response("OK", { status: 200 })
   }),
