@@ -7,7 +7,7 @@ import { approveSubscriptionForAdmin, rejectSubscriptionForAdmin } from "../admi
 import { reviewIdentityForAdmin, reviewPropertyForAdmin } from "../verifications"
 import { updateStatusForAdmin } from "../reports"
 import { getTierForRoomCount, getTierPrice, tierRank, type BillingCycle } from "../lib/subscription_tiers"
-import { getRoomCountForOwner } from "../subscriptions"
+import { getEffectiveTier, getRoomCountForOwner } from "../subscriptions"
 import { createRoomForOwnerInContext, updateRoomForOwnerInContext } from "../rooms"
 import { confirmPaymentForOwner, rejectPaymentForOwner } from "../payments"
 import { createPaymentReference, createQueueReference, parseBotCommand } from "./commands"
@@ -26,7 +26,7 @@ const roomStatusLabel = { available: "Tersedia", occupied: "Terisi", booked: "Di
 
 const getOwnerSubscriptionTier = async (ctx: MutationCtx, ownerId: Id<"owners">) => {
   const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).unique()
-  return subscription?.tier ?? "free"
+  return getEffectiveTier(subscription)
 }
 
 const isRoomFeatureAllowed = (tier: keyof typeof tierRank) => tier === "growth" || tier === "pro"

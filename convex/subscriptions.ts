@@ -1,10 +1,10 @@
 import { internalMutation, mutation, query } from "./_generated/server"
-import type { MutationCtx } from "./_generated/server"
-import type { Id } from "./_generated/dataModel"
+import type { MutationCtx, QueryCtx } from "./_generated/server"
+import type { Doc, Id } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
 import { requireOwner } from "./lib/auth"
-import { getTierForRoomCount, getTierPrice, tierRank, type BillingCycle, type SubscriptionTier } from "./lib/subscription_tiers"
+import { getTierForRoomCount, getTierLimits, getTierPrice, tierRank, type BillingCycle, type SubscriptionTier } from "./lib/subscription_tiers"
 
 const tierValidator = v.union(v.literal("free"), v.literal("starter"), v.literal("growth"), v.literal("pro"))
 const cycleValidator = v.union(v.literal("monthly"), v.literal("annual"), v.literal("none"))
@@ -29,10 +29,42 @@ export const recalculateForOwnerInContext = async (ctx: MutationCtx, ownerId: Id
     await ctx.db.patch("subscriptions", subscription._id, { roomCountAtLastCheck: roomCount })
   }
   if (!subscription) throw new Error("Subscription gagal dibuat.")
-  return { roomCount, activeTier: subscription.tier, recommendedTier, shouldNotify: tierRank[recommendedTier] > tierRank[subscription.tier] }
+  const activeTier = getEffectiveTier(subscription)
+  return { roomCount, activeTier, recommendedTier, shouldNotify: tierRank[recommendedTier] > tierRank[activeTier] }
 }
 
-export const getRoomCountForOwner = async (ctx: Pick<MutationCtx, "db">, ownerId: Id<"owners">) => {
+export const getEffectiveTier = (subscription: Doc<"subscriptions"> | null): SubscriptionTier => subscription?.status === "active" ? subscription.tier : "free"
+
+const getSubscriptionForOwner = async (ctx: Pick<QueryCtx, "db">, ownerId: Id<"owners">) => {
+  const subscriptions = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).take(10)
+  return subscriptions.find((subscription) => subscription.status === "active") ?? subscriptions[0] ?? null
+}
+
+export const assertRoomCapacityForOwner = async (ctx: Pick<QueryCtx, "db">, ownerId: Id<"owners">, roomsToAdd = 1) => {
+  const roomCount = await getRoomCountForOwner(ctx, ownerId)
+  const subscription = await getSubscriptionForOwner(ctx, ownerId)
+  const tier = getEffectiveTier(subscription)
+  const limit = getTierLimits(tier).maxRooms
+  if (limit !== null && roomCount + roomsToAdd > limit) {
+    const nextTier = tier === "free" ? "Starter" : tier === "starter" ? "Growth" : "Pro"
+    throw new Error("Tier " + tier[0].toUpperCase() + tier.slice(1) + " maksimal " + limit + " kamar. Saat ini sudah ada " + roomCount + " kamar. Upgrade ke " + nextTier + " untuk menambah kamar.")
+  }
+  return { tier, roomCount, limit }
+}
+
+export const assertPropertyCapacityForOwner = async (ctx: Pick<QueryCtx, "db">, ownerId: Id<"owners">, propertiesToAdd = 1) => {
+  const propertyCount = (await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).take(50)).length
+  const subscription = await getSubscriptionForOwner(ctx, ownerId)
+  const tier = getEffectiveTier(subscription)
+  const limit = getTierLimits(tier).maxProperties
+  if (limit !== null && propertyCount + propertiesToAdd > limit) {
+    const nextTier = tier === "free" ? "Starter" : tier === "starter" ? "Growth" : "Pro"
+    throw new Error("Tier " + tier[0].toUpperCase() + tier.slice(1) + " maksimal " + limit + " properti. Upgrade ke " + nextTier + " untuk menambah properti.")
+  }
+  return { tier, propertyCount, limit }
+}
+
+export const getRoomCountForOwner = async (ctx: Pick<QueryCtx, "db">, ownerId: Id<"owners">) => {
   const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).take(50)
   let roomCount = 0
   for (const property of properties) {
@@ -45,15 +77,17 @@ export const getMine = query({
   args: {},
   handler: async (ctx) => {
     const owner = await requireOwner(ctx)
-    const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", owner._id)).unique()
+    const subscription = await getSubscriptionForOwner(ctx, owner._id)
     const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", owner._id)).take(50)
     let roomCount = 0
     for (const property of properties) {
       roomCount += (await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(500)).length
     }
-    const activeTier = subscription?.tier ?? "free"
+    const activeTier = getEffectiveTier(subscription)
     const recommendedTier = getTierForRoomCount(roomCount)
-    return { subscription, roomCount, activeTier, recommendedTier, upgradeRequired: tierRank[recommendedTier] > tierRank[activeTier] }
+    const roomLimit = getTierLimits(activeTier).maxRooms
+    const propertyLimit = getTierLimits(activeTier).maxProperties
+    return { subscription, roomCount, propertyCount: properties.length, activeTier, recommendedTier, roomLimit, propertyLimit, roomLimitReached: roomLimit !== null && roomCount >= roomLimit, propertyLimitReached: propertyLimit !== null && properties.length >= propertyLimit, upgradeRequired: tierRank[recommendedTier] > tierRank[activeTier] }
   },
 })
 

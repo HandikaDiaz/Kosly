@@ -1,5 +1,5 @@
 import { expect, test } from "vitest"
-import { getTierForRoomCount, getTierPrice } from "./lib/subscription_tiers"
+import { getTierForRoomCount, getTierLimits, getTierPrice } from "./lib/subscription_tiers"
 import { convexTest } from "convex-test"
 import { api } from "./_generated/api"
 import schema from "./schema"
@@ -8,12 +8,16 @@ const modules = import.meta.glob("./**/*.ts")
 
 test("maps exact room boundaries to the expected tier", () => {
   expect(getTierForRoomCount(0)).toBe("free")
-  expect(getTierForRoomCount(5)).toBe("free")
-  expect(getTierForRoomCount(6)).toBe("starter")
-  expect(getTierForRoomCount(20)).toBe("starter")
-  expect(getTierForRoomCount(21)).toBe("growth")
-  expect(getTierForRoomCount(40)).toBe("growth")
-  expect(getTierForRoomCount(41)).toBe("pro")
+  expect(getTierForRoomCount(3)).toBe("free")
+  expect(getTierForRoomCount(4)).toBe("starter")
+  expect(getTierForRoomCount(10)).toBe("starter")
+  expect(getTierForRoomCount(11)).toBe("growth")
+  expect(getTierForRoomCount(30)).toBe("growth")
+  expect(getTierForRoomCount(31)).toBe("pro")
+  expect(getTierLimits("free")).toEqual({ maxRooms: 3, maxProperties: 1 })
+  expect(getTierLimits("starter")).toEqual({ maxRooms: 10, maxProperties: 1 })
+  expect(getTierLimits("growth")).toEqual({ maxRooms: 30, maxProperties: 3 })
+  expect(getTierLimits("pro")).toEqual({ maxRooms: null, maxProperties: null })
 })
 
 test("uses historical tier prices by billing cycle", () => {

@@ -3,7 +3,7 @@ import type { MutationCtx } from "./_generated/server"
 import type { Id } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { requirePropertyOwner } from "./lib/auth"
-import { recalculateForOwnerInContext } from "./subscriptions"
+import { assertRoomCapacityForOwner, recalculateForOwnerInContext } from "./subscriptions"
 
 export const listForProperty = query({
   args: { propertyId: v.id("properties") },
@@ -54,6 +54,7 @@ const assertOwnerProperty = async (ctx: MutationCtx, ownerId: Id<"owners">, prop
 
 export const createRoomForOwnerInContext = async (ctx: MutationCtx, ownerId: Id<"owners">, args: CreateRoomArgs) => {
   await assertOwnerProperty(ctx, ownerId, args.propertyId)
+  await assertRoomCapacityForOwner(ctx, ownerId)
   const roomNumber = args.roomNumber.trim()
   if (!roomNumber || args.monthlyRent <= 0) throw new Error("Nomor kamar dan harga sewa wajib valid.")
   const duplicate = (await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", args.propertyId)).take(100)).find((room) => room.roomNumber === roomNumber)

@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server"
 import { v } from "convex/values"
 import { requirePropertyOwner, requireOwner } from "./lib/auth"
+import { assertPropertyCapacityForOwner } from "./subscriptions"
 
 const normalizeSlug = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
 
@@ -16,6 +17,7 @@ export const create = mutation({
   args: { name: v.string(), address: v.string(), slug: v.string() },
   handler: async (ctx, args) => {
     const owner = await requireOwner(ctx)
+    await assertPropertyCapacityForOwner(ctx, owner._id)
     const name = args.name.trim()
     const address = args.address.trim()
     const slug = normalizeSlug(args.slug || args.name)

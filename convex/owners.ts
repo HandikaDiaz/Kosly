@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server"
 import { v } from "convex/values"
 import { findOwnerForIdentity, getLinkedUserId, requireOwner } from "./lib/auth"
+import { assertPropertyCapacityForOwner, assertRoomCapacityForOwner } from "./subscriptions"
 
 const normalizeSlug = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
 
@@ -69,6 +70,8 @@ export const completeOnboarding = mutation({
     }
     if (rooms.length > 0 && rooms.some((room) => !room.roomNumber || room.monthlyRent <= 0)) throw new Error("Nomor kamar dan harga sewa wajib valid.")
     if (new Set(rooms.map((room) => room.roomNumber)).size !== rooms.length) throw new Error("Nomor kamar tidak boleh duplikat.")
+    await assertPropertyCapacityForOwner(ctx, owner._id)
+    await assertRoomCapacityForOwner(ctx, owner._id, rooms.length)
     
     const existingProperty = await ctx.db.query("properties").withIndex("by_slug", (q) => q.eq("slug", slug)).unique()
     if (existingProperty) throw new Error("Link properti sudah digunakan.")
