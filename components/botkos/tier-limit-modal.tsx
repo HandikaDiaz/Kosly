@@ -2,6 +2,8 @@
 
 import Link from "next/link"
 import { AlertTriangle, ArrowRight, X } from "lucide-react"
+import { createPortal } from "react-dom"
+import { useEffect, useState } from "react"
 
 export type TierLimitInfo = {
   tier: "free" | "starter" | "growth" | "pro"
@@ -30,9 +32,18 @@ export const parseTierLimitError = (reason: unknown): TierLimitInfo | null => {
 }
 
 export function TierLimitModal({ info, onDismiss }: { info: TierLimitInfo; onDismiss: () => void }) {
+  const [mounted, setMounted] = useState(false)
   const details = tierDetails[info.tier]
   const resourceLabel = info.resource === "kamar" ? "kamar" : "properti"
-  return (
+
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
+  if (!mounted) return null
+
+  return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onDismiss() }}>
       <div className="w-full max-w-md border border-[var(--line)] border-t-4 border-t-[var(--gold)] bg-[#fffefa] p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="tier-limit-title">
         <div className="flex items-start justify-between gap-4">
@@ -56,6 +67,7 @@ export function TierLimitModal({ info, onDismiss }: { info: TierLimitInfo; onDis
           <Link href="/dashboard/billing" onClick={onDismiss} className="button-primary"><span>Upgrade tier</span><ArrowRight size={16} /></Link>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
