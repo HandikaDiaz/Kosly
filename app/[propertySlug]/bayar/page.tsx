@@ -7,6 +7,7 @@ import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { RentPaymentForm } from "@/components/botkos/rent-payment-form"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
+import { IdentityVerificationNotice } from "@/components/botkos/identity-verification-notice"
 
 export default function PublicRentPaymentPage() {
   const params = useParams<{ propertySlug: string }>()
@@ -26,7 +27,7 @@ export default function PublicRentPaymentPage() {
           <p className="mt-4 text-sm leading-6 text-[var(--ink-muted)]">Cari data Anda dengan nomor WhatsApp, lalu kirim bukti pembayaran atau perpanjang sewa kontrak.</p>
         </div>
         <div className="mt-8">
-          <RentPaymentForm propertyName={property.name} slug={property.slug} />
+          {property.ownerIdentityVerified ? <RentPaymentForm propertyName={property.name} slug={property.slug} /> : <IdentityVerificationNotice action="pembayaran" />}
         </div>
         <p className="mt-6 text-center text-xs text-[var(--ink-muted)]">Bukti pembayaran hanya dapat dilihat oleh pemilik properti.</p>
       </div>

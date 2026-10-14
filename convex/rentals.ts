@@ -54,6 +54,8 @@ export const submitRentPayment = mutation({
   handler: async (ctx, args) => {
     const property = await ctx.db.query("properties").withIndex("by_slug", (q) => q.eq("slug", normalizeSlug(args.slug))).unique()
     if (!property || !property.isActive) throw new Error("Link properti tidak ditemukan.")
+    const owner = await ctx.db.get("owners", property.ownerId)
+    if (owner?.identityVerificationStatus !== "verified") throw new Error("Pembayaran belum tersedia. Pemilik properti belum menyelesaikan verifikasi identitas.")
     const tenant = await ctx.db.get("tenants", args.tenantId)
     if (!tenant || tenant.propertyId !== property._id || tenant.status !== "active") throw new Error("Data tenant tidak valid.")
     const proof = await ctx.db.system.get("_storage", args.proofStorageId)

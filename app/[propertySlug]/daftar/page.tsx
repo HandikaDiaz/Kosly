@@ -7,6 +7,7 @@ import Link from "next/link"
 import { api } from "@/convex/_generated/api"
 import { RegistrationForm } from "@/components/botkos/registration-form"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
+import { IdentityVerificationNotice } from "@/components/botkos/identity-verification-notice"
 
 export default function PublicRegistrationPage() {
   const params = useParams<{ propertySlug: string }>()
@@ -40,7 +41,7 @@ export default function PublicRegistrationPage() {
               </div>
             </section>
           ) : null}
-          {property.rooms.length ? (
+          {!property.ownerIdentityVerified ? <IdentityVerificationNotice action="pendaftaran" /> : property.rooms.length ? (
             <RegistrationForm propertyName={property.name} slug={property.slug} rooms={property.rooms} />
           ) : (
             <div className="border border-dashed border-[var(--line)] p-8 text-center text-sm text-[var(--ink-muted)]">Belum ada kamar yang tersedia.</div>

@@ -9,6 +9,7 @@ import { RoomTag } from "./room-tag"
 import { LedgerTable } from "./ledger-table"
 import { DashboardAnalytics } from "./dashboard-analytics"
 import { SubscriptionBanner } from "./subscription-banner"
+import { IdentityVerificationForm } from "./identity-verification-form"
 
 const money = (value: number) => `Rp ${value.toLocaleString("id-ID")}`
 
@@ -41,6 +42,7 @@ export function DashboardOverview() {
           </Link>
         </header>
         <SubscriptionBanner />
+        <IdentityVerificationForm status={data.owner.identityVerificationStatus} />
 
         <section className="mt-9 grid gap-4 lg:grid-cols-[1.25fr_.75fr_.75fr]">
           {/* Main Stat Card - Dark Charcoal + Gold Accent */}

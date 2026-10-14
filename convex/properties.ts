@@ -38,6 +38,7 @@ export const getPublicBySlug = query({
   handler: async (ctx, args) => {
     const property = await ctx.db.query("properties").withIndex("by_slug", (q) => q.eq("slug", normalizeSlug(args.slug))).unique()
     if (!property || !property.isActive) return null
+    const owner = await ctx.db.get("owners", property.ownerId)
     const rooms = await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)
     const facilities = await ctx.db.query("property_facilities").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)
     const propertyPhotos = await ctx.db.query("property_photos").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(30)
@@ -66,6 +67,6 @@ export const getPublicBySlug = query({
         media: await Promise.all(media.map(async (item) => ({ kind: item.kind, caption: item.caption, url: await ctx.storage.getUrl(item.storageId) }))),
       }
     }))
-    return { name: property.name, slug: property.slug, address: property.address, isVerified: property.propertyVerificationStatus === "verified", photos: await Promise.all(propertyPhotos.sort((a, b) => a.sortOrder - b.sortOrder).map(async (photo) => ({ _id: photo._id, caption: photo.caption, url: await ctx.storage.getUrl(photo.storageId) }))), facilities: facilities.filter((facility) => facility.isActive).map(({ _id, category, name, description }) => ({ _id, category, name, description })), rooms: publicRooms }
+    return { name: property.name, slug: property.slug, address: property.address, isVerified: property.propertyVerificationStatus === "verified", ownerIdentityVerified: owner?.identityVerificationStatus === "verified", photos: await Promise.all(propertyPhotos.sort((a, b) => a.sortOrder - b.sortOrder).map(async (photo) => ({ _id: photo._id, caption: photo.caption, url: await ctx.storage.getUrl(photo.storageId) }))), facilities: facilities.filter((facility) => facility.isActive).map(({ _id, category, name, description }) => ({ _id, category, name, description })), rooms: publicRooms }
   },
 })

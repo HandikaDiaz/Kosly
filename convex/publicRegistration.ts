@@ -24,6 +24,8 @@ export const createSubmission = mutation({
   handler: async (ctx, args) => {
     const property = await ctx.db.query("properties").withIndex("by_slug", (q) => q.eq("slug", normalizeSlug(args.slug))).unique()
     if (!property || !property.isActive) throw new Error("Link pendaftaran tidak ditemukan.")
+    const owner = await ctx.db.get("owners", property.ownerId)
+    if (owner?.identityVerificationStatus !== "verified") throw new Error("Pendaftaran belum tersedia. Pemilik properti belum menyelesaikan verifikasi identitas.")
     const room = await ctx.db.get("rooms", args.roomId)
     if (!room || room.propertyId !== property._id || room.status !== "available") throw new Error("Kamar sudah tidak tersedia.")
     const name = args.name.trim()
