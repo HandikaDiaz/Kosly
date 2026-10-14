@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import { SceneExplainer } from "@/components/landing/scene-explainer"
 import { ScrollReveal } from "@/components/landing/scroll-reveal"
@@ -115,6 +115,11 @@ const HERO_ROWS = [
 export default function LandingPage() {
   const reduced = useReducedMotion()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    setHydrated(true)
+  }, [])
 
   const heroContainerVariants = {
     hidden: {},
@@ -216,8 +221,8 @@ export default function LandingPage() {
           <div className="lp-hero-inner">
             {/* Left: copy */}
             <motion.div
-              initial="hidden"
-              animate="visible"
+              initial={false}
+              animate={hydrated ? "visible" : false}
               variants={heroContainerVariants}
             >
               <motion.div
@@ -267,8 +272,8 @@ export default function LandingPage() {
             {/* Right: hero card */}
             <motion.div
               className="lp-hero-visual"
-              initial="hidden"
-              animate="visible"
+              initial={false}
+              animate={hydrated ? "visible" : false}
               variants={heroCardVariants}
             >
               <div className="lp-hero-card">

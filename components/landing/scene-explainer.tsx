@@ -257,6 +257,7 @@ export function SceneExplainer() {
   const reduced = useReducedMotion() ?? false
   const [current, setCurrent] = useState(0)
   const [paused, setPaused] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Touch/swipe state
@@ -269,6 +270,10 @@ export function SceneExplainer() {
 
   const goTo = useCallback((idx: number) => {
     setCurrent(idx)
+  }, [])
+
+  useEffect(() => {
+    setHydrated(true)
   }, [])
 
   useEffect(() => {
@@ -312,8 +317,8 @@ export function SceneExplainer() {
         <motion.div
           className="lp-progress-bar-fill"
           key={current}
-          initial={{ scaleX: 0 }}
-          animate={paused || reduced ? { scaleX: 0 } : { scaleX: 1 }}
+          initial={false}
+          animate={!hydrated || paused || reduced ? false : { scaleX: 1 }}
           transition={{ duration: DURATION / 1000, ease: "linear" }}
           style={{ originX: 0 }}
         />
@@ -321,35 +326,46 @@ export function SceneExplainer() {
 
       {/* Visual area */}
       <div className="lp-scene-stage">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={current}
-            className="lp-scene-inner"
-            variants={reduced ? {} : slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.35, ease: "easeInOut" }}
-          >
-            {renderVisual(scene.visual, reduced)}
-          </motion.div>
-        </AnimatePresence>
+        {hydrated ? (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={current}
+              className="lp-scene-inner"
+              variants={reduced ? {} : slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.35, ease: "easeInOut" }}
+            >
+              {renderVisual(scene.visual, reduced)}
+            </motion.div>
+          </AnimatePresence>
+        ) : (
+          <div className="lp-scene-inner" aria-hidden="true" />
+        )}
       </div>
 
       {/* Caption */}
-      <AnimatePresence mode="wait">
-        <motion.p
-          key={current}
-          className="lp-scene-caption"
-          initial={reduced ? {} : { opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={reduced ? {} : { opacity: 0, y: -6 }}
-          transition={{ duration: 0.3 }}
-        >
+      {hydrated ? (
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={current}
+            className="lp-scene-caption"
+            initial={reduced ? {} : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduced ? {} : { opacity: 0, y: -6 }}
+            transition={{ duration: 0.3 }}
+          >
+            <span className="lp-scene-num">{current + 1}/{SCENES.length}</span>
+            {scene.caption}
+          </motion.p>
+        </AnimatePresence>
+      ) : (
+        <p className="lp-scene-caption">
           <span className="lp-scene-num">{current + 1}/{SCENES.length}</span>
           {scene.caption}
-        </motion.p>
-      </AnimatePresence>
+        </p>
+      )}
 
       {/* Dot navigation */}
       <div className="lp-dots" role="tablist" aria-label="Pilih scene">

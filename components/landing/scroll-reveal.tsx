@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { motion, useInView, useReducedMotion } from "framer-motion"
 
 interface ScrollRevealProps {
@@ -17,6 +17,11 @@ export function ScrollReveal({
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: "-60px" })
   const reduced = useReducedMotion()
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    setHydrated(true)
+  }, [])
 
   const variants = {
     hidden: reduced ? { opacity: 1 } : { opacity: 0, y: 20 },
@@ -28,8 +33,8 @@ export function ScrollReveal({
       ref={ref}
       className={className}
       variants={variants}
-      initial="hidden"
-      animate={inView ? "visible" : "hidden"}
+      initial={false}
+      animate={hydrated && inView ? "visible" : false}
       transition={{
         duration: reduced ? 0 : 0.5,
         delay: reduced ? 0 : delay,
