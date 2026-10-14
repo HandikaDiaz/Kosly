@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { FieldLabel } from "./field-label"
 import { X } from "lucide-react"
+import { parseTierLimitError, TierLimitModal, type TierLimitInfo } from "./tier-limit-modal"
 
 // ─── tiny utilities ──────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ export function AddRoomForm({ propertyId, onClose, onSuccess }: AddRoomFormProps
   const createRoom = useMutation(api.rooms.create)
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [tierLimitInfo, setTierLimitInfo] = useState<TierLimitInfo | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   const id = useId()
@@ -95,6 +97,7 @@ export function AddRoomForm({ propertyId, onClose, onSuccess }: AddRoomFormProps
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setServerError(null)
+    setTierLimitInfo(null)
     const form = new FormData(event.currentTarget)
     const errors = validate(form)
     if (Object.keys(errors).length) {
@@ -129,7 +132,9 @@ export function AddRoomForm({ propertyId, onClose, onSuccess }: AddRoomFormProps
       onSuccess("Kamar berhasil ditambahkan.")
       onClose()
     } catch (reason) {
-      setServerError(reason instanceof Error ? reason.message : "Kamar gagal ditambahkan.")
+      const tierError = parseTierLimitError(reason)
+      if (tierError) setTierLimitInfo(tierError)
+      else setServerError("Kamar belum dapat ditambahkan. Periksa kembali data kamar lalu coba lagi.")
     } finally {
       setSubmitting(false)
     }
@@ -493,6 +498,7 @@ export function AddRoomForm({ propertyId, onClose, onSuccess }: AddRoomFormProps
           </div>
         </form>
       </div>
+      {tierLimitInfo && <TierLimitModal info={tierLimitInfo} onDismiss={() => setTierLimitInfo(null)} />}
     </div>,
     document.body
   )
