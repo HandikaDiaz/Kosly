@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server"
 import { v } from "convex/values"
-import { requireOwner } from "./lib/auth"
+import { findOwnerForIdentity, getLinkedUserId, requireOwner } from "./lib/auth"
 
 const normalizeSlug = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
 
@@ -9,9 +9,18 @@ export const ensureCurrentOwner = mutation({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return null
-    const existing = await ctx.db.query("owners").withIndex("by_token_identifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier)).unique()
-    if (existing) return existing
-    const ownerId = await ctx.db.insert("owners", { tokenIdentifier: identity.tokenIdentifier, name: identity.name, email: identity.email, role: "owner", identityVerificationStatus: "not_submitted", onboardingCompleted: false, createdAt: Date.now() })
+    const userId = await getLinkedUserId(ctx)
+    const existing = await findOwnerForIdentity(ctx, identity)
+    if (existing) {
+      const updates = {
+        ...(userId && !existing.userId ? { userId } : {}),
+        ...(existing.tokenIdentifier !== identity.tokenIdentifier ? { tokenIdentifier: identity.tokenIdentifier } : {}),
+        ...(identity.email && existing.email !== identity.email ? { email: identity.email } : {}),
+      }
+      if (Object.keys(updates).length > 0) await ctx.db.patch("owners", existing._id, updates)
+      return { ...existing, ...updates }
+    }
+    const ownerId = await ctx.db.insert("owners", { ...(userId ? { userId } : {}), tokenIdentifier: identity.tokenIdentifier, name: identity.name, email: identity.email, role: "owner", identityVerificationStatus: "not_submitted", onboardingCompleted: false, createdAt: Date.now() })
     const owner = await ctx.db.get("owners", ownerId)
     if (!owner) throw new Error("Profil pemilik gagal dibuat.")
     return owner

@@ -21,6 +21,18 @@ test("onboarding rejects fewer than three property photos", async () => {
   })).rejects.toThrow("Minimal 3 foto kos wajib diunggah.")
 })
 
+test("login ulang dengan token berbeda tetap memakai owner yang sama berdasarkan email", async () => {
+  const t = convexTest(schema, modules)
+  const firstSession = t.withIdentity({ tokenIdentifier: "old-token", email: "admin@example.com" })
+  const firstOwner = await firstSession.mutation(api.owners.ensureCurrentOwner, {})
+  const secondSession = t.withIdentity({ tokenIdentifier: "new-token", email: "admin@example.com" })
+  const secondOwner = await secondSession.mutation(api.owners.ensureCurrentOwner, {})
+  const owners = await t.run(async (ctx) => ctx.db.query("owners").take(10))
+
+  expect(secondOwner?._id).toBe(firstOwner?._id)
+  expect(owners).toHaveLength(1)
+})
+
 test("onboarding stores three valid property photos", async () => {
   const t = convexTest(schema, modules)
   const owner = t.withIdentity({ tokenIdentifier: "photo-owner-2" })

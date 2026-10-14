@@ -7,6 +7,7 @@ const paymentStatus = v.union(v.literal("pending_review"), v.literal("confirmed"
 export default defineSchema({
   ...authTables,
   owners: defineTable({
+    userId: v.optional(v.id("users")),
     tokenIdentifier: v.string(),
     name: v.optional(v.string()),
     email: v.optional(v.string()),
@@ -19,7 +20,7 @@ export default defineSchema({
     selfieStorageId: v.optional(v.id("_storage")),
     onboardingCompleted: v.optional(v.boolean()),
     createdAt: v.optional(v.number()),
-  }).index("by_token_identifier", ["tokenIdentifier"]).index("by_ktp_storage", ["ktpStorageId"]).index("by_selfie_storage", ["selfieStorageId"]).index("by_identity_retention", ["identityVerificationStatus", "identityVerificationFilesDeleteAfter"]),
+  }).index("by_user_id", ["userId"]).index("by_token_identifier", ["tokenIdentifier"]).index("by_email", ["email"]).index("by_ktp_storage", ["ktpStorageId"]).index("by_selfie_storage", ["selfieStorageId"]).index("by_identity_retention", ["identityVerificationStatus", "identityVerificationFilesDeleteAfter"]),
   properties: defineTable({
     ownerId: v.id("owners"),
     name: v.string(),
