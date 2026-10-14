@@ -10,6 +10,7 @@ export const ensureCurrentOwner = mutation({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return null
     const userId = await getLinkedUserId(ctx)
+    if (!userId) throw new Error("Akun autentikasi tidak ditemukan.")
     const existing = await findOwnerForIdentity(ctx, identity)
     if (existing) {
       const updates = {
@@ -20,7 +21,7 @@ export const ensureCurrentOwner = mutation({
       if (Object.keys(updates).length > 0) await ctx.db.patch("owners", existing._id, updates)
       return { ...existing, ...updates }
     }
-    const ownerId = await ctx.db.insert("owners", { ...(userId ? { userId } : {}), tokenIdentifier: identity.tokenIdentifier, name: identity.name, email: identity.email, role: "owner", identityVerificationStatus: "not_submitted", onboardingCompleted: false, createdAt: Date.now() })
+    const ownerId = await ctx.db.insert("owners", { userId, tokenIdentifier: identity.tokenIdentifier, name: identity.name, email: identity.email, role: "owner", identityVerificationStatus: "not_submitted", onboardingCompleted: false, createdAt: Date.now() })
     const owner = await ctx.db.get("owners", ownerId)
     if (!owner) throw new Error("Profil pemilik gagal dibuat.")
     return owner

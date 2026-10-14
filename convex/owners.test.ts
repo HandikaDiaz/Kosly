@@ -7,7 +7,8 @@ const modules = import.meta.glob("./**/*.ts")
 
 test("onboarding rejects fewer than three property photos", async () => {
   const t = convexTest(schema, modules)
-  const owner = t.withIdentity({ tokenIdentifier: "photo-owner" })
+  const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "photo@example.com" }))
+  const owner = t.withIdentity({ tokenIdentifier: "photo-owner", subject: userId, email: "photo@example.com" })
   await owner.mutation(api.owners.ensureCurrentOwner, {})
   const photoId = await t.run(async (ctx) => ctx.storage.store(new File(["photo"], "photo.jpg", { type: "image/jpeg" })))
 
@@ -23,9 +24,10 @@ test("onboarding rejects fewer than three property photos", async () => {
 
 test("login ulang dengan token berbeda tetap memakai owner yang sama berdasarkan email", async () => {
   const t = convexTest(schema, modules)
-  const firstSession = t.withIdentity({ tokenIdentifier: "old-token", email: "admin@example.com" })
+  const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "admin@example.com" }))
+  const firstSession = t.withIdentity({ tokenIdentifier: "old-token", subject: userId, email: "admin@example.com" })
   const firstOwner = await firstSession.mutation(api.owners.ensureCurrentOwner, {})
-  const secondSession = t.withIdentity({ tokenIdentifier: "new-token", email: "admin@example.com" })
+  const secondSession = t.withIdentity({ tokenIdentifier: "new-token", subject: userId, email: "admin@example.com" })
   const secondOwner = await secondSession.mutation(api.owners.ensureCurrentOwner, {})
   const owners = await t.run(async (ctx) => ctx.db.query("owners").take(10))
 
@@ -35,7 +37,8 @@ test("login ulang dengan token berbeda tetap memakai owner yang sama berdasarkan
 
 test("onboarding stores three valid property photos", async () => {
   const t = convexTest(schema, modules)
-  const owner = t.withIdentity({ tokenIdentifier: "photo-owner-2" })
+  const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "photo-2@example.com" }))
+  const owner = t.withIdentity({ tokenIdentifier: "photo-owner-2", subject: userId, email: "photo-2@example.com" })
   await owner.mutation(api.owners.ensureCurrentOwner, {})
   const photoIds = await Promise.all([1, 2, 3].map(() => t.run(async (ctx) => ctx.storage.store(new File(["photo"], "photo.jpg", { type: "image/jpeg" })))))
 
