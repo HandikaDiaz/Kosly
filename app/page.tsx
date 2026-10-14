@@ -11,8 +11,11 @@ import {
   EyeOff,
   MessageSquareWarning,
   CheckCircle2,
+  Menu,
+  X,
 } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
+import { useState } from "react"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import { SceneExplainer } from "@/components/landing/scene-explainer"
 import { ScrollReveal } from "@/components/landing/scroll-reveal"
@@ -111,6 +114,7 @@ const HERO_ROWS = [
 
 export default function LandingPage() {
   const reduced = useReducedMotion()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const heroContainerVariants = {
     hidden: {},
@@ -149,10 +153,10 @@ export default function LandingPage() {
   return (
     <div className="lp-root">
       {/* ── Navbar ── */}
-      <nav className="lp-nav">
+      <nav className="lp-nav" aria-label="Navigasi utama">
         <BotKosLogo
           size={30}
-          textClassName="text-lg font-extrabold text-[#FCFBF9] tracking-tight"
+          textClassName="text-lg font-extrabold text-[var(--ink)] tracking-tight"
         />
         <ul className="lp-nav-links">
           <li><a href="#masalah" className="lp-nav-link">Masalah</a></li>
@@ -160,14 +164,40 @@ export default function LandingPage() {
           <li><a href="#fitur" className="lp-nav-link">Fitur</a></li>
           <li><a href="#harga" className="lp-nav-link">Harga</a></li>
         </ul>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <Link href="/dashboard" className="lp-btn-ghost" style={{ padding: "0.55rem 0.9rem", fontSize: "0.82rem" }}>
+        <div className="lp-nav-actions">
+          <Link href="/login" className="lp-btn-ghost lp-nav-cta">
             Masuk
           </Link>
-          <Link href="/dashboard" className="lp-btn-primary" style={{ padding: "0.55rem 0.9rem", fontSize: "0.82rem" }}>
+          <Link href="/login" className="lp-btn-primary lp-nav-cta">
             Coba Gratis
           </Link>
+          <button
+            type="button"
+            className="lp-menu-button"
+            aria-label={mobileMenuOpen ? "Tutup menu" : "Buka menu"}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen((open) => !open)}
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
+        {mobileMenuOpen && (
+          <div className="lp-mobile-menu">
+            {[
+              ["Masalah", "#masalah"],
+              ["Cara Kerja", "#cara-kerja"],
+              ["Fitur", "#fitur"],
+              ["Harga", "#harga"],
+            ].map(([label, href]) => (
+              <a key={href} href={href} className="lp-mobile-link" onClick={() => setMobileMenuOpen(false)}>
+                {label}
+              </a>
+            ))}
+            <Link href="/login" className="lp-btn-primary lp-mobile-start" onClick={() => setMobileMenuOpen(false)}>
+              Mulai gratis <ArrowUpRight size={16} />
+            </Link>
+          </div>
+        )}
       </nav>
 
       {/* ── Hero ── */}
@@ -218,7 +248,7 @@ export default function LandingPage() {
                 className="lp-hero-ctas"
                 variants={heroItemVariants}
               >
-                <Link href="/dashboard" className="lp-btn-primary">
+                <Link href="/login" className="lp-btn-primary">
                   Coba Gratis <ArrowUpRight size={16} />
                 </Link>
                 <a href="#cara-kerja" className="lp-btn-ghost">
@@ -401,7 +431,7 @@ export default function LandingPage() {
                     ))}
                   </ul>
                   <Link
-                    href="/dashboard"
+                    href="/login"
                     className={`lp-pricing-cta ${plan.featured ? "lp-pricing-cta-featured" : "lp-pricing-cta-ghost"}`}
                   >
                     {plan.cta}
@@ -428,7 +458,7 @@ export default function LandingPage() {
                 Siap dalam 5 menit.
               </p>
               <div className="lp-cta-actions">
-                <Link href="/dashboard" className="lp-btn-primary">
+                <Link href="/login" className="lp-btn-primary">
                   Buat akun gratis <ArrowUpRight size={16} />
                 </Link>
                 <a href="#cara-kerja" className="lp-btn-ghost">
@@ -447,10 +477,10 @@ export default function LandingPage() {
             © 2026 BotKos · botkos.id · Operasional kos otomatis tanpa istilah rumit
           </div>
           <div className="lp-footer-links">
-            <a href="#" className="lp-footer-link">Kebijakan Privasi</a>
-            <a href="#" className="lp-footer-link">Syarat Layanan</a>
+            <a href="/privacy" className="lp-footer-link">Kebijakan Privasi</a>
+            <a href="/terms" className="lp-footer-link">Syarat Layanan</a>
           </div>
-          <div className="lp-footer-right">v0.1 / stage 1</div>
+          <div className="lp-footer-right">Dibuat untuk pemilik kos Indonesia</div>
         </div>
       </footer>
     </div>

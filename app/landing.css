@@ -50,6 +50,28 @@
 }
 .lp-nav-link:hover { color: #9F722A; }
 
+.lp-nav-actions { display: flex; align-items: center; gap: 0.75rem; }
+.lp-nav-cta { padding: 0.55rem 0.9rem; font-size: 0.82rem; }
+.lp-menu-button {
+  display: none; align-items: center; justify-content: center;
+  width: 2.5rem; height: 2.5rem; border: 1px solid #EBD8B7;
+  border-radius: 0.5rem; color: #191512; background: #fff; cursor: pointer;
+}
+.lp-menu-button:hover { border-color: #B28236; color: #9F722A; }
+.lp-mobile-menu {
+  display: none; position: absolute; top: calc(100% + 0.5rem); left: 1.25rem; right: 1.25rem;
+  padding: 0.75rem; background: rgba(252,251,249,0.98); border: 1px solid #EBD8B7;
+  border-radius: 0.75rem; box-shadow: 0 16px 36px rgba(25,21,18,0.12);
+}
+.lp-mobile-link { display: block; padding: 0.7rem 0.75rem; color: #6B655F; font-size: 0.9rem; text-decoration: none; border-radius: 0.4rem; }
+.lp-mobile-link:hover { color: #9F722A; background: rgba(178,130,54,0.07); }
+.lp-mobile-start { width: 100%; justify-content: center; margin-top: 0.35rem; }
+@media (max-width: 768px) {
+  .lp-nav-cta { display: none; }
+  .lp-menu-button, .lp-mobile-menu { display: flex; }
+  .lp-mobile-menu { flex-direction: column; }
+}
+
 /* ── Shared layout ───────────────────────────────────────────── */
 .lp-container { max-width: 1140px; margin: 0 auto; padding: 0 2rem; }
 @media (max-width: 640px) { .lp-container { padding: 0 1.25rem; } }
@@ -582,6 +604,21 @@
 .lp-footer-links { display: flex; gap: 1.25rem; }
 .lp-footer-link  { font-size: 0.78rem; color: #6B655F; text-decoration: none; transition: color 0.18s ease; }
 .lp-footer-link:hover { color: #9F722A; }
+
+.lp-footer-link:focus-visible,
+.lp-nav-link:focus-visible,
+.lp-btn-primary:focus-visible,
+.lp-btn-ghost:focus-visible,
+.lp-menu-button:focus-visible,
+.lp-mobile-link:focus-visible {
+  outline: 3px solid rgba(178,130,54,0.35); outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .lp-footer { align-items: flex-start; flex-direction: column; }
+  .lp-footer-links { order: 2; }
+  .lp-footer-right { order: 3; }
+}
 
 /* ── Global accessibility ────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
