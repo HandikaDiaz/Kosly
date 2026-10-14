@@ -30,14 +30,14 @@ test("rejects duplicate room numbers within one property", async () => {
   await expect(owner.mutation(api.rooms.create, { propertyId, roomNumber: "12", monthlyRent: 1500000 })).rejects.toThrow("Nomor kamar sudah ada.")
 })
 
-test("blocks the fourth room on the free tier with upgrade guidance", async () => {
+test("blocks the sixth room on the free tier with upgrade guidance", async () => {
   const t = convexTest(schema, modules)
   const setup = await t.run(async (ctx) => {
     const ownerId = await ctx.db.insert("owners", { tokenIdentifier: "free-limit-owner", role: "owner" })
     const propertyId = await ctx.db.insert("properties", { ownerId, name: "Kos Free", address: "Jalan", slug: "kos-free", isActive: true })
-    for (let index = 0; index < 3; index += 1) await ctx.db.insert("rooms", { propertyId, roomNumber: String(index + 1), status: "available", monthlyRent: 1000 })
+    for (let index = 0; index < 5; index += 1) await ctx.db.insert("rooms", { propertyId, roomNumber: String(index + 1), status: "available", monthlyRent: 1000 })
     return { propertyId }
   })
   const owner = t.withIdentity({ tokenIdentifier: "free-limit-owner" })
-  await expect(owner.mutation(api.rooms.create, { propertyId: setup.propertyId, roomNumber: "4", monthlyRent: 1000 })).rejects.toThrow("Upgrade ke Starter")
+  await expect(owner.mutation(api.rooms.create, { propertyId: setup.propertyId, roomNumber: "6", monthlyRent: 1000 })).rejects.toThrow("Upgrade ke Starter")
 })

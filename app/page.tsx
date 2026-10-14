@@ -20,6 +20,7 @@ import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import { SceneExplainer } from "@/components/landing/scene-explainer"
 import { ScrollReveal } from "@/components/landing/scroll-reveal"
 import "@/app/landing.css"
+import { getTierLimits, getTierPrice } from "@/convex/lib/subscription_tiers"
 
 /* ─── Data ───────────────────────────────────────────────────── */
 
@@ -64,38 +65,40 @@ const FEATURES = [
   },
 ]
 
+const landingPrice = (tier: "free" | "starter" | "growth" | "pro") => getTierPrice(tier, "monthly") === 0 ? "Rp0" : "Rp" + getTierPrice(tier, "monthly").toLocaleString("id-ID")
+
 const PRICING = [
   {
     tier: "Gratis",
     price: "Rp0",
     period: "",
     desc: "Untuk mencoba, selamanya",
-    features: ["Hingga 3 kamar", "1 properti", "Dashboard dasar", "Bot Telegram (limited)"],
+    features: ["Hingga " + getTierLimits("free").maxRooms + " kamar", "1 properti", "Dashboard dasar", "Bot Telegram & WhatsApp"],
     cta: "Mulai gratis",
     featured: false,
   },
   {
     tier: "Starter",
-    price: "Rp79.000",
+    price: landingPrice("starter"),
     period: "/bln",
     desc: "Untuk pemilik kos kecil",
-    features: ["Hingga 10 kamar", "1 properti", "Reminder otomatis", "Bot Telegram + WhatsApp", "Upload bukti penyewa"],
+    features: ["Hingga " + getTierLimits("starter").maxRooms + " kamar", getTierLimits("starter").maxProperties + " properti", "Reminder otomatis", "Bot Telegram + WhatsApp", "Upload bukti penyewa"],
     cta: "Pilih Starter",
     featured: false,
   },
   {
     tier: "Growth",
-    price: "Rp179.000",
+    price: landingPrice("growth"),
     period: "/bln",
     desc: "Paling populer untuk kos aktif",
-    features: ["Hingga 30 kamar", "3 properti", "Semua fitur Starter", "Laporan bulanan", "Prioritas support"],
+    features: ["Hingga " + getTierLimits("growth").maxRooms + " kamar", getTierLimits("growth").maxProperties + " properti", "Semua fitur Starter", "Laporan bulanan", "Prioritas support"],
     cta: "Pilih Growth",
     featured: true,
     badge: "Paling Populer",
   },
   {
     tier: "Pro",
-    price: "Rp399.000",
+    price: landingPrice("pro"),
     period: "/bln",
     desc: "Untuk portofolio besar",
     features: ["Kamar tak terbatas", "Properti tak terbatas", "Semua fitur Growth", "API akses", "Onboarding khusus"],
@@ -265,7 +268,7 @@ export default function LandingPage() {
                 variants={heroItemVariants}
                 style={{ marginTop: "1rem", fontSize: "0.78rem", color: "rgba(252,251,249,0.35)" }}
               >
-                Gratis untuk 3 kamar pertama. Tidak perlu kartu kredit.
+                Gratis untuk 5 kamar pertama. Tidak perlu kartu kredit.
               </motion.p>
             </motion.div>
 
@@ -456,7 +459,7 @@ export default function LandingPage() {
             <ScrollReveal>
               <h2 className="lp-cta-title">
                 Mulai sekarang,<br />
-                <em>gratis selamanya</em> untuk 3 kamar
+                <em>gratis selamanya</em> untuk 5 kamar
               </h2>
               <p className="lp-cta-sub">
                 Tidak perlu kartu kredit. Tidak perlu penyewa install aplikasi.

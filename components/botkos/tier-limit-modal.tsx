@@ -13,8 +13,8 @@ export type TierLimitInfo = {
 }
 
 const tierDetails = {
-  free: { label: "Free", rooms: "3 kamar", properties: "1 properti" },
-  starter: { label: "Starter", rooms: "10 kamar", properties: "1 properti" },
+  free: { label: "Free", rooms: "5 kamar", properties: "1 properti" },
+  starter: { label: "Starter", rooms: "10 kamar", properties: "2 properti" },
   growth: { label: "Growth", rooms: "30 kamar", properties: "3 properti" },
   pro: { label: "Pro", rooms: "kamar tidak terbatas", properties: "properti tidak terbatas" },
 } as const

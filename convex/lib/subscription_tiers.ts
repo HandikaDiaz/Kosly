@@ -2,7 +2,7 @@ export type SubscriptionTier = "free" | "starter" | "growth" | "pro"
 export type BillingCycle = "monthly" | "annual" | "none"
 export type TierLimits = { maxRooms: number | null; maxProperties: number | null }
 
-const tierPrices: Record<SubscriptionTier, { monthly: number; annual: number }> = {
+export const tierPrices: Record<SubscriptionTier, { monthly: number; annual: number }> = {
   free: { monthly: 0, annual: 0 },
   starter: { monthly: 59000, annual: 590000 },
   growth: { monthly: 109000, annual: 1090000 },
@@ -10,8 +10,8 @@ const tierPrices: Record<SubscriptionTier, { monthly: number; annual: number }> 
 }
 
 export const tierLimits: Record<SubscriptionTier, TierLimits> = {
-  free: { maxRooms: 3, maxProperties: 1 },
-  starter: { maxRooms: 10, maxProperties: 1 },
+  free: { maxRooms: 5, maxProperties: 1 },
+  starter: { maxRooms: 10, maxProperties: 2 },
   growth: { maxRooms: 30, maxProperties: 3 },
   pro: { maxRooms: null, maxProperties: null },
 }
@@ -21,7 +21,7 @@ export const getTierLimits = (tier: SubscriptionTier) => tierLimits[tier]
 export const getTierForRoomCount = (roomCount: number): SubscriptionTier => {
   if (roomCount > 30) return "pro"
   if (roomCount > 10) return "growth"
-  if (roomCount > 3) return "starter"
+  if (roomCount > 5) return "starter"
   return "free"
 }
 

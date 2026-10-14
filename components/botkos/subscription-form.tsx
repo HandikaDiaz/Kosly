@@ -31,7 +31,7 @@ export function SubscriptionForm({ onSubmitted }: { onSubmitted: () => void }) {
     } finally { setLoading(false) }
   }
 
-  return <div className="space-y-5 border border-[var(--line)] bg-[#fffefa] p-6">
+  return <div id="upgrade-form" className="space-y-5 border border-[var(--line)] bg-[#fffefa] p-6">
     <div><h2 className="text-xl font-semibold text-[var(--ink)]">Ajukan upgrade</h2><p className="mt-1 text-sm text-[var(--ink-muted)]">Pembayaran diperiksa manual oleh admin.</p></div>
     <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm text-[var(--ink)]">Tier<select className="field-input mt-2" value={tier} onChange={(event) => setTier(event.target.value as typeof tier)}><option value="starter">Starter — Rp59.000/bln</option><option value="growth">Growth — Rp109.000/bln</option><option value="pro">Pro — Rp199.000/bln</option></select></label><label className="text-sm text-[var(--ink)]">Siklus<select className="field-input mt-2" value={billingCycle} onChange={(event) => setBillingCycle(event.target.value as typeof billingCycle)}><option value="monthly">Bulanan</option><option value="annual">Tahunan</option></select></label></div>
     <div className="border border-[var(--line)] bg-[var(--background)] p-4 text-sm leading-6 text-[var(--ink-muted)]">Transfer manual ke rekening/QRIS admin. Simpan bukti transfer untuk diperiksa.</div>
