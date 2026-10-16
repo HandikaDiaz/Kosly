@@ -52,12 +52,25 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const rawBody = await request.text()
-    if (!await verifyWhatsAppSignature(rawBody, request.headers.get("x-hub-signature-256") ?? undefined, botEnv.META_APP_SECRET)) return new Response("Unauthorized", { status: 401 })
+    console.log("📥 [WhatsApp Webhook] Request POST diterima. Headers signature:", request.headers.get("x-hub-signature-256"))
+    if (!await verifyWhatsAppSignature(rawBody, request.headers.get("x-hub-signature-256") ?? undefined, botEnv.META_APP_SECRET)) {
+      console.warn("⚠️ [WhatsApp Webhook] Signature verification GAGAL! Periksa META_APP_SECRET.")
+      return new Response("Unauthorized", { status: 401 })
+    }
     let parsed: unknown
-    try { parsed = JSON.parse(rawBody) } catch { return new Response("Bad Request", { status: 400 }) }
+    try { parsed = JSON.parse(rawBody) } catch { 
+      console.error("❌ [WhatsApp Webhook] Gagal parse JSON body.")
+      return new Response("Bad Request", { status: 400 }) 
+    }
+    console.log("📦 [WhatsApp Webhook Payload]:", JSON.stringify(parsed, null, 2))
     const event = normalizeWhatsAppEvent(asRecord(parsed) ?? {})
-    if (!event) return new Response("Ignored", { status: 200 })
+    if (!event) {
+      console.log("ℹ️ [WhatsApp Webhook] Event diabaikan (bukan pesan teks/gambar dari user).")
+      return new Response("Ignored", { status: 200 })
+    }
+    console.log("💬 [WhatsApp Message Masuk]:", { chatId: event.chatId, text: event.text, photoMediaId: event.photoMediaId })
     const result = await ctx.runMutation(internal.bots.processor.processEvent, event)
+    console.log("⚙️ [WhatsApp Bot Result]:", result)
     if (result.status === "query") await ctx.runAction(internal.bots.queryDelivery.sendResponse, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, query: result.query })
     if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text, replyMarkup: result.replyMarkup })
     if (result.status === "photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveSubscriptionProof, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, sessionId: result.sessionId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })

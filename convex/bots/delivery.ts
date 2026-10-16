@@ -5,7 +5,7 @@ import { v } from "convex/values"
 import { internal } from "../_generated/api"
 import { createPaymentReference } from "./commands"
 import { sendTelegramPaymentProof, sendTelegramPaymentReview, sendTelegramText } from "./telegram"
-import { sendWhatsAppPaymentReview, sendWhatsAppText } from "./whatsapp"
+import { sendWhatsAppPaymentProof, sendWhatsAppPaymentReview, sendWhatsAppText } from "./whatsapp"
 
 const botEnv = env as typeof env & Record<string, string | undefined>
 
@@ -28,12 +28,48 @@ export const sendPaymentUploaded = internalAction({
             await ctx.runMutation(internal.notifications.recordDelivery, { paymentId: review.paymentId, ownerId: review.ownerId, channel: "whatsapp", status: "failed", errorMessage: "WHATSAPP_ACCESS_TOKEN atau WHATSAPP_PHONE_NUMBER_ID belum tersedia di Convex." })
             continue
           }
-          const result = await sendWhatsAppPaymentReview(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, summary)
+          const result = review.proofUrl
+            ? await sendWhatsAppPaymentProof(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, summary, review.proofUrl)
+            : await sendWhatsAppPaymentReview(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, summary)
           await ctx.runMutation(internal.notifications.recordDelivery, { paymentId: review.paymentId, ownerId: review.ownerId, channel: "whatsapp", status: "logged", externalMessageId: result.messages?.[0]?.id })
           delivered += 1
         }
       } catch (error) {
         await ctx.runMutation(internal.notifications.recordDelivery, { paymentId: review.paymentId, ownerId: review.ownerId, channel: link.channel, status: "failed", errorMessage: error instanceof Error ? error.message : "Provider request failed" })
+      }
+    }
+    return { delivered }
+  },
+})
+
+export const sendPaymentDecisionNotice = internalAction({
+  args: {
+    ownerId: v.id("owners"),
+    paymentId: v.id("payments"),
+    decision: v.union(v.literal("confirmed"), v.literal("rejected")),
+    sourceChannel: v.union(v.literal("telegram"), v.literal("whatsapp")),
+  },
+  handler: async (ctx, args) => {
+    const review = await ctx.runQuery(internal.notifications.getPaymentReview, { paymentId: args.paymentId })
+    if (!review || review.ownerId !== args.ownerId) return { delivered: 0 }
+    const links = review.links.filter((link) => link.status === "active" && link.channel !== args.sourceChannel)
+    const reference = createPaymentReference(String(args.paymentId))
+    const decisionText = args.decision === "confirmed" ? "dikonfirmasi" : "ditolak"
+    const reasonText = args.decision === "rejected" ? " Pembayaran ini sudah tidak menunggu keputusan." : " Status pembayaran sudah diperbarui."
+    const text = `🔄 Pembayaran ${reference} untuk ${review.tenantName} di Kamar ${review.roomNumber} sudah ${decisionText} melalui ${args.sourceChannel === "telegram" ? "Telegram" : "WhatsApp"}.${reasonText}`
+    let delivered = 0
+    for (const link of links) {
+      try {
+        if (link.channel === "telegram" && botEnv.TELEGRAM_BOT_TOKEN) {
+          await sendTelegramText(botEnv.TELEGRAM_BOT_TOKEN, link.chatId, text)
+          delivered += 1
+        }
+        if (link.channel === "whatsapp" && botEnv.WHATSAPP_ACCESS_TOKEN && botEnv.WHATSAPP_PHONE_NUMBER_ID) {
+          await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, text)
+          delivered += 1
+        }
+      } catch (error) {
+        console.error("Gagal mengirim sinkronisasi keputusan pembayaran:", error)
       }
     }
     return { delivered }
@@ -53,7 +89,7 @@ export const sendReminderNotice = internalAction({
           delivered += 1
         }
         if (link.channel === "whatsapp" && botEnv.WHATSAPP_ACCESS_TOKEN && botEnv.WHATSAPP_PHONE_NUMBER_ID) {
-          await sendWhatsAppPaymentReview(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, { propertyName: "BotKos", roomNumber: "-", tenantName: "-", amount: "-", reference: "-" })
+          await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, args.text)
           delivered += 1
         }
       } catch (err) {

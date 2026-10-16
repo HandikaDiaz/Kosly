@@ -73,6 +73,17 @@ const WHATSAPP_STEPS = [
   },
 ]
 
+const BOTKOS_ABOUT = "BotKos adalah asisten pengelolaan kos untuk membantu owner memantau kamar, tenant, pembayaran, langganan, dan laporan langsung dari chat."
+
+const COMMAND_PREVIEW = [
+  ["help", "Daftar command"],
+  ["status", "Ringkasan kos"],
+  ["belum_bayar", "Tagihan tertunda"],
+  ["kamar_kosong", "Kamar tersedia"],
+  ["langganan", "Status tier"],
+  ["upgrade", "Pilihan upgrade"],
+] as const
+
 // ─── step list component ─────────────────────────────────────────────────────
 
 function StepList({ steps }: { steps: typeof TELEGRAM_STEPS }) {
@@ -138,6 +149,10 @@ export function BotChannelCard({ channel }: { channel: Channel }) {
   }
 
   const steps = isTelegram ? TELEGRAM_STEPS : WHATSAPP_STEPS
+  const whatsappBotNumber = process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER?.replace(/\D/g, "")
+  const whatsappChatUrl = whatsappBotNumber
+    ? `https://wa.me/${whatsappBotNumber}?text=${encodeURIComponent("Halo BotKos, saya ingin menghubungkan WhatsApp saya.")}`
+    : undefined
 
   return (
     <div className="bot-card">
@@ -160,6 +175,32 @@ export function BotChannelCard({ channel }: { channel: Channel }) {
           </span>
         ) : (
           <span className="bot-card-badge-idle">Belum terhubung</span>
+        )}
+      </div>
+
+      <div className="mx-5 mt-4 border border-[var(--line)] bg-[var(--background)] p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--gold-dark)]">About BotKos</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--ink-muted)]">{BOTKOS_ABOUT}</p>
+        <details className="mt-3 text-sm text-[var(--ink-muted)]">
+          <summary className="cursor-pointer font-medium text-[var(--ink)]">Lihat command utama</summary>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {COMMAND_PREVIEW.map(([command, description]) => (
+              <p key={command}><code className="bot-card-code">{isTelegram ? `/${command}` : command}</code> <span className="text-xs">{description}</span></p>
+            ))}
+          </div>
+          <p className="mt-3 text-xs">Ketik {isTelegram ? <code className="bot-card-code">/help</code> : <code className="bot-card-code">help</code>} di chat untuk daftar lengkap.</p>
+        </details>
+        {!isTelegram && (
+          <div className="mt-4">
+            {whatsappChatUrl ? (
+              <a href={whatsappChatUrl} target="_blank" rel="noreferrer" className="bot-card-link inline-flex items-center gap-1">
+                Chat BotKos di WhatsApp <ExternalLink size={11} />
+              </a>
+            ) : (
+              <p className="text-xs text-[var(--ink-muted)]">Tautan chat WhatsApp akan tampil setelah nomor bot dikonfigurasi.</p>
+            )}
+            <p className="mt-1 text-xs text-[var(--ink-muted)]">Pesan awal yang direkomendasikan: “Halo BotKos, saya ingin menghubungkan WhatsApp saya.”</p>
+          </div>
         )}
       </div>
 

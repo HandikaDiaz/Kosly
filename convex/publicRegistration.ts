@@ -15,7 +15,13 @@ export const getPropertyForRegistration = query({
     const property = await ctx.db.query("properties").withIndex("by_slug", (q) => q.eq("slug", normalizeSlug(args.slug))).unique()
     if (!property || !property.isActive) return null
     const rooms = await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)
-    return { name: property.name, slug: property.slug, rooms: rooms.filter((room) => room.status === "available").map((room) => ({ _id: room._id, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent, annualRent: room.annualRent, depositFee: room.depositFee, dpAmount: room.dpAmount })) }
+    const pendingPayments = await ctx.db.query("payments").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id).eq("status", "pending_review")).take(100)
+    const activeBookings = await ctx.db.query("bookings").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id)).take(100)
+    const unavailableRoomIds = new Set([
+      ...pendingPayments.map((payment) => String(payment.roomId)),
+      ...activeBookings.filter((booking) => booking.status === "pending" || booking.status === "locked").map((booking) => String(booking.roomId)),
+    ])
+    return { name: property.name, slug: property.slug, rooms: rooms.filter((room) => room.status === "available" && !unavailableRoomIds.has(String(room._id))).map((room) => ({ _id: room._id, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent, annualRent: room.annualRent, depositFee: room.depositFee, dpAmount: room.dpAmount })) }
   },
 })
 
@@ -28,6 +34,10 @@ export const createSubmission = mutation({
     if (owner?.identityVerificationStatus !== "verified") throw new Error("Pendaftaran belum tersedia. Pemilik properti belum menyelesaikan verifikasi identitas.")
     const room = await ctx.db.get("rooms", args.roomId)
     if (!room || room.propertyId !== property._id || room.status !== "available") throw new Error("Kamar sudah tidak tersedia.")
+    const pendingPayments = await ctx.db.query("payments").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id).eq("status", "pending_review")).take(100)
+    if (pendingPayments.some((payment) => payment.roomId === room._id)) throw new Error("Kamar sedang menunggu verifikasi pembayaran dan belum dapat dipilih.")
+    const activeBookings = await ctx.db.query("bookings").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id)).take(100)
+    if (activeBookings.some((booking) => booking.roomId === room._id && (booking.status === "pending" || booking.status === "locked"))) throw new Error("Kamar sedang dipesan dan belum dapat dipilih.")
     const name = args.name.trim()
     const phone = args.phone.trim()
     if (!name || !/^\+?[0-9\s-]{9,18}$/.test(phone) || args.amount <= 0) throw new Error("Data pendaftaran belum valid.")

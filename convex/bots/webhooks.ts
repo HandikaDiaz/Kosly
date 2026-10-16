@@ -44,6 +44,16 @@ export const normalizeWhatsAppEvent = (body: UnknownRecord): NormalizedBotEvent 
   const text = message?.text as UnknownRecord | undefined
   const image = message?.image as UnknownRecord | undefined
   if (!message || typeof message.id !== "string" || typeof message.from !== "string") return null
+  const interactive = message.interactive as UnknownRecord | undefined
+  const buttonReply = interactive?.button_reply as UnknownRecord | undefined
+  const templateButton = message.button as UnknownRecord | undefined
+  const buttonId = buttonReply?.id ?? templateButton?.payload
+  if (typeof buttonId === "string") {
+    const [action, reference] = buttonId.trim().split(":")
+    if ((action === "confirm" || action === "reject") && reference) {
+      return { channel: "whatsapp", eventId: message.id, chatId: message.from, callbackAction: action, callbackReference: reference.toUpperCase() }
+    }
+  }
   if (typeof image?.id === "string") return { channel: "whatsapp", eventId: message.id, chatId: message.from, text: typeof image.caption === "string" ? image.caption : undefined, photoMediaId: image.id }
   if (typeof text?.body === "string") return { channel: "whatsapp", eventId: message.id, chatId: message.from, text: text.body }
   return null

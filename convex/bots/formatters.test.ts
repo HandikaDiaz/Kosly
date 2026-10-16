@@ -190,7 +190,8 @@ test("buildReviewMessage - Telegram vs WhatsApp", () => {
 
   const wa = buildReviewMessage(summary, "whatsapp")
   expect(wa.text).toContain("*Kos Aziza*")
-  expect(wa.text).toContain("KONFIRMASI KSL-TEST123")
+  expect(wa.text).not.toContain("Balas:")
+  expect(wa.text).not.toContain("KONFIRMASI KSL-TEST123")
 
   const tg = buildReviewMessage(summary, "telegram")
   expect(tg.text).toContain("<b>Kos Aziza</b>")

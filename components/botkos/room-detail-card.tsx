@@ -9,6 +9,8 @@ import {
   ChevronRight,
   Sparkles,
 } from "lucide-react"
+import { useState } from "react"
+import { ImageLightbox } from "./image-lightbox"
 
 export type PublicRoom = {
   _id: string
@@ -45,6 +47,7 @@ export function RoomDetailCard({
   onClick,
   selectable = false,
 }: RoomDetailCardProps) {
+  const [previewImage, setPreviewImage] = useState<{ url: string; alt: string } | null>(null)
   // Gender category translation
   const genderText =
     room.genderCategory === "male"
@@ -259,12 +262,22 @@ export function RoomDetailCard({
         <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
           {validMedia.map((item, i) =>
             item.kind === "photo" ? (
-              <img
+              <button
                 key={i}
-                src={item.url ?? ""}
-                alt={item.caption ?? `Foto kamar ${room.roomNumber}`}
-                className="h-16 w-24 shrink-0 rounded border border-[var(--line)] object-cover"
-              />
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  if (item.url) setPreviewImage({ url: item.url, alt: item.caption ?? `Foto kamar ${room.roomNumber}` })
+                }}
+                className="h-16 w-24 shrink-0 overflow-hidden rounded border border-[var(--line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--wood)]"
+                aria-label={`Lihat foto kamar ${room.roomNumber}`}
+              >
+                <img
+                  src={item.url ?? ""}
+                  alt={item.caption ?? `Foto kamar ${room.roomNumber}`}
+                  className="h-full w-full cursor-zoom-in object-cover transition-transform hover:scale-105"
+                />
+              </button>
             ) : (
               <video
                 key={i}
@@ -274,6 +287,15 @@ export function RoomDetailCard({
             )
           )}
         </div>
+      )}
+
+      {previewImage && (
+        <ImageLightbox
+          src={previewImage.url}
+          alt={previewImage.alt}
+          title={`Foto kamar ${room.roomNumber}`}
+          onClose={() => setPreviewImage(null)}
+        />
       )}
     </article>
   )

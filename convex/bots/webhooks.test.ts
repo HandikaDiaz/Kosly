@@ -18,6 +18,10 @@ test("normalizes WhatsApp text messages", () => {
   expect(normalizeWhatsAppEvent({ entry: [{ changes: [{ value: { messages: [{ id: "wamid-1", from: "62812", text: { body: "KONFIRMASI KSL-ABC123" } }] } }] }] })).toMatchObject({ channel: "whatsapp", eventId: "wamid-1", chatId: "62812", text: "KONFIRMASI KSL-ABC123" })
 })
 
+test("normalizes WhatsApp reply button callbacks", () => {
+  expect(normalizeWhatsAppEvent({ entry: [{ changes: [{ value: { messages: [{ id: "wamid-button-1", from: "62812", interactive: { button_reply: { id: "confirm:KSL-ABC123" } } }] } }] }] })).toEqual({ channel: "whatsapp", eventId: "wamid-button-1", chatId: "62812", callbackAction: "confirm", callbackReference: "KSL-ABC123" })
+})
+
 test("verifies WhatsApp HMAC signatures", async () => {
   const body = JSON.stringify({ hello: "world" })
   const signature = await verifyWhatsAppSignature(body, "sha256=", "secret")

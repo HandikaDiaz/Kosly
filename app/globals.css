@@ -126,6 +126,22 @@
   * {
     @apply border-border outline-ring/50;
     }
+  button:not(:disabled),
+  a[href],
+  [role="button"],
+  select,
+  summary,
+  label:has(input[type="file"]),
+  input[type="checkbox"],
+  input[type="radio"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: "Public Sans", "Segoe UI", sans-serif;

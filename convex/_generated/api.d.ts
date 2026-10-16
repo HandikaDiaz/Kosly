@@ -15,6 +15,7 @@ import type * as botLinks from "../botLinks.js";
 import type * as bots_commands from "../bots/commands.js";
 import type * as bots_delivery from "../bots/delivery.js";
 import type * as bots_formatters from "../bots/formatters.js";
+import type * as bots_help from "../bots/help.js";
 import type * as bots_processor from "../bots/processor.js";
 import type * as bots_queries from "../bots/queries.js";
 import type * as bots_queryDelivery from "../bots/queryDelivery.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   "bots/commands": typeof bots_commands;
   "bots/delivery": typeof bots_delivery;
   "bots/formatters": typeof bots_formatters;
+  "bots/help": typeof bots_help;
   "bots/processor": typeof bots_processor;
   "bots/queries": typeof bots_queries;
   "bots/queryDelivery": typeof bots_queryDelivery;

@@ -12,6 +12,7 @@ import { AddRoomForm } from "@/components/botkos/add-room-form"
 import { EditFacilityModal, type PropertyFacilityItem } from "@/components/botkos/edit-facility-modal"
 import { EditRoomModal, type RoomItem } from "@/components/botkos/edit-room-modal"
 import { RoomCardCarousel } from "@/components/botkos/room-card-carousel"
+import { ImageLightbox } from "@/components/botkos/image-lightbox"
 
 const facilityLabels = {
   shared: "Fasilitas bersama",
@@ -33,6 +34,7 @@ export default function PropertyDetailPage() {
   const rooms = useQuery(api.rooms.listForProperty, { propertyId })
   const facilities = useQuery(api.propertyFacilities.listForProperty, { propertyId })
   const roomMedia = useQuery(api.roomMedia.listForProperty, { propertyId })
+  const propertyPhotos = useQuery(api.propertyPhotos.listMine, { propertyId })
   const bookings = useQuery(api.bookings.listActiveForProperty, { propertyId })
 
   const createFacility = useMutation(api.propertyFacilities.create)
@@ -43,8 +45,9 @@ export default function PropertyDetailPage() {
   const [editingRoom, setEditingRoom] = useState<RoomItem | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [previewPropertyPhoto, setPreviewPropertyPhoto] = useState<{ url: string; caption?: string } | null>(null)
 
-  if (!property || !rooms || !facilities || !roomMedia || !bookings) {
+  if (!property || !rooms || !facilities || !roomMedia || !propertyPhotos || !bookings) {
     return <div className="p-8 text-sm text-[var(--ink-muted)]">Memuat properti…</div>
   }
 
@@ -138,6 +141,41 @@ export default function PropertyDetailPage() {
           <p role="alert" className="mt-5 text-sm text-[var(--warn)]">
             {error}
           </p>
+        )}
+
+        {propertyPhotos.length > 0 && (
+          <section className="mt-8 border border-[var(--line)] bg-[#fffefa] p-5 sm:p-6">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-sm text-[var(--ink-muted)]">Galeri properti</p>
+                <h2 className="mt-1 text-xl font-semibold text-[var(--ink)]">Foto properti</h2>
+              </div>
+              <span className="text-xs text-[var(--ink-muted)]">Klik foto untuk melihat detail</span>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {propertyPhotos.map((photo) => photo.url ? (
+                <button
+                  type="button"
+                  key={photo._id}
+                  onClick={() => setPreviewPropertyPhoto({ url: photo.url!, caption: photo.caption })}
+                  className="group relative h-32 overflow-hidden border border-[var(--line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--wood)] sm:h-36"
+                  aria-label={`Lihat foto properti${photo.caption ? `: ${photo.caption}` : ""}`}
+                >
+                  <img src={photo.url} alt={photo.caption ?? `Foto ${property.name}`} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                  <span className="absolute inset-x-0 bottom-0 bg-black/55 px-2 py-1 text-left text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">Lihat foto</span>
+                </button>
+              ) : null)}
+            </div>
+          </section>
+        )}
+
+        {previewPropertyPhoto && (
+          <ImageLightbox
+            src={previewPropertyPhoto.url}
+            alt={previewPropertyPhoto.caption ?? `Foto ${property.name}`}
+            title={previewPropertyPhoto.caption ?? `Foto ${property.name}`}
+            onClose={() => setPreviewPropertyPhoto(null)}
+          />
         )}
 
         {/* ── Registration Link Section ── */}

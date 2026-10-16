@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ImageLightbox } from "./image-lightbox"
 
 export type MediaItem = {
   _id: string
@@ -24,6 +25,7 @@ export function RoomCardCarousel({
 }: RoomCardCarouselProps) {
   const [index, setIndex] = useState(0)
   const [touchStart, setTouchStart] = useState<number | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const validMedia = media.filter((item) => item.url !== null)
   const defaultClasses = "h-40 flex-1 min-w-0"
@@ -86,7 +88,11 @@ export function RoomCardCarousel({
         <img
           src={current.url ?? ""}
           alt={current.caption ?? `Foto kamar ${roomNumber}`}
-          className="h-full w-full object-cover transition-opacity duration-200"
+          onClick={(event) => {
+            event.stopPropagation()
+            if (current.url) setPreviewUrl(current.url)
+          }}
+          className="h-full w-full cursor-zoom-in object-cover transition-opacity duration-200"
         />
       ) : (
         <video
@@ -130,6 +136,15 @@ export function RoomCardCarousel({
             {index + 1}/{validMedia.length}
           </div>
         </>
+      )}
+
+      {previewUrl && (
+        <ImageLightbox
+          src={previewUrl}
+          alt={`Foto kamar ${roomNumber}`}
+          title={`Foto kamar ${roomNumber}`}
+          onClose={() => setPreviewUrl(null)}
+        />
       )}
     </div>
   )

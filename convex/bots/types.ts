@@ -26,6 +26,7 @@ export type BotCommand =
   | { kind: "confirm"; reference: string }
   | { kind: "reject"; reference: string; reason: string }
   | { kind: "help" }
+  | { kind: "chat_id" }
   | { kind: "status" | "subscription" | "upgrade" | "pending" | "summary" | "monthly_report" }
   | { kind: "admin_decision"; decision: "approve" | "reject"; reference: string }
   | { kind: "selection"; value: string }

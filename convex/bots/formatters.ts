@@ -258,6 +258,6 @@ export const buildReviewMessage = (
     return { text, parseMode: "HTML" }
   }
 
-  const text = `📋 *Pembayaran Baru Perlu Diverifikasi*\n\n*${summary.propertyName}* · Kamar *${summary.roomNumber}*\n*${summary.tenantName}* · ${summary.amount}\nRef: *${summary.reference}*\n\nBalas:\n*KONFIRMASI ${summary.reference}*\natau\n*TOLAK ${summary.reference}* alasan`
+  const text = `📋 *Pembayaran Baru Perlu Diverifikasi*\n\n*${summary.propertyName}* · Kamar *${summary.roomNumber}*\n*${summary.tenantName}* · ${summary.amount}\nRef: *${summary.reference}*`
   return { text }
 }

@@ -28,4 +28,17 @@ describe("parseBotCommand", () => {
   test("parses monthly report command", () => {
     expect(parseBotCommand("/laporan")).toEqual({ kind: "monthly_report" })
   })
+
+  test("parses help and Telegram chat ID commands", () => {
+    expect(parseBotCommand("/help")).toEqual({ kind: "help" })
+    expect(parseBotCommand("/chatid")).toEqual({ kind: "chat_id" })
+    expect(parseBotCommand("chatid")).toEqual({ kind: "chat_id" })
+  })
+
+  test("accepts WhatsApp commands without slash", () => {
+    expect(parseBotCommand("status")).toEqual({ kind: "status" })
+    expect(parseBotCommand("upgrade")).toEqual({ kind: "upgrade" })
+    expect(parseBotCommand("tambahkamar")).toEqual({ kind: "add_room" })
+    expect(parseBotCommand("editkamar 12 status kosong")).toEqual({ kind: "edit_room", roomNumber: "12", field: "status", value: "kosong" })
+  })
 })

@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { FieldLabel } from "./field-label"
 import { X, Trash2, Upload, Image as ImageIcon, Film } from "lucide-react"
+import { ImageLightbox } from "./image-lightbox"
 
 // ─── types & helpers ────────────────────────────────────────────────────────
 
@@ -55,6 +56,8 @@ const stringToList = (str: string) =>
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
+
+type PendingMedia = { file: File; caption: string }
 
 export function EditRoomModal({
   room,
@@ -105,10 +108,10 @@ export function EditRoomModal({
   const [description, setDescription] = useState(room.description ?? "")
 
   // Media upload state
-  const [mediaFile, setMediaFile] = useState<File | null>(null)
-  const [caption, setCaption] = useState("")
+  const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([])
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const [deletingMediaId, setDeletingMediaId] = useState<string | null>(null)
+  const [previewImage, setPreviewImage] = useState<{ url: string; alt: string } | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
   const [deletingRoom, setDeletingRoom] = useState(false)
@@ -172,57 +175,44 @@ export function EditRoomModal({
         description: optionalText(description),
       })
 
-      onSuccess(`Kamar ${roomNumber} berhasil diperbarui.`)
+      if (pendingMedia.length > 0) {
+        setUploadingMedia(true)
+        for (const [index, media] of pendingMedia.entries()) {
+          const kind = media.file.type.startsWith("video/") ? "video" : "photo"
+          const url = await generateUploadUrl()
+          const uploadResponse = await fetch(url, {
+            method: "POST",
+            headers: { "content-type": media.file.type },
+            body: media.file,
+          })
+          if (!uploadResponse.ok) throw new Error(`Upload ${media.file.name} gagal.`)
+          const uploaded = (await uploadResponse.json()) as { storageId: string }
+          await attachMedia({
+            roomId: room._id,
+            storageId: uploaded.storageId as Id<"_storage">,
+            kind,
+            sortOrder: Date.now() + index,
+            caption: optionalText(media.caption),
+          })
+        }
+      }
+
+      onSuccess(`Kamar ${roomNumber} berhasil diperbarui${pendingMedia.length > 0 ? ` dan ${pendingMedia.length} media ditambahkan` : ""}.`)
       onClose()
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : "Gagal memperbarui kamar."
       )
     } finally {
+      setUploadingMedia(false)
       setSubmitting(false)
     }
   }
 
-  // Upload Media
-  const handleUploadMedia = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!mediaFile) return
-    setError(null)
-    setUploadingMedia(true)
-
-    try {
-      const kind = mediaFile.type.startsWith("video/") ? "video" : "photo"
-      const url = await generateUploadUrl()
-
-      const uploadResponse = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": mediaFile.type },
-        body: mediaFile,
-      })
-
-      if (!uploadResponse.ok) {
-        throw new Error("Upload file media gagal.")
-      }
-
-      const uploaded = (await uploadResponse.json()) as { storageId: string }
-      await attachMedia({
-        roomId: room._id,
-        storageId: uploaded.storageId as Id<"_storage">,
-        kind,
-        sortOrder: Date.now(),
-        caption: optionalText(caption),
-      })
-
-      setMediaFile(null)
-      setCaption("")
-      onSuccess("Media kamar berhasil diunggah.")
-    } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "Media gagal diunggah."
-      )
-    } finally {
-      setUploadingMedia(false)
-    }
+  const handleMediaSelection = (files: FileList | null) => {
+    if (!files) return
+    const selectedFiles = Array.from(files).filter((file) => file.type.startsWith("image/") || file.type.startsWith("video/"))
+    setPendingMedia((current) => [...current, ...selectedFiles.map((file) => ({ file, caption: "" }))])
   }
 
   // Delete Media
@@ -319,11 +309,9 @@ export function EditRoomModal({
                     className="group relative overflow-hidden border border-[var(--line)] bg-[#fffefa]"
                   >
                     {item.kind === "photo" && item.url ? (
-                      <img
-                        src={item.url}
-                        alt={item.caption ?? `Foto kamar`}
-                        className="h-24 w-full object-cover"
-                      />
+                      <button type="button" onClick={() => setPreviewImage({ url: item.url!, alt: item.caption ?? "Foto kamar" })} className="block h-24 w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--wood)]">
+                        <img src={item.url} alt={item.caption ?? `Foto kamar`} className="h-full w-full cursor-zoom-in object-cover transition-transform hover:scale-105" />
+                      </button>
                     ) : item.url ? (
                       <video
                         src={item.url}
@@ -355,38 +343,35 @@ export function EditRoomModal({
               </div>
             )}
 
-            {/* Upload form inside modal */}
-            <form
-              onSubmit={(e) => void handleUploadMedia(e)}
-              className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--line)] pt-3"
-            >
+            {/* Media selection queue. Files are uploaded with the main save action. */}
+            <div className="mt-4 border-t border-[var(--line)] pt-3">
               <label className="button-secondary cursor-pointer py-1.5 text-xs">
                 <Upload size={13} />
-                {mediaFile ? mediaFile.name : "Pilih foto/video"}
+                Pilih foto/video
                 <input
                   type="file"
                   accept="image/*,video/*"
-                  onChange={(e) => setMediaFile(e.target.files?.[0] ?? null)}
+                  multiple
+                  onChange={(e) => {
+                    handleMediaSelection(e.target.files)
+                    e.currentTarget.value = ""
+                  }}
                   className="sr-only"
-                  required
                 />
               </label>
-
-              <input
-                className="field-input min-w-0 flex-1 py-1.5 text-xs"
-                placeholder="Caption media (opsional)"
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-              />
-
-              <button
-                type="submit"
-                disabled={!mediaFile || uploadingMedia}
-                className="button-primary py-1.5 text-xs disabled:opacity-60"
-              >
-                {uploadingMedia ? "Mengunggah…" : "Unggah"}
-              </button>
-            </form>
+              <p className="mt-2 text-[11px] text-[var(--ink-muted)]">Pilih satu atau beberapa file. Upload dilakukan saat klik Simpan Perubahan.</p>
+              {pendingMedia.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {pendingMedia.map((media, index) => (
+                    <div key={`${media.file.name}-${index}`} className="flex items-center gap-2 border border-[var(--line)] bg-[#fffefa] p-2">
+                      <span className="min-w-0 flex-1 truncate text-xs text-[var(--ink)]">{media.file.name}</span>
+                      <input className="field-input min-w-0 flex-1 py-1.5 text-xs" placeholder="Caption media (opsional)" value={media.caption} onChange={(event) => setPendingMedia((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, caption: event.target.value } : item))} />
+                      <button type="button" onClick={() => setPendingMedia((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="shrink-0 p-1 text-[var(--warn)] hover:bg-red-50" aria-label={`Hapus ${media.file.name} dari antrean`}><X size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* ── Section 2: Form Edit Detail Kamar ── */}
@@ -701,15 +686,23 @@ export function EditRoomModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || deletingRoom}
+                  disabled={submitting || deletingRoom || uploadingMedia}
                   className="button-primary"
                 >
-                  {submitting ? "Menyimpan…" : "Simpan Perubahan"}
+                  {submitting || uploadingMedia ? "Menyimpan…" : "Simpan Perubahan"}
                 </button>
               </div>
             </div>
           </form>
         </div>
+        {previewImage && (
+          <ImageLightbox
+            src={previewImage.url}
+            alt={previewImage.alt}
+            title={`Preview media Kamar ${room.roomNumber}`}
+            onClose={() => setPreviewImage(null)}
+          />
+        )}
       </div>
     </div>,
     document.body

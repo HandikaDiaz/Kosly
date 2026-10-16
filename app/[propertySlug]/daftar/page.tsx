@@ -3,15 +3,18 @@
 import { useParams } from "next/navigation"
 import { useQuery } from "convex/react"
 import { ArrowLeft } from "lucide-react"
+import { useState } from "react"
 import Link from "next/link"
 import { api } from "@/convex/_generated/api"
 import { RegistrationForm } from "@/components/botkos/registration-form"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import { IdentityVerificationNotice } from "@/components/botkos/identity-verification-notice"
+import { ImageLightbox } from "@/components/botkos/image-lightbox"
 
 export default function PublicRegistrationPage() {
   const params = useParams<{ propertySlug: string }>()
   const property = useQuery(api.properties.getPublicBySlug, { slug: params.propertySlug })
+  const [previewPhoto, setPreviewPhoto] = useState<{ url: string; caption?: string } | null>(null)
   if (property === undefined) return <main className="flex min-h-svh items-center justify-center text-sm text-[var(--ink-muted)]">Memuat informasi properti…</main>
   if (!property) return <main className="flex min-h-svh items-center justify-center px-5 text-center"><div><h1 className="text-2xl font-semibold text-[var(--ink)]">Link tidak tersedia</h1><p className="mt-3 text-sm text-[var(--ink-muted)]">Properti ini tidak aktif atau link-nya sudah berubah.</p></div></main>
   return (
@@ -27,7 +30,8 @@ export default function PublicRegistrationPage() {
           <p className="mt-4 text-sm leading-6 text-[var(--ink-muted)]">Isi data dan kirim bukti pembayaran. Pemilik akan memeriksa dan mengonfirmasi secara manual.</p>
         </div>
         <div className="mt-8 space-y-5">
-          {property.photos.length ? <section className="border border-[var(--line)] bg-[#FFFFFF] p-5 shadow-sm"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-[var(--ink)]">Foto properti</p>{property.isVerified ? <span className="text-xs font-semibold text-emerald-700">Terverifikasi</span> : null}</div><div className="mt-4 grid grid-cols-3 gap-2">{property.photos.map((photo) => photo.url ? <img key={photo._id} src={photo.url} alt={photo.caption ?? `Foto ${property.name}`} className="h-28 w-full object-cover" /> : null)}</div></section> : null}
+          {property.photos.length ? <section className="border border-[var(--line)] bg-[#FFFFFF] p-5 shadow-sm"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-[var(--ink)]">Foto properti</p>{property.isVerified ? <span className="text-xs font-semibold text-emerald-700">Terverifikasi</span> : null}</div><div className="mt-4 grid grid-cols-3 gap-2">{property.photos.map((photo) => photo.url ? <button type="button" key={photo._id} onClick={() => setPreviewPhoto({ url: photo.url!, caption: photo.caption })} className="group relative h-28 overflow-hidden border border-[var(--line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]" aria-label={`Lihat foto properti${photo.caption ? `: ${photo.caption}` : ""}`}><img src={photo.url} alt={photo.caption ?? `Foto ${property.name}`} className="h-full w-full cursor-zoom-in object-cover transition-transform group-hover:scale-105" /></button> : null)}</div></section> : null}
+          {previewPhoto ? <ImageLightbox src={previewPhoto.url} alt={previewPhoto.caption ?? `Foto ${property.name}`} title={previewPhoto.caption ?? `Foto ${property.name}`} onClose={() => setPreviewPhoto(null)} /> : null}
           {property.facilities.length ? (
             <section className="border border-[var(--line)] bg-[#FFFFFF] p-5 shadow-sm">
               <p className="text-sm font-semibold text-[var(--ink)]">Fasilitas properti</p>

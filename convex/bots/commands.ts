@@ -2,26 +2,28 @@ import type { BotCommand } from "./types"
 
 const referencePattern = /^(?:KSL|VERIFY|BILL|REPORT)-[A-Z0-9]{4,32}$/
 const maxReasonLength = 160
+const isCommand = (value: string, name: string) => value === `/${name}` || value === name
 
 export const parseBotCommand = (text: string): BotCommand => {
   const normalized = text.trim().replace(/\s+/g, " ")
   if (!normalized) return { kind: "invalid" }
   const upperNormalized = normalized.toUpperCase()
-  if (upperNormalized === "/START" || upperNormalized === "/HELP") return { kind: "help" }
+  if (isCommand(upperNormalized, "START") || isCommand(upperNormalized, "HELP")) return { kind: "help" }
+  if (isCommand(upperNormalized, "CHATID") || isCommand(upperNormalized, "CHAT_ID")) return { kind: "chat_id" }
   if (upperNormalized === "YA" || upperNormalized === "YES") return { kind: "yes" }
   if (upperNormalized === "BATAL" || upperNormalized === "CANCEL") return { kind: "cancel", value: "upgrade" }
-  if (upperNormalized === "/STATUS") return { kind: "status" }
-  if (upperNormalized === "/LANGGANAN") return { kind: "subscription" }
-  if (upperNormalized === "/UPGRADE") return { kind: "upgrade" }
-  if (upperNormalized === "/PENDING") return { kind: "pending" }
-  if (upperNormalized === "/RINGKASAN") return { kind: "summary" }
-  if (upperNormalized === "/LAPORAN") return { kind: "monthly_report" }
-  if (upperNormalized === "/TAMBAHKAMAR") return { kind: "add_room" }
+  if (isCommand(upperNormalized, "STATUS")) return { kind: "status" }
+  if (isCommand(upperNormalized, "LANGGANAN")) return { kind: "subscription" }
+  if (isCommand(upperNormalized, "UPGRADE")) return { kind: "upgrade" }
+  if (isCommand(upperNormalized, "PENDING")) return { kind: "pending" }
+  if (isCommand(upperNormalized, "RINGKASAN")) return { kind: "summary" }
+  if (isCommand(upperNormalized, "LAPORAN")) return { kind: "monthly_report" }
+  if (isCommand(upperNormalized, "TAMBAHKAMAR")) return { kind: "add_room" }
 
   const [command, reference, ...reasonParts] = normalized.split(" ")
   const upperCommand = command.toUpperCase()
   const upperReference = reference?.toUpperCase()
-  if (upperCommand === "/APPROVE" || upperCommand === "/REJECT") {
+  if (isCommand(upperCommand, "APPROVE") || isCommand(upperCommand, "REJECT")) {
     if (!upperReference || !referencePattern.test(upperReference)) return { kind: "invalid" }
     return { kind: "admin_decision", decision: upperCommand === "/APPROVE" ? "approve" : "reject", reference: upperReference }
   }
@@ -34,7 +36,7 @@ export const parseBotCommand = (text: string): BotCommand => {
     const reason = reasonParts.join(" ").trim().slice(0, maxReasonLength)
     return { kind: "reject", reference: upperReference, reason: reason || "Bukti belum dapat diverifikasi." }
   }
-  if (upperCommand === "/EDITKAMAR") {
+  if (isCommand(upperCommand, "EDITKAMAR")) {
     const field = reasonParts[0]?.toLowerCase()
     const value = reasonParts.slice(1).join(" ").trim()
     if (!reference || !value || (field !== "harga" && field !== "price" && field !== "status")) return { kind: "invalid" }

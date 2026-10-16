@@ -16,6 +16,7 @@ import { parseQueryCommand } from "./queries"
 import { buildTelegramCancelMarkup, buildTelegramUpgradeMessage } from "./telegram"
 import { parseRoomWizardInput } from "./roomWizard"
 import { finalizeAddRoomInContext, type RoomWizardData } from "./roomFlow"
+import { buildHelpMessage, buildUnknownCommandMessage, buildWelcomeMessage } from "./help"
 
 const channelValidator = v.union(v.literal("telegram"), v.literal("whatsapp"))
 const decisionValidator = v.union(v.literal("approve"), v.literal("reject"))
@@ -45,7 +46,16 @@ export const processEvent = internalMutation({
     if (duplicate) return { status: "duplicate" as const }
     const chatId = normalizeChatId(args.channel, args.chatId)
     const link = (await ctx.db.query("bot_links").withIndex("by_channel_and_chat_id", (q) => q.eq("channel", args.channel).eq("chatId", chatId)).take(10)).find((item) => item.status === "active")
-    if (!link) return { status: "invalid" as const }
+    if (!link) {
+      const unlinkedCommand = parseBotCommand(args.text ?? "")
+      if (args.channel === "telegram" && unlinkedCommand.kind === "chat_id") {
+        return response(args.channel, chatId, `📌 Chat ID Telegram Anda: <code>${chatId}</code>\n\nHubungkan Chat ID ini dari dashboard agar BotKos dapat mengirim notifikasi ke akun Anda.`)
+      }
+      if (args.channel === "telegram" && unlinkedCommand.kind === "help") return response(args.channel, chatId, buildHelpMessage("telegram", chatId))
+      if (args.channel === "whatsapp" && args.text?.trim()) return response(args.channel, chatId, buildWelcomeMessage("whatsapp"))
+      return { status: "invalid" as const }
+    }
+    const isFirstWhatsAppMessage = args.channel === "whatsapp" && !link.lastSeenAt
     await ctx.db.patch("bot_links", link._id, { lastSeenAt: Date.now() })
     const actor = await ctx.db.get("owners", link.ownerId)
     if (!actor) return { status: "invalid" as const }
@@ -96,6 +106,8 @@ export const processEvent = internalMutation({
       }
     }
 
+    if (isFirstWhatsAppMessage) return response(args.channel, chatId, buildWelcomeMessage("whatsapp"))
+
     const parsed = args.callbackAction === "upgrade" && args.callbackReference
       ? { kind: "selection" as const, value: args.callbackReference.replace(":", " ") }
       : args.callbackAction === "cancel" && args.callbackReference
@@ -103,6 +115,12 @@ export const processEvent = internalMutation({
         : args.callbackAction && args.callbackReference
           ? { kind: args.callbackAction, reference: args.callbackReference, reason: "Ditolak melalui bot Telegram." }
           : parseBotCommand(args.text ?? "")
+
+    if (parsed.kind === "help") return response(args.channel, chatId, buildHelpMessage(args.channel))
+    if (parsed.kind === "chat_id") {
+      if (args.channel !== "telegram") return response(args.channel, chatId, "Chat ID khusus Telegram. Untuk WhatsApp, gunakan nomor WhatsApp yang terhubung di dashboard.")
+      return response(args.channel, chatId, `📌 Chat ID Telegram Anda: <code>${chatId}</code>`)
+    }
 
     if (parsed.kind === "add_room") {
       const tier = await getOwnerSubscriptionTier(ctx, link.ownerId)
@@ -224,7 +242,7 @@ export const processEvent = internalMutation({
       }
       if (parsed.kind === "admin_decision") {
         const target = await resolveAdminTarget(ctx, parsed.reference)
-        if (!target) return { status: "invalid" as const }
+        if (!target) return response(args.channel, chatId, buildUnknownCommandMessage(args.channel))
         if (session) await ctx.db.patch("bot_sessions", session._id, { status: "expired" })
         await ctx.db.insert("bot_sessions", { channel: args.channel, chatId, ownerId: link.ownerId, kind: "admin_confirmation", status: "active", targetType: target.type, targetId: target.id, decision: parsed.decision, createdAt: Date.now(), expiresAt: Date.now() + 5 * 60 * 1000 })
         return response(args.channel, chatId, `⚠️ Konfirmasi diperlukan\n\nJenis: ${target.label}\nDetail: ${target.detail}\nID: ${parsed.reference}\n\nKetik YA untuk ${parsed.decision === "approve" ? "menyetujui" : "menolak"}, atau abaikan pesan ini untuk membatalkan.`)
@@ -238,7 +256,7 @@ export const processEvent = internalMutation({
         await ctx.db.patch("bot_sessions", session._id, { status: "completed" })
         return response(args.channel, chatId, "✅ Keputusan admin sudah diterapkan.")
       }
-      return { status: "invalid" as const }
+      return response(args.channel, chatId, buildUnknownCommandMessage(args.channel))
     }
 
     if (parsed.kind === "cancel" && (session?.kind === "upgrade_selection" || session?.kind === "upgrade_payment")) {
@@ -281,12 +299,14 @@ export const processEvent = internalMutation({
     if (parsed.kind === "confirm" || parsed.kind === "reject") {
       const allPayments = await ctx.db.query("payments").take(500)
       const payment = allPayments.find((candidate) => createPaymentReference(String(candidate._id)) === parsed.reference)
-      if (!payment || payment.status !== "pending_review") return { status: "invalid" as const }
+      if (!payment || payment.status !== "pending_review") return response(args.channel, chatId, "⚠️ Referensi pembayaran tidak ditemukan atau sudah diproses. Ketik /help untuk melihat format command.")
+      const decision = parsed.kind === "confirm" ? "confirmed" as const : "rejected" as const
       if (parsed.kind === "confirm") await confirmPaymentForOwner(ctx, payment._id, link.ownerId)
       else await rejectPaymentForOwner(ctx, payment._id, link.ownerId, parsed.reason ?? "Ditolak melalui bot.")
+      await ctx.scheduler.runAfter(0, internal.bots.delivery.sendPaymentDecisionNotice, { ownerId: link.ownerId, paymentId: payment._id, decision, sourceChannel: args.channel })
       return response(args.channel, chatId, parsed.kind === "confirm" ? "Pembayaran dikonfirmasi." : "Pembayaran ditolak.")
     }
-    return { status: "invalid" as const }
+    return response(args.channel, chatId, buildUnknownCommandMessage(args.channel))
   },
 })
 

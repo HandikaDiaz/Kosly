@@ -17,10 +17,10 @@ export type BotQuery = "status" | "unpaid" | "vacant"
 
 export const parseQueryCommand = (text: string): BotQuery | "help" | "invalid" => {
   const command = text.trim().toLowerCase().split(/\s+/)[0]
-  if (command === "/status") return "status"
-  if (command === "/belum_bayar") return "unpaid"
-  if (command === "/kamar_kosong") return "vacant"
-  if (command === "/help" || command === "/start") return "help"
+  if (command === "/status" || command === "status") return "status"
+  if (command === "/belum_bayar" || command === "belum_bayar") return "unpaid"
+  if (command === "/kamar_kosong" || command === "kamar_kosong") return "vacant"
+  if (command === "/help" || command === "help" || command === "/start" || command === "start") return "help"
   return "invalid"
 }
 

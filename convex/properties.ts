@@ -14,7 +14,7 @@ export const listMine = query({
 })
 
 export const create = mutation({
-  args: { name: v.string(), address: v.string(), slug: v.string() },
+  args: { name: v.string(), address: v.string(), slug: v.string(), propertyPhotoStorageIds: v.array(v.id("_storage")) },
   handler: async (ctx, args) => {
     const owner = await requireOwner(ctx)
     await assertPropertyCapacityForOwner(ctx, owner._id)
@@ -22,9 +22,35 @@ export const create = mutation({
     const address = args.address.trim()
     const slug = normalizeSlug(args.slug || args.name)
     if (!name || !address || !slug) throw new Error("Nama, alamat, dan link properti wajib diisi.")
+    if (args.propertyPhotoStorageIds.length < 3) throw new Error("Minimal 3 foto properti wajib diunggah.")
     const existingSlug = await ctx.db.query("properties").withIndex("by_slug", (q) => q.eq("slug", slug)).unique()
     if (existingSlug) throw new Error("Link properti sudah digunakan.")
-    return await ctx.db.insert("properties", { ownerId: owner._id, name, address, slug, isActive: true })
+    const propertyId = await ctx.db.insert("properties", { ownerId: owner._id, name, address, slug, isActive: true })
+    for (const [sortOrder, storageId] of args.propertyPhotoStorageIds.entries()) {
+      await ctx.db.insert("property_photos", { propertyId, storageId, sortOrder, createdAt: Date.now() })
+    }
+    return propertyId
+  },
+})
+
+export const update = mutation({
+  args: { propertyId: v.id("properties"), name: v.string(), address: v.string(), slug: v.string(), propertyPhotoStorageIds: v.array(v.id("_storage")) },
+  handler: async (ctx, args) => {
+    await requirePropertyOwner(ctx, args.propertyId)
+    const name = args.name.trim()
+    const address = args.address.trim()
+    const slug = normalizeSlug(args.slug || args.name)
+    if (!name || !address || !slug) throw new Error("Nama, alamat, dan link properti wajib diisi.")
+    if (args.propertyPhotoStorageIds.length < 3) throw new Error("Minimal 3 foto properti wajib tersedia.")
+    const existingSlug = await ctx.db.query("properties").withIndex("by_slug", (q) => q.eq("slug", slug)).unique()
+    if (existingSlug && existingSlug._id !== args.propertyId) throw new Error("Link properti sudah digunakan.")
+    await ctx.db.patch("properties", args.propertyId, { name, address, slug })
+    const photos = await ctx.db.query("property_photos").withIndex("by_property", (q) => q.eq("propertyId", args.propertyId)).take(100)
+    for (const photo of photos) await ctx.db.delete("property_photos", photo._id)
+    for (const [sortOrder, storageId] of args.propertyPhotoStorageIds.entries()) {
+      await ctx.db.insert("property_photos", { propertyId: args.propertyId, storageId, sortOrder, createdAt: Date.now() })
+    }
+    return args.propertyId
   },
 })
 
@@ -40,9 +66,15 @@ export const getPublicBySlug = query({
     if (!property || !property.isActive) return null
     const owner = await ctx.db.get("owners", property.ownerId)
     const rooms = await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)
+    const pendingPayments = await ctx.db.query("payments").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id).eq("status", "pending_review")).take(100)
+    const activeBookings = await ctx.db.query("bookings").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id)).take(100)
+    const unavailableRoomIds = new Set([
+      ...pendingPayments.map((payment) => String(payment.roomId)),
+      ...activeBookings.filter((booking) => booking.status === "pending" || booking.status === "locked").map((booking) => String(booking.roomId)),
+    ])
     const facilities = await ctx.db.query("property_facilities").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)
     const propertyPhotos = await ctx.db.query("property_photos").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(30)
-    const availableRooms = rooms.filter((room) => room.status === "available")
+    const availableRooms = rooms.filter((room) => room.status === "available" && !unavailableRoomIds.has(String(room._id)))
     const publicRooms = await Promise.all(availableRooms.map(async (room) => {
       const media = await ctx.db.query("room_media").withIndex("by_room", (q) => q.eq("roomId", room._id)).take(20)
       return {
