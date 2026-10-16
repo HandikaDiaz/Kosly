@@ -15,6 +15,7 @@ export const parseBotCommand = (text: string): BotCommand => {
   if (upperNormalized === "/UPGRADE") return { kind: "upgrade" }
   if (upperNormalized === "/PENDING") return { kind: "pending" }
   if (upperNormalized === "/RINGKASAN") return { kind: "summary" }
+  if (upperNormalized === "/LAPORAN") return { kind: "monthly_report" }
   if (upperNormalized === "/TAMBAHKAMAR") return { kind: "add_room" }
 
   const [command, reference, ...reasonParts] = normalized.split(" ")

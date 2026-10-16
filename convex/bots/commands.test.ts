@@ -24,4 +24,8 @@ describe("parseBotCommand", () => {
     expect(parseBotCommand("/editkamar 12 harga 1600000")).toEqual({ kind: "edit_room", roomNumber: "12", field: "price", value: "1600000" })
     expect(parseBotCommand("/editkamar 12 status kosong")).toEqual({ kind: "edit_room", roomNumber: "12", field: "status", value: "kosong" })
   })
+
+  test("parses monthly report command", () => {
+    expect(parseBotCommand("/laporan")).toEqual({ kind: "monthly_report" })
+  })
 })

@@ -1,16 +1,43 @@
+"use client"
+
+import { useConvexAuth } from "@convex-dev/auth/react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 import { GoogleLoginButton } from "@/components/botkos/google-login-button"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
 
 export default function LoginPage() {
+  const router = useRouter()
+  const { isAuthenticated, isLoading } = useConvexAuth()
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace("/dashboard")
+    }
+  }, [isAuthenticated, isLoading, router])
+
+  if (isLoading || isAuthenticated) {
+    return (
+      <main className="flex min-h-svh items-center justify-center px-5 text-sm text-[var(--ink-muted)]">
+        Memeriksa sesi Anda…
+      </main>
+    )
+  }
+
   return (
     <main className="flex min-h-svh items-center justify-center px-5 py-10">
       <div className="w-full max-w-md">
         <Link href="/">
-          <BotKosLogo size={32} textClassName="text-base font-extrabold text-[var(--ink)] tracking-tight" />
+          <BotKosLogo
+            size={32}
+            textClassName="text-base font-extrabold text-[var(--ink)] tracking-tight"
+          />
         </Link>
-        <div className="mt-10 border border-[var(--line)] bg-[#FFFFFF] p-7 sm:p-9 shadow-sm">
-          <p className="text-sm font-semibold text-[var(--gold-dark)]">Ruang Owner</p>
+        <div className="mt-10 border border-[var(--line)] bg-[#FFFFFF] p-7 shadow-sm sm:p-9">
+          <p className="text-sm font-semibold text-[var(--gold-dark)]">
+            Ruang Owner
+          </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[var(--ink)]">
             Masuk ke BotKos.
           </h1>
@@ -21,7 +48,8 @@ export default function LoginPage() {
             <GoogleLoginButton />
           </div>
           <p className="mt-6 text-center text-xs leading-5 text-[var(--ink-muted)]">
-            BotKos memakai akun Google hanya untuk autentikasi. Data properti tetap aman dan terisolasi.
+            BotKos memakai akun Google hanya untuk autentikasi. Data properti
+            tetap aman dan terisolasi.
           </p>
         </div>
       </div>

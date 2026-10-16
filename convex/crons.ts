@@ -149,4 +149,6 @@ crons.interval("daily subscription periods", { hours: 24 }, internal.crons.proce
 crons.interval("expire locked DP bookings", { hours: 24 }, internal.bookings.expireLocked, {})
 crons.interval("process settlement deadlines", { hours: 24 }, internal.bookings.processSettlementDeadlines, {})
 crons.interval("process tenant lifecycle", { hours: 24 }, internal.tenants.processLifecycle, {})
+crons.interval("delete expired identity files", { hours: 24 }, internal.verifications.deleteExpiredIdentityFiles, {})
+crons.monthly("monthly PDF reports", { day: 3, hourUTC: 1, minuteUTC: 0 }, internal.monthlyReports.scheduleForEligibleOwners, {})
 export default crons

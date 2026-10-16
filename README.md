@@ -132,6 +132,21 @@ Admin Dashboard berisi tiga bagian:
 
 ### Lapisan Kepercayaan & Verifikasi
 
+#### Audit keamanan dokumen sensitif
+
+Audit menemukan bahwa `convex/verifications.ts` sebelumnya memanggil
+`ctx.storage.getUrl()` untuk `ktpStorageId`, `selfieStorageId`, dan
+`ownershipProofStorageId`. URL tersebut dikembalikan oleh query verifikasi
+dan dipakai `app/admin/verification/page.tsx` sebagai `img`/link; karena
+bearer URL dapat dipakai ulang tanpa pemeriksaan role, ini membuka risiko
+akses ulang setelah URL tersebar. Foto properti dan bukti pembayaran tidak
+termasuk temuan ini karena berada di luar scope dokumen identitas sensitif.
+
+Sekarang query hanya mengembalikan storage ID. File sensitif dilayani oleh
+endpoint HTTP `/sensitive-file` yang memeriksa sesi admin atau owner pemilik
+file pada setiap request, mencatat akses sukses ke `sensitive_file_access_log`,
+dan tidak menyimpan URL bearer di database maupun state query.
+
 Tiga lapisan, semuanya OPSIONAL kecuali disebutkan lain — tidak ada fitur
 aplikasi yang terkunci karena status verifikasi, badge "Terverifikasi"
 murni insentif kepercayaan ke calon penyewa:

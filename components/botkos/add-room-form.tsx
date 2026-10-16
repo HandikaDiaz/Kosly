@@ -313,7 +313,7 @@ export function AddRoomForm({ propertyId, onClose, onSuccess }: AddRoomFormProps
               <FieldLabel
                 htmlFor={fid("depositFee")}
                 label="Uang Deposit"
-                hint="Uang jaminan yang dibayar penyewa di awal. Dikembalikan saat penyewa keluar dalam kondisi baik."
+                hint="Jaminan yang dikembalikan ke penyewa saat mereka pindah, dipotong jika ada kerusakan atau tunggakan. Ditarik sekali pada pembayaran pertama."
               />
               <div className="field-input-prefix-wrap">
                 <span className="field-input-prefix" aria-hidden="true">Rp</span>
@@ -332,7 +332,7 @@ export function AddRoomForm({ propertyId, onClose, onSuccess }: AddRoomFormProps
               <FieldLabel
                 htmlFor={fid("dpAmount")}
                 label="Nominal DP Booking"
-                hint="Nominal tanda jadi (DP) minimal untuk mengunci kamar ini saat penyewa mendaftar secara online."
+                hint="Uang muka untuk mengunci kamar sebelum penyewa resmi. Dikreditkan ke pembayaran pertama, atau hangus jika tidak dilunasi sampai batas waktu."
               />
               <div className="field-input-prefix-wrap">
                 <span className="field-input-prefix" aria-hidden="true">Rp</span>

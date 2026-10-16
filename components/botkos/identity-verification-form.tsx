@@ -48,21 +48,23 @@ export function IdentityVerificationForm({ status }: { status?: "not_submitted" 
       <h2 className="mt-1 text-xl font-semibold text-[var(--ink)]">Verifikasi identitas</h2>
       {status !== "verified" && <p className="mt-3 border-l-2 border-[var(--gold)] bg-[#fff8e8] px-4 py-3 text-sm leading-6 text-[var(--ink-muted)]">Identitas belum terverifikasi. Tenant belum dapat mengirim pendaftaran, DP, maupun pembayaran sampai admin menyetujui dokumen Anda.</p>}
       {status === "verified" && <p className="mt-3 text-sm text-emerald-700">Identitas sudah terverifikasi. Tenant dapat melanjutkan transaksi.</p>}
-      <form onSubmit={(event) => void handleSubmit(event)} className="mt-5 space-y-5">
-        <div className="grid gap-5 md:grid-cols-2">
-          <ImageUploadField id="identity-ktp" name="identity-ktp" label="Foto KTP" hint="Pastikan seluruh bagian penting terlihat jelas." required value={ktpFile} onChange={setKtpFile} maxSizeMB={5} />
-          <ImageUploadField id="identity-selfie" name="identity-selfie" label="Foto selfie" hint="Gunakan pencahayaan yang cukup dan wajah terlihat jelas." required value={selfieFile} onChange={setSelfieFile} maxSizeMB={5} />
-        </div>
-        <p className="border-l-2 border-[var(--gold)] bg-[var(--background)] px-4 py-3 text-xs leading-5 text-[var(--ink-muted)]">
-          KTP dan selfie digunakan hanya untuk verifikasi identitas, disimpan maksimal 90 hari setelah keputusan verifikasi, dan hanya dapat dilihat admin untuk keperluan review.
-        </p>
-        <label className="flex items-start gap-3 text-sm text-[var(--ink-muted)]">
-          <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1" />
-          <span>Saya menyetujui pemrosesan dan penyimpanan KTP serta selfie sesuai penjelasan di atas.</span>
-        </label>
-        {message ? <p role="status" className="text-sm text-[var(--ink-muted)]">{message}</p> : null}
-        <button type="submit" disabled={loading} className="button-primary disabled:opacity-60">{loading ? "Mengirim…" : "Kirim untuk review"}</button>
-      </form>
+      {status !== "verified" && (
+        <form onSubmit={(event) => void handleSubmit(event)} className="mt-5 space-y-5">
+          <div className="grid gap-5 md:grid-cols-2">
+            <ImageUploadField id="identity-ktp" name="identity-ktp" label="Foto KTP" hint="Pastikan seluruh bagian penting terlihat jelas." required value={ktpFile} onChange={setKtpFile} maxSizeMB={5} />
+            <ImageUploadField id="identity-selfie" name="identity-selfie" label="Foto selfie" hint="Gunakan pencahayaan yang cukup dan wajah terlihat jelas." required value={selfieFile} onChange={setSelfieFile} maxSizeMB={5} />
+          </div>
+          <p className="border-l-2 border-[var(--gold)] bg-[var(--background)] px-4 py-3 text-xs leading-5 text-[var(--ink-muted)]">
+            KTP dan selfie digunakan hanya untuk verifikasi identitas, disimpan maksimal 90 hari setelah keputusan verifikasi, dan hanya dapat dilihat admin untuk keperluan review.
+          </p>
+          <label className="flex items-start gap-3 text-sm text-[var(--ink-muted)]">
+            <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1" />
+            <span>Saya menyetujui pemrosesan dan penyimpanan KTP serta selfie sesuai penjelasan di atas.</span>
+          </label>
+          {message ? <p role="status" className="text-sm text-[var(--ink-muted)]">{message}</p> : null}
+          <button type="submit" disabled={loading} className="button-primary disabled:opacity-60">{loading ? "Mengirim…" : "Kirim untuk review"}</button>
+        </form>
+      )}
     </section>
   )
 }

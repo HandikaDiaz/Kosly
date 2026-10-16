@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 
-type Status = "available" | "occupied" | "pending" | "pending_payment" | "paid" | "overdue" | "past_due" | "rejected" | "booked"
+type Status = "available" | "occupied" | "pending" | "pending_payment" | "paid" | "overdue" | "past_due" | "rejected" | "booked" | "refund_pending" | "refunded" | "forfeited"
 
 const statusCopy: Record<Status, { label: string; className: string }> = {
   available: { label: "Kosong", className: "bg-[#6B8F71]/12 text-[#527259]" },
@@ -12,6 +12,9 @@ const statusCopy: Record<Status, { label: string; className: string }> = {
   past_due: { label: "Past due", className: "bg-[#C1502E]/12 text-[#A83E21]" },
   rejected: { label: "Ditolak", className: "bg-[#C1502E]/10 text-[#A83E21]" },
   booked: { label: "Dipesan", className: "bg-[#8B5E34]/12 text-[#8B5E34]" },
+  refund_pending: { label: "Menunggu refund", className: "bg-[#B28236]/14 text-[#9F722A]" },
+  refunded: { label: "Sudah dikembalikan", className: "bg-[#6B8F71]/12 text-[#527259]" },
+  forfeited: { label: "Dipotong atau hangus", className: "bg-[#C1502E]/12 text-[#A83E21]" },
 }
 
 export function StatusBadge({ status }: { status: Status }) {

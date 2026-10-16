@@ -39,29 +39,41 @@ export const getTenantForPayment = query({
     if (!property || !property.isActive) return null
     const normalizedPhone = args.phone.replace(/[^0-9]/g, "")
     const tenants = await ctx.db.query("tenants").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)
-    const tenant = tenants.find((item) => item.phone.replace(/[^0-9]/g, "") === normalizedPhone && item.status === "active")
+    const tenant = tenants.find((item) => item.phone.replace(/[^0-9]/g, "") === normalizedPhone && (item.status === "active" || item.status === "pending"))
     if (!tenant) return null
     const room = await ctx.db.get("rooms", tenant.roomId)
     if (!room) return null
+    const bookings = await ctx.db.query("bookings").withIndex("by_tenant", (q) => q.eq("tenantId", tenant._id)).take(10)
+    const settlementBooking = bookings.find((booking) => booking.status === "locked")
     const charges = await ctx.db.query("rent_charges").withIndex("by_tenant_and_period", (q) => q.eq("tenantId", tenant._id)).take(24)
     const unpaidCharge = charges.filter((charge) => charge.status === "unpaid").sort((a, b) => a.dueDate - b.dueDate)[0]
-    return { tenantId: tenant._id, name: tenant.name, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent, dueDate: unpaidCharge?.dueDate ?? Date.now() + 30 * 24 * 60 * 60 * 1000, period: unpaidCharge?.period ?? periodOf(new Date(Date.now())) }
+    const payments = await ctx.db.query("payments").withIndex("by_tenant_and_paid_at", (q) => q.eq("tenantId", tenant._id)).take(100)
+    const hasInitialPayment = payments.some((payment) => payment.status === "confirmed" && (payment.purpose === "pelunasan" || payment.paymentType === "full"))
+    const depositAmount = room.depositFee ?? 0
+    const initialTotal = room.monthlyRent + depositAmount
+    const isSettlement = Boolean(settlementBooking)
+    return { tenantId: tenant._id, name: tenant.name, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent, depositAmount, initialTotal, dpPaid: settlementBooking?.depositAmount ?? 0, bookingId: settlementBooking?._id, isSettlement, isFirstPayment: !hasInitialPayment && !isSettlement, amountDue: isSettlement ? Math.max(initialTotal - (settlementBooking?.depositAmount ?? 0), 0) : hasInitialPayment ? room.monthlyRent : initialTotal, dueDate: settlementBooking?.settlement_deadline ?? unpaidCharge?.dueDate ?? Date.now() + 30 * 24 * 60 * 60 * 1000, period: unpaidCharge?.period ?? periodOf(new Date(Date.now())) }
   },
 })
 
 export const submitRentPayment = mutation({
-  args: { slug: v.string(), tenantId: v.id("tenants"), amount: v.number(), dueDate: v.number(), billingPeriod: v.string(), proofStorageId: v.id("_storage") },
+  args: { slug: v.string(), tenantId: v.id("tenants"), bookingId: v.optional(v.id("bookings")), amount: v.number(), dueDate: v.number(), billingPeriod: v.string(), proofStorageId: v.id("_storage") },
   handler: async (ctx, args) => {
     const property = await ctx.db.query("properties").withIndex("by_slug", (q) => q.eq("slug", normalizeSlug(args.slug))).unique()
     if (!property || !property.isActive) throw new Error("Link properti tidak ditemukan.")
     const owner = await ctx.db.get("owners", property.ownerId)
     if (owner?.identityVerificationStatus !== "verified") throw new Error("Pembayaran belum tersedia. Pemilik properti belum menyelesaikan verifikasi identitas.")
     const tenant = await ctx.db.get("tenants", args.tenantId)
-    if (!tenant || tenant.propertyId !== property._id || tenant.status !== "active") throw new Error("Data tenant tidak valid.")
+    if (!tenant || tenant.propertyId !== property._id) throw new Error("Data tenant tidak valid.")
+    const booking = args.bookingId ? await ctx.db.get("bookings", args.bookingId) : null
+    if (args.bookingId && (!booking || booking.tenantId !== tenant._id || booking.propertyId !== property._id || booking.status !== "locked")) throw new Error("Data pelunasan booking tidak valid.")
+    if (!booking && tenant.status !== "active") throw new Error("Tenant belum aktif atau belum menyelesaikan booking.")
     const proof = await ctx.db.system.get("_storage", args.proofStorageId)
     if (!proof || !proof.contentType?.startsWith("image/")) throw new Error("Bukti pembayaran harus berupa gambar.")
     if (!Number.isFinite(args.amount) || args.amount <= 0) throw new Error("Nominal pembayaran belum valid.")
-    const paymentId = await ctx.db.insert("payments", { propertyId: property._id, tenantId: tenant._id, roomId: tenant.roomId, amount: args.amount, paymentType: "full", paidAt: Date.now(), dueDate: args.dueDate, billingPeriod: args.billingPeriod, status: "pending_review", proofStorageId: args.proofStorageId })
+    const payments = await ctx.db.query("payments").withIndex("by_tenant_and_paid_at", (q) => q.eq("tenantId", tenant._id)).take(100)
+    const hasInitialPayment = payments.some((payment) => payment.status === "confirmed" && (payment.purpose === "pelunasan" || payment.paymentType === "full"))
+    const paymentId = await ctx.db.insert("payments", { propertyId: property._id, tenantId: tenant._id, roomId: tenant.roomId, amount: args.amount, paymentType: "full", purpose: booking ? "pelunasan" : hasInitialPayment ? "sewa_bulanan" : "pelunasan", bookingId: booking?._id, paidAt: Date.now(), dueDate: args.dueDate, billingPeriod: args.billingPeriod, status: "pending_review", proofStorageId: args.proofStorageId })
     await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId: tenant._id, type: "payment_uploaded", channel: "log_only", occurredOn: new Date().toISOString().slice(0, 10), status: "logged", payload: JSON.stringify({ paymentId, tenantName: tenant.name }) })
     return { paymentId }
   },

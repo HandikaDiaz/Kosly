@@ -72,6 +72,7 @@ export function RentPaymentForm({
       await submitRentPayment({
         slug,
         tenantId: tenant.tenantId as Id<"tenants">,
+        bookingId: tenant.bookingId as Id<"bookings"> | undefined,
         amount: numAmount,
         dueDate: tenant.dueDate,
         billingPeriod: tenant.period,
@@ -187,11 +188,26 @@ export function RentPaymentForm({
                 name="amount"
                 type="number"
                 min="1"
-                defaultValue={tenant.monthlyRent}
+                defaultValue={tenant.amountDue}
                 className="field-input field-input-prefixed font-mono font-semibold"
                 required
               />
             </div>
+            {tenant.isSettlement ? (
+              <div className="mt-4 border border-[var(--line)] bg-[var(--background)] p-4 text-sm">
+                <div className="flex justify-between gap-4 text-[var(--ink-muted)]"><span>Sewa + deposit</span><span className="font-mono text-[var(--ink)]">Rp {tenant.initialTotal.toLocaleString("id-ID")}</span></div>
+                <div className="mt-2 flex justify-between gap-4 text-[var(--ink-muted)]"><span>DP sudah dibayar</span><span className="font-mono text-[var(--ink)]">-Rp {tenant.dpPaid.toLocaleString("id-ID")}</span></div>
+                <div className="mt-3 flex justify-between gap-4 border-t border-[var(--line)] pt-3 font-semibold text-[var(--ink)]"><span>Sisa pelunasan</span><span className="font-mono">Rp {tenant.amountDue.toLocaleString("id-ID")}</span></div>
+              </div>
+            ) : tenant.isFirstPayment ? (
+              <div className="mt-4 border border-[var(--line)] bg-[var(--background)] p-4 text-sm">
+                <div className="flex justify-between gap-4 text-[var(--ink-muted)]"><span>Sewa bulan pertama</span><span className="font-mono text-[var(--ink)]">Rp {tenant.monthlyRent.toLocaleString("id-ID")}</span></div>
+                <div className="mt-2 flex justify-between gap-4 text-[var(--ink-muted)]"><span>Deposit</span><span className="font-mono text-[var(--ink)]">Rp {tenant.depositAmount.toLocaleString("id-ID")}</span></div>
+                <div className="mt-3 flex justify-between gap-4 border-t border-[var(--line)] pt-3 font-semibold text-[var(--ink)]"><span>Total pembayaran pertama</span><span className="font-mono">Rp {tenant.initialTotal.toLocaleString("id-ID")}</span></div>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-[var(--ink-muted)]">Pembayaran bulan berikutnya hanya mencakup sewa bulanan. Deposit tidak ditarik ulang.</p>
+            )}
           </div>
 
           {/* 2. Bukti Pembayaran (ImageUploadField with preview) */}

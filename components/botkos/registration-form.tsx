@@ -34,20 +34,20 @@ export function RegistrationForm({
   const createSubmission = useMutation(api.publicRegistration.createSubmission)
 
   const selectedRoom = rooms.find((r) => r._id === selectedRoomId)
+  const depositAmount = selectedRoom?.depositFee ?? 0
+  const dpAmount = selectedRoom?.dpAmount ?? (selectedRoom ? Math.round(selectedRoom.monthlyRent * 0.3) : 0)
+  const initialTotal = (selectedRoom?.monthlyRent ?? 0) + depositAmount
+  const amountDue = paymentType === "dp" ? dpAmount : initialTotal
 
   // ── Auto-fill transfer amount when room or payment type changes ──────────────
   useEffect(() => {
     if (!selectedRoom) return
     if (paymentType === "dp") {
-      const dpNominal =
-        selectedRoom.dpAmount ??
-        selectedRoom.depositFee ??
-        Math.round(selectedRoom.monthlyRent * 0.3)
-      setAmount(String(dpNominal))
+      setAmount(String(dpAmount))
     } else {
-      setAmount(String(selectedRoom.monthlyRent))
+      setAmount(String(initialTotal))
     }
-  }, [selectedRoomId, paymentType, selectedRoom])
+  }, [selectedRoomId, paymentType, dpAmount, initialTotal, selectedRoom])
 
   // ── Handle Submit ─────────────────────────────────────────────────────────
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -305,19 +305,25 @@ export function RegistrationForm({
             placeholder="1500000"
           />
         </div>
+        {selectedRoom && paymentType === "full" ? (
+          <div className="mt-4 border border-[var(--line)] bg-[var(--background)] p-4 text-sm">
+            <div className="flex justify-between gap-4 text-[var(--ink-muted)]"><span>Sewa bulan pertama</span><span className="font-mono text-[var(--ink)]">Rp {selectedRoom.monthlyRent.toLocaleString("id-ID")}</span></div>
+            <div className="mt-2 flex justify-between gap-4 text-[var(--ink-muted)]"><span>Deposit</span><span className="font-mono text-[var(--ink)]">Rp {depositAmount.toLocaleString("id-ID")}</span></div>
+            <div className="mt-3 flex justify-between gap-4 border-t border-[var(--line)] pt-3 font-semibold text-[var(--ink)]"><span>Total pembayaran pertama</span><span className="font-mono">Rp {amountDue.toLocaleString("id-ID")}</span></div>
+          </div>
+        ) : selectedRoom ? (
+          <div className="mt-4 border border-[var(--line)] bg-[var(--background)] p-4 text-sm">
+            <div className="flex justify-between gap-4 text-[var(--ink-muted)]"><span>DP booking</span><span className="font-mono text-[var(--ink)]">Rp {dpAmount.toLocaleString("id-ID")}</span></div>
+            <p className="mt-2 text-xs leading-5 text-[var(--ink-muted)]">DP akan dikreditkan ke kewajiban awal saat pelunasan. Deposit ditarik satu kali pada pembayaran pertama.</p>
+          </div>
+        ) : null}
         <p className="mt-1.5 text-xs text-[var(--ink-muted)]">
           Terisi otomatis sesuai{" "}
           <strong>
-            {paymentType === "dp" ? "DP booking" : "harga sewa"}
+            {paymentType === "dp" ? "DP booking" : "sewa dan deposit awal"}
           </strong>{" "}
           kamar ini, bisa diubah jika perlu.
         </p>
-        {paymentType === "full" && (
-          <p className="mt-1 text-[11px] text-[var(--ink-muted)] italic">
-            * Asumsi sewa bulanan. Jika menyewa tahunan, Anda dapat menyesuaikan
-            nominal transfer secara manual.
-          </p>
-        )}
       </div>
 
       {/* ── 6. Batas waktu pelunasan (Only shown when DP booking is selected) ── */}

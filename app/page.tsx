@@ -17,6 +17,7 @@ import {
 import { motion, useReducedMotion } from "framer-motion"
 import { useEffect, useState } from "react"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
+import { AuthAwareLink } from "@/components/botkos/auth-aware-link"
 import { SceneExplainer } from "@/components/landing/scene-explainer"
 import { ScrollReveal } from "@/components/landing/scroll-reveal"
 import "@/app/landing.css"
@@ -170,15 +171,15 @@ export default function LandingPage() {
           <li><a href="#masalah" className="lp-nav-link">Masalah</a></li>
           <li><a href="#cara-kerja" className="lp-nav-link">Cara Kerja</a></li>
           <li><a href="#fitur" className="lp-nav-link">Fitur</a></li>
-          <li><a href="#harga" className="lp-nav-link">Harga</a></li>
+          <li><Link href="/harga" className="lp-nav-link">Harga</Link></li>
         </ul>
         <div className="lp-nav-actions">
-          <Link href="/login" className="lp-btn-ghost lp-nav-cta">
+          <AuthAwareLink authenticatedHref="/dashboard" className="lp-btn-ghost lp-nav-cta">
             Masuk
-          </Link>
-          <Link href="/login" className="lp-btn-primary lp-nav-cta">
+          </AuthAwareLink>
+          <AuthAwareLink authenticatedHref="/dashboard" className="lp-btn-primary lp-nav-cta">
             Coba Gratis
-          </Link>
+          </AuthAwareLink>
           <button
             type="button"
             className="lp-menu-button"
@@ -195,15 +196,17 @@ export default function LandingPage() {
               ["Masalah", "#masalah"],
               ["Cara Kerja", "#cara-kerja"],
               ["Fitur", "#fitur"],
-              ["Harga", "#harga"],
+              ["Harga", "/harga"],
             ].map(([label, href]) => (
-              <a key={href} href={href} className="lp-mobile-link" onClick={() => setMobileMenuOpen(false)}>
-                {label}
-              </a>
+              href.startsWith("/") ? (
+                <Link key={href} href={href} className="lp-mobile-link" onClick={() => setMobileMenuOpen(false)}>{label}</Link>
+              ) : (
+                <a key={href} href={href} className="lp-mobile-link" onClick={() => setMobileMenuOpen(false)}>{label}</a>
+              )
             ))}
-            <Link href="/login" className="lp-btn-primary lp-mobile-start" onClick={() => setMobileMenuOpen(false)}>
+            <AuthAwareLink authenticatedHref="/dashboard" className="lp-btn-primary lp-mobile-start" onClick={() => setMobileMenuOpen(false)}>
               Mulai gratis <ArrowUpRight size={16} />
-            </Link>
+            </AuthAwareLink>
           </div>
         )}
       </nav>
@@ -256,9 +259,9 @@ export default function LandingPage() {
                 className="lp-hero-ctas"
                 variants={heroItemVariants}
               >
-                <Link href="/login" className="lp-btn-primary">
+                <AuthAwareLink authenticatedHref="/dashboard" className="lp-btn-primary">
                   Coba Gratis <ArrowUpRight size={16} />
-                </Link>
+                </AuthAwareLink>
                 <a href="#cara-kerja" className="lp-btn-ghost">
                   Lihat cara kerjanya
                 </a>
@@ -362,7 +365,7 @@ export default function LandingPage() {
                     "Notifikasi langsung ke pemilik",
                     "Kamar otomatis ter-update",
                   ].map((item) => (
-                    <li key={item} style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.85rem", color: "rgba(252,251,249,0.65)" }}>
+                    <li key={item} style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.85rem", color: "#6B655F" }}>
                       <CheckCircle2 size={15} style={{ color: "#5FB88A", flexShrink: 0 }} />
                       {item}
                     </li>
@@ -438,15 +441,18 @@ export default function LandingPage() {
                       <li key={feat} className="lp-pricing-feature-item">{feat}</li>
                     ))}
                   </ul>
-                  <Link
-                    href="/login"
+                  <AuthAwareLink
+                    authenticatedHref="/dashboard/billing"
                     className={`lp-pricing-cta ${plan.featured ? "lp-pricing-cta-featured" : "lp-pricing-cta-ghost"}`}
                   >
                     {plan.cta}
-                  </Link>
+                  </AuthAwareLink>
                 </div>
               </ScrollReveal>
             ))}
+          </div>
+          <div className="mt-9 text-center">
+            <Link href="/harga" className="lp-btn-ghost">Lihat semua tier dan fitur <ArrowUpRight size={16} /></Link>
           </div>
         </div>
       </section>
@@ -466,9 +472,9 @@ export default function LandingPage() {
                 Siap dalam 5 menit.
               </p>
               <div className="lp-cta-actions">
-                <Link href="/login" className="lp-btn-primary">
+                <AuthAwareLink authenticatedHref="/dashboard" className="lp-btn-primary">
                   Buat akun gratis <ArrowUpRight size={16} />
-                </Link>
+                </AuthAwareLink>
                 <a href="#cara-kerja" className="lp-btn-ghost">
                   Pelajari lebih lanjut
                 </a>

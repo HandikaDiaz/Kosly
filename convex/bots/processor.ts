@@ -1,4 +1,5 @@
 import { internalMutation } from "../_generated/server"
+import { internal } from "../_generated/api"
 import type { MutationCtx } from "../_generated/server"
 import { v } from "convex/values"
 import type { Id } from "../_generated/dataModel"
@@ -30,6 +31,12 @@ const getOwnerSubscriptionTier = async (ctx: MutationCtx, ownerId: Id<"owners">)
 }
 
 const isRoomFeatureAllowed = (tier: keyof typeof tierRank) => tier === "growth" || tier === "pro"
+const isMonthlyReportAllowed = (tier: keyof typeof tierRank) => tier === "growth" || tier === "pro"
+const latestCompletedReportPeriod = () => {
+  const now = new Date()
+  const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`
+}
 
 export const processEvent = internalMutation({
     args: { channel: channelValidator, eventId: v.string(), chatId: v.string(), text: v.optional(v.string()), callbackAction: v.optional(v.union(v.literal("confirm"), v.literal("reject"), v.literal("upgrade"), v.literal("cancel"))), callbackReference: v.optional(v.string()), callbackQueryId: v.optional(v.string()), photoFileId: v.optional(v.string()), photoMediaId: v.optional(v.string()) },
@@ -182,6 +189,17 @@ export const processEvent = internalMutation({
         description: room.description,
       })
       return response(args.channel, chatId, "✅ Status kamar " + room.roomNumber + " diubah menjadi " + roomStatusLabel[nextStatus] + ".")
+    }
+
+    if (parsed.kind === "monthly_report") {
+      const tier = await getOwnerSubscriptionTier(ctx, link.ownerId)
+      if (!isMonthlyReportAllowed(tier)) return response(args.channel, chatId, "📄 Laporan bulanan otomatis tersedia untuk tier Growth dan Pro. Gunakan /upgrade untuk melihat pilihan.")
+      const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", link.ownerId)).take(50)
+      const activeProperties = properties.filter((property) => property.isActive)
+      if (activeProperties.length === 0) return response(args.channel, chatId, "Belum ada properti aktif untuk dibuatkan laporan.")
+      const period = latestCompletedReportPeriod()
+      for (const property of activeProperties) await ctx.scheduler.runAfter(0, internal.monthlyReportsActions.generateAndDeliver, { ownerId: link.ownerId, propertyId: property._id, period })
+      return response(args.channel, chatId, `📄 Laporan ${period} sedang dibuat. ${activeProperties.length} PDF terpisah akan dikirim ke channel bot yang terhubung.`)
     }
 
     const isAdminCommand = parsed.kind === "pending" || parsed.kind === "summary" || parsed.kind === "admin_decision" || (parsed.kind === "yes" && session?.kind === "admin_confirmation")

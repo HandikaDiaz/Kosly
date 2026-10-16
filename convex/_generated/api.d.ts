@@ -30,6 +30,8 @@ import type * as dashboard from "../dashboard.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_subscription_tiers from "../lib/subscription_tiers.js";
+import type * as monthlyReports from "../monthlyReports.js";
+import type * as monthlyReportsActions from "../monthlyReportsActions.js";
 import type * as notifications from "../notifications.js";
 import type * as owners from "../owners.js";
 import type * as payments from "../payments.js";
@@ -76,6 +78,8 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/subscription_tiers": typeof lib_subscription_tiers;
+  monthlyReports: typeof monthlyReports;
+  monthlyReportsActions: typeof monthlyReportsActions;
   notifications: typeof notifications;
   owners: typeof owners;
   payments: typeof payments;

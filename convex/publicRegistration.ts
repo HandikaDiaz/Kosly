@@ -15,7 +15,7 @@ export const getPropertyForRegistration = query({
     const property = await ctx.db.query("properties").withIndex("by_slug", (q) => q.eq("slug", normalizeSlug(args.slug))).unique()
     if (!property || !property.isActive) return null
     const rooms = await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)
-    return { name: property.name, slug: property.slug, rooms: rooms.filter((room) => room.status === "available").map((room) => ({ _id: room._id, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent })) }
+    return { name: property.name, slug: property.slug, rooms: rooms.filter((room) => room.status === "available").map((room) => ({ _id: room._id, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent, annualRent: room.annualRent, depositFee: room.depositFee, dpAmount: room.dpAmount })) }
   },
 })
 
@@ -39,7 +39,7 @@ export const createSubmission = mutation({
     const bookingId = paymentType === "dp" ? await ctx.db.insert("bookings", { propertyId: property._id, roomId: room._id, tenantId, depositAmount: args.amount, deadlineAt: args.deadlineAt as number, status: "pending", createdAt: Date.now() }) : undefined
     const dueDateObj = new Date(args.dueDate)
     const billingPeriod = `${dueDateObj.getFullYear()}-${String(dueDateObj.getMonth() + 1).padStart(2, "0")}`
-    const paymentId = await ctx.db.insert("payments", { propertyId: property._id, tenantId, roomId: room._id, amount: args.amount, paymentType, bookingId, paidAt: Date.now(), dueDate: args.dueDate, billingPeriod, status: "pending_review", proofStorageId: args.proofStorageId })
+    const paymentId = await ctx.db.insert("payments", { propertyId: property._id, tenantId, roomId: room._id, amount: args.amount, paymentType, purpose: paymentType === "dp" ? "dp" : "pelunasan", bookingId, paidAt: Date.now(), dueDate: args.dueDate, billingPeriod, status: "pending_review", proofStorageId: args.proofStorageId })
     await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId, type: "payment_uploaded", channel: "log_only", occurredOn: new Date().toISOString().slice(0, 10), status: "logged", payload: JSON.stringify({ paymentId, tenantName: name, roomNumber: room.roomNumber }) })
     await ctx.scheduler.runAfter(0, internal.bots.delivery.sendPaymentUploaded, { paymentId })
     return { tenantId, paymentId, bookingId }

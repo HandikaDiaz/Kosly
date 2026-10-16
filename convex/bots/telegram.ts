@@ -107,3 +107,13 @@ export const sendTelegramText = async (
   })
   if (!response.ok) throw new Error(`Telegram API gagal (${response.status}).`)
 }
+
+export const sendTelegramDocument = async (token: string, chatId: string, bytes: Uint8Array, fileName: string, caption: string) => {
+  const form = new FormData()
+  form.append("chat_id", chatId)
+  form.append("caption", caption)
+  form.append("document", new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }), fileName)
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, { method: "POST", body: form })
+  if (!response.ok) throw new Error(`Telegram API gagal (${response.status}).`)
+  return (await response.json()) as { ok: boolean; result?: { message_id: number } }
+}

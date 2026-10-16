@@ -8,6 +8,7 @@ import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { LedgerTable } from "@/components/botkos/ledger-table"
+import { StatusBadge } from "@/components/botkos/status-badge"
 
 export default function TenantDetailPage() {
   const params = useParams<{ tenantId: string }>()
@@ -17,6 +18,7 @@ export default function TenantDetailPage() {
   const updateDecision = useMutation(api.tenants.updateLeaseDecision)
   const setLifecycleStatus = useMutation(api.tenants.setLifecycleStatus)
   const handleOverdueFlag = useMutation(api.tenants.handleOverdueFlag)
+  const setDepositRefundStatus = useMutation(api.tenants.setDepositRefundStatus)
 
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -94,6 +96,18 @@ export default function TenantDetailPage() {
   const moveOutFormatted = tenant.move_out_date ? new Date(tenant.move_out_date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : null
   const flaggedFormatted = tenant.flagged_overdue_at ? new Date(tenant.flagged_overdue_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : null
   const lifecycleStatus = tenant.lifecycle_status ?? "active"
+  const depositRefundStatus = tenant.deposit_refund_status ?? "pending"
+
+  const saveDepositRefundStatus = async (status: "refunded" | "forfeited") => {
+    setError(null)
+    setMessage(null)
+    try {
+      await setDepositRefundStatus({ tenantId, status })
+      setMessage(status === "refunded" ? "Deposit ditandai sudah dikembalikan." : "Deposit ditandai dipotong atau hangus.")
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Status refund gagal disimpan.")
+    }
+  }
 
   return (
     <div className="px-5 py-7 sm:px-8 sm:py-10">
@@ -154,6 +168,24 @@ export default function TenantDetailPage() {
                 </button>
               </div>
             </div>
+          </section>
+        )}
+
+        {lifecycleStatus === "moved_out" && (
+          <section className="mt-6 border border-[var(--line)] bg-[#fffefa] p-5">
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+              <div>
+                <p className="text-sm font-semibold text-[var(--ink)]">Pengembalian deposit</p>
+                <p className="mt-1 text-sm text-[var(--ink-muted)]">Catat keputusan refund deposit tenant secara manual. BotKos tidak memproses uangnya.</p>
+              </div>
+              <StatusBadge status={depositRefundStatus === "refunded" ? "refunded" : depositRefundStatus === "forfeited" ? "forfeited" : "refund_pending"} />
+            </div>
+            {depositRefundStatus === "pending" && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" onClick={() => void saveDepositRefundStatus("refunded")} className="button-primary text-xs">Sudah Dikembalikan</button>
+                <button type="button" onClick={() => void saveDepositRefundStatus("forfeited")} className="button-secondary text-xs">Dipotong atau Hangus</button>
+              </div>
+            )}
           </section>
         )}
 

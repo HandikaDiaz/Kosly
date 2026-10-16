@@ -1,5 +1,6 @@
 import { internalMutation, mutation, query } from "./_generated/server"
 import { v } from "convex/values"
+import { internal } from "./_generated/api"
 import { requirePropertyOwner, requireOwner } from "./lib/auth"
 import { dueDateForPeriod, periodOf } from "../lib/rent-date"
 
@@ -114,12 +115,20 @@ export const handleOverdueFlag = mutation({
 
     if (args.action === "tandai_kosong") {
       const room = await ctx.db.get("rooms", tenant.roomId)
+      const now = Date.now()
       await ctx.db.patch("tenants", tenant._id, {
         status: "inactive",
         lifecycle_status: "moved_out",
+        deposit_refund_status: "pending",
+        deposit_refund_reminded_at: now,
       })
       if (room && room.status === "occupied") {
         await ctx.db.patch("rooms", room._id, { status: "available" })
+      }
+      const property = await ctx.db.get("properties", tenant.propertyId)
+      if (property && room && (room.depositFee ?? 0) > 0) {
+        await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId: tenant._id, type: "deposit_refund_reminder", channel: "log_only", occurredOn: new Date(now).toISOString().slice(0, 10), status: "logged", payload: JSON.stringify({ tenantName: tenant.name, roomNumber: room.roomNumber, depositAmount: room.depositFee }) })
+        await ctx.scheduler.runAfter(0, internal.bots.delivery.sendReminderNotice, { ownerId: property.ownerId, text: `Kamar ${room.roomNumber} sudah kosong. Jangan lupa proses pengembalian deposit Rp${(room.depositFee ?? 0).toLocaleString("id-ID")} ke ${tenant.name}.` })
       }
     }
     // "masih_tunggu" → no state change, just return
@@ -146,12 +155,31 @@ export const processLifecycle = internalMutation({
       if (!tenant.move_out_date || tenant.move_out_date > now) continue
       const room = await ctx.db.get("rooms", tenant.roomId)
       const property = await ctx.db.get("properties", tenant.propertyId)
-      await ctx.db.patch("tenants", tenant._id, { status: "inactive", lifecycle_status: "moved_out" })
+      await ctx.db.patch("tenants", tenant._id, { status: "inactive", lifecycle_status: "moved_out", deposit_refund_status: "pending", deposit_refund_reminded_at: now })
       if (room && room.status === "occupied") await ctx.db.patch("rooms", room._id, { status: "available" })
       if (property) {
         await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId: tenant._id, type: "move_out_auto", channel: "log_only", occurredOn: todayDate, status: "logged", payload: JSON.stringify({ tenantName: tenant.name }) })
+        if (room && (room.depositFee ?? 0) > 0) {
+          const text = `Kamar ${room.roomNumber} sudah kosong. Jangan lupa proses pengembalian deposit Rp${(room.depositFee ?? 0).toLocaleString("id-ID")} ke ${tenant.name}.`
+          await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId: tenant._id, type: "deposit_refund_reminder", channel: "telegram", occurredOn: todayDate, status: "logged", payload: JSON.stringify({ tenantName: tenant.name, roomNumber: room.roomNumber, depositAmount: room.depositFee }) })
+          await ctx.scheduler.runAfter(0, internal.bots.delivery.sendReminderNotice, { ownerId: property.ownerId, text })
+        }
       }
       movedOut++
+    }
+
+    const pendingRefunds = await ctx.db.query("tenants").withIndex("by_lifecycle_and_refund_status", (q) => q.eq("lifecycle_status", "moved_out").eq("deposit_refund_status", "pending")).take(500)
+    for (const tenant of pendingRefunds) {
+      if (!tenant.deposit_refund_reminded_at || now - tenant.deposit_refund_reminded_at < 7 * 24 * 60 * 60 * 1000) continue
+      const previousFollowup = (await ctx.db.query("notification_log").withIndex("by_tenant_and_type_and_date", (q) => q.eq("tenantId", tenant._id)).take(100)).some((item) => item.type === "deposit_refund_followup")
+      if (previousFollowup) continue
+      const room = await ctx.db.get("rooms", tenant.roomId)
+      const property = await ctx.db.get("properties", tenant.propertyId)
+      if (!room || !property || (room.depositFee ?? 0) <= 0) continue
+      const text = `Pengingat refund deposit: Kamar ${room.roomNumber} sudah kosong lebih dari 7 hari. Proses pengembalian deposit Rp${(room.depositFee ?? 0).toLocaleString("id-ID")} ke ${tenant.name}.`
+      await ctx.db.patch("tenants", tenant._id, { deposit_refund_reminded_at: now })
+      await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId: tenant._id, type: "deposit_refund_followup", channel: "telegram", occurredOn: todayDate, status: "logged", payload: JSON.stringify({ tenantName: tenant.name, roomNumber: room.roomNumber, depositAmount: room.depositFee }) })
+      await ctx.scheduler.runAfter(0, internal.bots.delivery.sendReminderNotice, { ownerId: property.ownerId, text })
     }
 
     // ── Jalur B: Overdue 5-day flag (bulanan only) ──────────────────────────
@@ -197,6 +225,18 @@ export const processLifecycle = internalMutation({
     }
 
     return { movedOut, flagged }
+  },
+})
+
+export const setDepositRefundStatus = mutation({
+  args: { tenantId: v.id("tenants"), status: v.union(v.literal("refunded"), v.literal("forfeited")) },
+  handler: async (ctx, args) => {
+    const tenant = await ctx.db.get("tenants", args.tenantId)
+    if (!tenant) throw new Error("Tenant tidak ditemukan.")
+    await requirePropertyOwner(ctx, tenant.propertyId)
+    if (tenant.lifecycle_status !== "moved_out") throw new Error("Status refund hanya dapat diubah setelah tenant pindah.")
+    await ctx.db.patch("tenants", tenant._id, { deposit_refund_status: args.status })
+    return null
   },
 })
 
