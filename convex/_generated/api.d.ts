@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as bookings from "../bookings.js";
 import type * as botLinks from "../botLinks.js";
+import type * as bots_commandRegistration from "../bots/commandRegistration.js";
 import type * as bots_commands from "../bots/commands.js";
 import type * as bots_delivery from "../bots/delivery.js";
 import type * as bots_formatters from "../bots/formatters.js";
@@ -28,6 +29,7 @@ import type * as bots_webhooks from "../bots/webhooks.js";
 import type * as bots_whatsapp from "../bots/whatsapp.js";
 import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
+import type * as emails from "../emails.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_subscription_tiers from "../lib/subscription_tiers.js";
@@ -47,6 +49,7 @@ import type * as roomMedia from "../roomMedia.js";
 import type * as rooms from "../rooms.js";
 import type * as sensitiveFiles from "../sensitiveFiles.js";
 import type * as subscriptions from "../subscriptions.js";
+import type * as supportTickets from "../supportTickets.js";
 import type * as tenants from "../tenants.js";
 import type * as verifications from "../verifications.js";
 
@@ -61,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   bookings: typeof bookings;
   botLinks: typeof botLinks;
+  "bots/commandRegistration": typeof bots_commandRegistration;
   "bots/commands": typeof bots_commands;
   "bots/delivery": typeof bots_delivery;
   "bots/formatters": typeof bots_formatters;
@@ -77,6 +81,7 @@ declare const fullApi: ApiFromModules<{
   "bots/whatsapp": typeof bots_whatsapp;
   crons: typeof crons;
   dashboard: typeof dashboard;
+  emails: typeof emails;
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/subscription_tiers": typeof lib_subscription_tiers;
@@ -96,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   rooms: typeof rooms;
   sensitiveFiles: typeof sensitiveFiles;
   subscriptions: typeof subscriptions;
+  supportTickets: typeof supportTickets;
   tenants: typeof tenants;
   verifications: typeof verifications;
 }>;

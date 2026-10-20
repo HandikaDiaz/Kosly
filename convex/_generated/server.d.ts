@@ -32,7 +32,9 @@ type Env = {
   readonly CONVEX_SITE_URL: string;
   readonly AUTH_GOOGLE_ID: string | undefined;
   readonly AUTH_GOOGLE_SECRET: string | undefined;
+  readonly EMAIL_FROM: string | undefined;
   readonly META_APP_SECRET: string | undefined;
+  readonly RESEND_API_KEY: string | undefined;
   readonly SITE_URL: string | undefined;
   readonly TELEGRAM_BOT_TOKEN: string | undefined;
   readonly TELEGRAM_WEBHOOK_SECRET: string | undefined;
