@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server"
 import type { MutationCtx } from "./_generated/server"
 import type { Id } from "./_generated/dataModel"
 import { v } from "convex/values"
+import { internal } from "./_generated/api"
 import { requireAdmin } from "./lib/auth"
 
 const monthEnd = (timestamp: number, months: number) => {
@@ -33,6 +34,8 @@ export const approveSubscriptionForAdmin = async (ctx: MutationCtx, adminId: Id<
     const now = Date.now()
     const currentPeriodEnd = monthEnd(now, subscription.billingCycle === "annual" ? 12 : 1)
     await ctx.db.patch("subscriptions", subscription._id, { status: "active", currentPeriodEnd, reviewedByOwnerId: adminId, reviewedAt: now, rejectionReason: undefined })
+    // Unlock any properties that were locked due to tier downgrade, up to the new tier's limit
+    await ctx.scheduler.runAfter(0, internal.subscriptions.enforcePropertyTierLock, { ownerId: subscription.ownerId, newTier: subscription.tier })
     return { currentPeriodEnd }
 }
 

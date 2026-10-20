@@ -9,6 +9,10 @@ import { sendWhatsAppText } from "./whatsapp"
 import type { TelegramReplyMarkup } from "./telegram"
 
 const botEnv = env as typeof env & Record<string, string | undefined>
+const markdownToTelegramHtml = (text: string) => text
+  .replace(/\*([^*\n]+)\*/g, "<b>$1</b>")
+  .replace(/_([^_\n]+)_/g, "<i>$1</i>")
+  .replace(/`([^`\n]+)`/g, "<code>$1</code>")
 
 export const sendResponse = internalAction({
   args: {
@@ -49,7 +53,7 @@ export const sendTextResponse = internalAction({
   handler: async (_ctx, args) => {
     if (args.channel === "telegram") {
       if (!botEnv.TELEGRAM_BOT_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN belum dikonfigurasi.")
-      await sendTelegramText(botEnv.TELEGRAM_BOT_TOKEN, args.chatId, args.text, { parseMode: "HTML", replyMarkup: args.replyMarkup as TelegramReplyMarkup | undefined })
+      await sendTelegramText(botEnv.TELEGRAM_BOT_TOKEN, args.chatId, markdownToTelegramHtml(args.text), { parseMode: "HTML", replyMarkup: args.replyMarkup as TelegramReplyMarkup | undefined })
     } else {
       if (!botEnv.WHATSAPP_ACCESS_TOKEN || !botEnv.WHATSAPP_PHONE_NUMBER_ID) throw new Error("Kredensial WhatsApp belum dikonfigurasi.")
       await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, args.chatId, args.text)

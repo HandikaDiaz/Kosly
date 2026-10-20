@@ -1,5 +1,23 @@
 import type { PaymentReviewSummary } from "./types"
 import { buildReviewMessage } from "./formatters"
+import { OWNER_COMMANDS } from "./commands"
+
+export const registerWhatsAppCommands = async (
+  accessToken: string,
+  phoneNumberId: string,
+  apiVersion = "v22.0"
+) => {
+  const response = await fetch(`https://graph.facebook.com/${apiVersion}/${phoneNumberId}/conversational_automation`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ commands: OWNER_COMMANDS }),
+  })
+  if (!response.ok) throw new Error(`WhatsApp Commands gagal (${response.status}): ${(await response.text()).slice(0, 500)}`)
+  return (await response.json()) as Record<string, unknown>
+}
 
 export const buildWhatsAppReviewMessage = (summary: PaymentReviewSummary) => {
   return buildReviewMessage(summary, "whatsapp").text
@@ -102,6 +120,26 @@ export const sendWhatsAppText = async (
   const result = await response.json()
   console.log("✅ [WhatsApp Terkirim]:", result)
   return result
+}
+
+export const sendWhatsAppImage = async (
+  accessToken: string,
+  phoneNumberId: string,
+  phoneNumber: string,
+  imageUrl: string,
+  caption: string,
+  apiVersion = "v22.0"
+) => {
+  const response = await fetch(`https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+    body: JSON.stringify({ messaging_product: "whatsapp", to: phoneNumber, type: "image", image: { link: imageUrl, caption } }),
+  })
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`WhatsApp Cloud API gagal (${response.status}): ${body.slice(0, 500)}`)
+  }
+  return (await response.json()) as { messages?: Array<{ id: string }> }
 }
 
 export const uploadWhatsAppDocument = async (accessToken: string, phoneNumberId: string, bytes: Uint8Array, apiVersion = "v22.0") => {

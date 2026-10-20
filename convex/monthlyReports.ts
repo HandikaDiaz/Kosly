@@ -97,3 +97,26 @@ export const scheduleForEligibleOwners = internalMutation({
     return { scheduled, period }
   },
 })
+
+export const getSimulationContext = internalQuery({
+  args: { propertyId: v.optional(v.id("properties")) },
+  handler: async (ctx, args) => {
+    let property = args.propertyId ? await ctx.db.get("properties", args.propertyId) : null
+    if (!property) {
+      property = await ctx.db.query("properties").filter((q) => q.eq(q.field("isActive"), true)).first()
+    }
+    if (!property) {
+      property = await ctx.db.query("properties").first()
+    }
+    if (!property) return null
+    const owner = await ctx.db.get("owners", property.ownerId)
+    if (!owner) return null
+    return {
+      ownerId: owner._id,
+      propertyId: property._id,
+      propertyName: property.name,
+      propertySlug: property.slug,
+      defaultPeriod: latestCompletedPeriod(),
+    }
+  },
+})

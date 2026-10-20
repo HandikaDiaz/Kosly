@@ -22,7 +22,7 @@ export const getPaymentReview = internalQuery({
     const tenant = await ctx.db.get("tenants", payment.tenantId)
     if (!property || !room || !tenant) return null
     const links = await ctx.db.query("bot_links").withIndex("by_owner_and_channel", (q) => q.eq("ownerId", property.ownerId)).take(10)
-    return { paymentId: payment._id, propertyName: property.name, roomNumber: room.roomNumber, tenantName: tenant.name, amount: payment.amount, ownerId: property.ownerId, proofUrl: payment.proofStorageId ? await ctx.storage.getUrl(payment.proofStorageId) : null, links }
+    return { paymentId: payment._id, propertyName: property.name, roomNumber: room.roomNumber, tenantName: tenant.name, tenantPhone: tenant.phone, amount: payment.amount, paymentType: payment.paymentType, purpose: payment.purpose, status: payment.status, rejectionReason: payment.rejectionReason, ownerId: property.ownerId, proofUrl: payment.proofStorageId ? await ctx.storage.getUrl(payment.proofStorageId) : null, links }
   },
 })
 

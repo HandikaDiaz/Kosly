@@ -124,6 +124,7 @@ export const getResponse = internalQuery({
         name: property.name,
         activeTenantsCount: activeTenants.length,
         pendingCount: pendingPayments.length + pendingTenants.length,
+        pendingPaymentsCount: pendingPayments.length,
         vacantCount: vacantRooms.length,
         vacantRooms: vacantRooms.map((r) => ({
           roomNumber: r.roomNumber,

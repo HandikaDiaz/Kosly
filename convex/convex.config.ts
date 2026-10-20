@@ -12,6 +12,8 @@ const app = defineApp({
     WHATSAPP_PHONE_NUMBER_ID: v.optional(v.string()),
     WHATSAPP_VERIFY_TOKEN: v.optional(v.string()),
     META_APP_SECRET: v.optional(v.string()),
+    RESEND_API_KEY: v.optional(v.string()),
+    EMAIL_FROM: v.optional(v.string()),
   },
 })
 

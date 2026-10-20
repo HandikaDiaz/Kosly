@@ -54,6 +54,16 @@ export const update = mutation({
   },
 })
 
+export const setActive = mutation({
+  args: { propertyId: v.id("properties"), isActive: v.boolean() },
+  handler: async (ctx, args) => {
+    await requirePropertyOwner(ctx, args.propertyId)
+    await ctx.db.patch("properties", args.propertyId, { isActive: args.isActive })
+    return null
+  },
+})
+
+
 export const getMine = query({
   args: { propertyId: v.id("properties") },
   handler: async (ctx, args) => (await requirePropertyOwner(ctx, args.propertyId)).property,
@@ -63,7 +73,7 @@ export const getPublicBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
     const property = await ctx.db.query("properties").withIndex("by_slug", (q) => q.eq("slug", normalizeSlug(args.slug))).unique()
-    if (!property || !property.isActive) return null
+    if (!property || !property.isActive || property.lockedByTier) return null
     const owner = await ctx.db.get("owners", property.ownerId)
     const rooms = await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)
     const pendingPayments = await ctx.db.query("payments").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id).eq("status", "pending_review")).take(100)

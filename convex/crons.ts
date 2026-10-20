@@ -63,22 +63,54 @@ export const processSubscriptionPeriods = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now()
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
     const subscriptions = await ctx.db.query("subscriptions").withIndex("by_status", (q) => q.eq("status", "active")).take(100)
-    let processed = 0
+    let markedPastDue = 0
+    let downgraded = 0
+
     for (const subscription of subscriptions) {
       if (!subscription.currentPeriodEnd || subscription.currentPeriodEnd >= now) continue
+
+      // ── Phase 1: Mark past_due on the day it expires ──────────────────────
       await ctx.db.patch("subscriptions", subscription._id, { status: "past_due" })
       const occurredOn = new Date(subscription.currentPeriodEnd).toISOString().slice(0, 10)
-      const existing = (await ctx.db.query("notification_log").withIndex("by_owner_and_type", (q) => q.eq("ownerId", subscription.ownerId)).take(100)).find((item) => item.type === "subscription_past_due" && item.occurredOn === occurredOn)
-      if (!existing) {
+      const alreadyNotified = (await ctx.db.query("notification_log").withIndex("by_owner_and_type", (q) => q.eq("ownerId", subscription.ownerId)).take(100)).some((item) => item.type === "subscription_past_due" && item.occurredOn === occurredOn)
+      if (!alreadyNotified) {
         await ctx.db.insert("notification_log", { ownerId: subscription.ownerId, type: "subscription_past_due", channel: "log_only", occurredOn, status: "logged", payload: JSON.stringify({ subscriptionId: subscription._id }) })
-        await ctx.scheduler.runAfter(0, internal.bots.delivery.sendReminderNotice, { ownerId: subscription.ownerId, text: "Subscription Anda sudah melewati masa aktif. Silakan hubungi admin untuk memperpanjang langganan." })
-        processed += 1
+        const pastDueText = `⚠️ Langganan ${subscription.tier.charAt(0).toUpperCase() + subscription.tier.slice(1)} Anda telah melewati masa aktif.\n\nJika tidak diperbarui dalam 3 hari, akses akan otomatis diturunkan ke tier Free dan properti melebihi batas akan dikunci.\n\nSegera perbarui langganan di: /dashboard/billing`
+        await ctx.scheduler.runAfter(0, internal.bots.delivery.sendReminderNotice, { ownerId: subscription.ownerId, text: pastDueText })
+        markedPastDue++
       }
     }
-    return { processed }
+
+    // ── Phase 2: Downgrade after 3 days of past_due ────────────────────────
+    const pastDueSubscriptions = await ctx.db.query("subscriptions").withIndex("by_status", (q) => q.eq("status", "past_due")).take(100)
+    for (const subscription of pastDueSubscriptions) {
+      if (!subscription.currentPeriodEnd) continue
+      const daysPastDue = now - subscription.currentPeriodEnd
+      if (daysPastDue < THREE_DAYS_MS) continue
+
+      const todayDate = new Date(now).toISOString().slice(0, 10)
+      const alreadyDowngraded = (await ctx.db.query("notification_log").withIndex("by_owner_and_type", (q) => q.eq("ownerId", subscription.ownerId)).take(100)).some((item) => item.type === "subscription_downgraded" && item.occurredOn === todayDate)
+      if (alreadyDowngraded) continue
+
+      // Downgrade to free
+      await ctx.db.patch("subscriptions", subscription._id, { status: "canceled", tier: "free", billingCycle: "none", priceAmount: 0, currentPeriodEnd: undefined })
+
+      // Lock excess properties
+      await ctx.scheduler.runAfter(0, internal.subscriptions.enforcePropertyTierLock, { ownerId: subscription.ownerId, newTier: "free" })
+
+      // Log and notify
+      await ctx.db.insert("notification_log", { ownerId: subscription.ownerId, type: "subscription_downgraded", channel: "telegram", occurredOn: todayDate, status: "logged", payload: JSON.stringify({ previousTier: subscription.tier }) })
+      const downgradeText = `🔒 Langganan Anda telah diturunkan ke tier Free karena belum ada pembayaran selama 3 hari.\n\nProperti melebihi batas tier Free (maks. 1) telah dikunci dan tidak dapat diakses penyewa baru.\n\nUpgrade kembali kapan saja di: /dashboard/billing`
+      await ctx.scheduler.runAfter(0, internal.bots.delivery.sendReminderNotice, { ownerId: subscription.ownerId, text: downgradeText })
+      downgraded++
+    }
+
+    return { markedPastDue, downgraded }
   },
 })
+
 
 export const simulateReminder = mutation({
   args: {

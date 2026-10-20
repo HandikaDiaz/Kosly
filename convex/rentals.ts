@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server"
 import { v } from "convex/values"
+import { internal } from "./_generated/api"
 import { requireOwner } from "./lib/auth"
 
 const normalizeSlug = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
@@ -75,6 +76,8 @@ export const submitRentPayment = mutation({
     const hasInitialPayment = payments.some((payment) => payment.status === "confirmed" && (payment.purpose === "pelunasan" || payment.paymentType === "full"))
     const paymentId = await ctx.db.insert("payments", { propertyId: property._id, tenantId: tenant._id, roomId: tenant.roomId, amount: args.amount, paymentType: "full", purpose: booking ? "pelunasan" : hasInitialPayment ? "sewa_bulanan" : "pelunasan", bookingId: booking?._id, paidAt: Date.now(), dueDate: args.dueDate, billingPeriod: args.billingPeriod, status: "pending_review", proofStorageId: args.proofStorageId })
     await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId: tenant._id, type: "payment_uploaded", channel: "log_only", occurredOn: new Date().toISOString().slice(0, 10), status: "logged", payload: JSON.stringify({ paymentId, tenantName: tenant.name }) })
+    await ctx.scheduler.runAfter(0, internal.bots.delivery.sendPaymentUploaded, { paymentId })
+    await ctx.scheduler.runAfter(0, internal.bots.delivery.sendTenantPaymentPendingNotice, { paymentId })
     return { paymentId }
   },
 })

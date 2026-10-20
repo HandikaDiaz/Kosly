@@ -52,6 +52,7 @@ export const createSubmission = mutation({
     const paymentId = await ctx.db.insert("payments", { propertyId: property._id, tenantId, roomId: room._id, amount: args.amount, paymentType, purpose: paymentType === "dp" ? "dp" : "pelunasan", bookingId, paidAt: Date.now(), dueDate: args.dueDate, billingPeriod, status: "pending_review", proofStorageId: args.proofStorageId })
     await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId, type: "payment_uploaded", channel: "log_only", occurredOn: new Date().toISOString().slice(0, 10), status: "logged", payload: JSON.stringify({ paymentId, tenantName: name, roomNumber: room.roomNumber }) })
     await ctx.scheduler.runAfter(0, internal.bots.delivery.sendPaymentUploaded, { paymentId })
+    await ctx.scheduler.runAfter(0, internal.bots.delivery.sendTenantPaymentPendingNotice, { paymentId })
     return { tenantId, paymentId, bookingId }
   },
 })

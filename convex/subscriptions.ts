@@ -120,3 +120,44 @@ export const submitPaymentFromBot = internalMutation({
     return null
   },
 })
+
+/**
+ * Internal: Enforce property lock/unlock based on the effective tier limit.
+ *
+ * On downgrade → lock excess properties (keep the N newest based on _creationTime desc).
+ * On upgrade   → unlock any properties previously locked by tier up to the new limit.
+ *
+ * "lockedByTier" is a system flag — independent of owner-controlled "isActive".
+ */
+export const enforcePropertyTierLock = internalMutation({
+  args: { ownerId: v.id("owners"), newTier: tierValidator },
+  handler: async (ctx, args) => {
+    const properties = await ctx.db
+      .query("properties")
+      .withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId))
+      .take(50)
+
+    const limit = getTierLimits(args.newTier).maxProperties
+    // Sort newest first (descending _creationTime) — newest N are kept accessible
+    const sorted = [...properties].sort((a, b) => b._creationTime - a._creationTime)
+
+    let locked = 0
+    let unlocked = 0
+
+    for (let i = 0; i < sorted.length; i++) {
+      const property = sorted[i]
+      const shouldLock = limit !== null && i >= limit
+      const currentlyLocked = property.lockedByTier === true
+
+      if (shouldLock && !currentlyLocked) {
+        await ctx.db.patch("properties", property._id, { lockedByTier: true })
+        locked++
+      } else if (!shouldLock && currentlyLocked) {
+        await ctx.db.patch("properties", property._id, { lockedByTier: false })
+        unlocked++
+      }
+    }
+
+    return { locked, unlocked }
+  },
+})

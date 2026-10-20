@@ -7,7 +7,7 @@ import { useEffect } from "react"
 import { api } from "@/convex/_generated/api"
 
 const isEntryRoute = (pathname: string) =>
-  pathname === "/" || pathname === "/login"
+  pathname === "/login"
 
 export function SessionRouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

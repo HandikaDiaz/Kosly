@@ -5,6 +5,7 @@ export type PropertyStatusData = {
   name: string
   activeTenantsCount: number
   pendingCount: number
+  pendingPaymentsCount?: number
   vacantCount: number
   vacantRooms: Array<{ roomNumber: string; monthlyRent: number }>
   totalRooms: number
@@ -74,13 +75,12 @@ export const buildStatusMessage = (
       ]
       const header = pickFromPool(openings, seed)
 
-      const pendingText = `${b(`${p.pendingCount} item`)} (pembayaran/tenant) sedang menunggu verifikasi Anda.`
-      const restText =
-        p.vacantCount > 0
-          ? `Saat ini terdapat ${b(`${p.activeTenantsCount} tenant aktif`)} dan ${b(`${p.vacantCount} kamar kosong`)}.`
-          : `Selebihnya berjalan lancar — ${b(`${p.activeTenantsCount} tenant aktif`)} menghuni properti, dan tidak ada kamar kosong saat ini.`
-
-      return `${header}\n\n${pendingText}\n${restText}`
+      const pendingPayments = p.pendingPaymentsCount ?? p.pendingCount
+      const count = isTg ? escapeHtml(String(pendingPayments)) : String(pendingPayments)
+      const rooms = isTg ? escapeHtml(String(p.totalRooms)) : String(p.totalRooms)
+      const tenants = isTg ? escapeHtml(String(p.activeTenantsCount)) : String(p.activeTenantsCount)
+      const vacant = isTg ? escapeHtml(String(p.vacantCount)) : String(p.vacantCount)
+      return `${header}\n\n${count} pembayaran menunggu verifikasi Anda.\n\nKamar: ${rooms} · Tenant aktif: ${tenants} · Kamar kosong: ${vacant}`
     }
 
     if (data.subscriptionAttention) {
@@ -126,7 +126,7 @@ export const buildStatusMessage = (
   const totalTenants = properties.reduce((sum, property) => sum + property.activeTenantsCount, 0)
   const totalVacant = properties.reduce((sum, property) => sum + property.vacantCount, 0)
   const totalPending = properties.reduce((sum, property) => sum + property.pendingCount, 0)
-  const topHeader = `📊 ${b("Ringkasan properti")} (${properties.length} kos)`
+  const topHeader = `🔑 ${b("Ringkasan properti")} (${properties.length} kos)`
   const overview = [
     `Kamar: ${b(String(totalRooms))}`,
     `Tenant aktif: ${b(String(totalTenants))}`,
@@ -154,7 +154,7 @@ export const buildStatusMessage = (
   const propBlocks = sorted.map((p) => {
     const status = p.pendingCount > 0 ? "Perlu ditinjau" : p.vacantCount > 0 ? "Ada kamar kosong" : "Aman"
     const lines = [
-      `🏠 ${b(p.name)} — ${status}`,
+      `🔑 ${b(p.name)} — ${status}`,
       `Total kamar: ${b(String(p.totalRooms))} · Tenant aktif: ${b(String(p.activeTenantsCount))} · Kamar kosong: ${b(String(p.vacantCount))}`,
     ]
     if (p.pendingCount > 0) lines.push(`Menunggu verifikasi: ${b(String(p.pendingCount))} item`)
@@ -183,9 +183,9 @@ export const buildUnpaidMessage = (
 
   if (items.length === 0) {
     const positivePool = [
-      "✨ Tidak ada tenant yang menunggak saat ini — kerja bagus!",
-      "✨ Seluruh tagihan sewa telah lunas tepat waktu. Semua lancar!",
-      "✨ Catatan keuangan bersih. Belum ada pembayaran yang tertunda.",
+      "✅ Tidak ada tenant yang menunggak saat ini.",
+      "✅ Seluruh tagihan sewa telah lunas tepat waktu.",
+      "✅ Catatan keuangan bersih. Belum ada pembayaran yang tertunda.",
     ]
     return pickFromPool(positivePool, seed)
   }
@@ -224,16 +224,16 @@ export const buildVacantMessage = (
 
   if (items.length === 0) {
     const appreciativePool = [
-      "🏠 Seluruh kamar di properti Anda terisi penuh saat ini!",
-      "🏠 Okupansi 100%! Tidak ada kamar kosong yang tersedia saat ini.",
-      "🏠 Semua kamar terhuni dengan baik. Tidak ada kekosongan.",
+      "✅ Seluruh kamar terisi.",
+      "✅ Okupansi 100%. Tidak ada kamar kosong saat ini.",
+      "✅ Semua kamar terhuni dengan baik.",
     ]
     return pickFromPool(appreciativePool, seed)
   }
 
   const headerPool = [
-    `🏠 ${b(`${items.length} Kamar Kosong Siap Disewakan`)}`,
-    `🏠 Ada ${b(`${items.length} kamar kosong`)} yang siap menerima penyewa`,
+    `🔑 ${b(`${items.length} Kamar Kosong`)}`,
+    `🔑 Ada ${b(`${items.length} kamar kosong`)} yang siap disewakan`,
   ]
   const header = pickFromPool(headerPool, seed)
 
@@ -254,10 +254,10 @@ export const buildReviewMessage = (
   channel: BotChannel = "whatsapp"
 ): { text: string; parseMode?: "HTML" } => {
   if (channel === "telegram") {
-    const text = `📋 <b>Pembayaran Baru Perlu Diverifikasi</b>\n\n<b>${escapeHtml(summary.propertyName)}</b> · Kamar <b>${escapeHtml(summary.roomNumber)}</b>\n<b>${escapeHtml(summary.tenantName)}</b> · ${escapeHtml(summary.amount)}\nRef: <code>${escapeHtml(summary.reference)}</code>`
+    const text = `🔑 <b>Pembayaran baru perlu ditinjau</b>\n\nProperti: ${escapeHtml(summary.propertyName)}\nKamar: ${escapeHtml(summary.roomNumber)}\nTenant: ${escapeHtml(summary.tenantName)}\nNominal: ${escapeHtml(summary.amount)}\nReferensi: <code>${escapeHtml(summary.reference)}</code>`
     return { text, parseMode: "HTML" }
   }
 
-  const text = `📋 *Pembayaran Baru Perlu Diverifikasi*\n\n*${summary.propertyName}* · Kamar *${summary.roomNumber}*\n*${summary.tenantName}* · ${summary.amount}\nRef: *${summary.reference}*`
+  const text = `🔑 *Pembayaran baru perlu ditinjau*\n\nProperti: ${summary.propertyName}\nKamar: ${summary.roomNumber}\nTenant: ${summary.tenantName}\nNominal: ${summary.amount}\nReferensi: *${summary.reference}*`
   return { text }
 }

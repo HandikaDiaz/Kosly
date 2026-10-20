@@ -9,15 +9,15 @@ describe("bot help messages", () => {
     expect(message).toContain("/tambahkamar")
   })
 
-  test("renders WhatsApp commands without slash", () => {
-    const message = buildWelcomeMessage("whatsapp")
-    expect(message).toContain("*help*")
-    expect(message).toContain("*status*")
-    expect(message).not.toContain("*/status*")
+  test("renders WhatsApp owner commands with slash", () => {
+    const message = buildHelpMessage("whatsapp")
+    expect(message).toContain("`help`")
+    expect(message).toContain("`/status`")
+    expect(message).not.toContain("`status`")
   })
 
   test("guides users after an unknown message", () => {
     expect(buildUnknownCommandMessage("telegram")).toContain("/help")
-    expect(buildUnknownCommandMessage("whatsapp")).toContain("*help*")
+    expect(buildUnknownCommandMessage("whatsapp")).toContain("`help`")
   })
 })

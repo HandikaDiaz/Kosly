@@ -12,8 +12,8 @@ test("builds Telegram review message with opaque callback actions", () => {
 
 test("builds WhatsApp review text with strict commands", () => {
   const message = buildWhatsAppReviewMessage(summary)
-  expect(message).toContain("KONFIRMASI KSL-ABC123")
-  expect(message).toContain("TOLAK KSL-ABC123")
+  expect(message).toContain("Pembayaran baru perlu ditinjau")
+  expect(message).toContain("Referensi: *KSL-ABC123*")
 })
 
 test("builds Telegram upgrade buttons with cancel", () => {
@@ -21,7 +21,7 @@ test("builds Telegram upgrade buttons with cancel", () => {
     { tier: "starter", monthlyPrice: 99000, annualPrice: 990000 },
     { tier: "growth", monthlyPrice: 199000, annualPrice: 1990000 },
   ] as const)
-  expect(message.text).toContain("Pilih tier upgrade")
+  expect(message.text).toContain("Pilih Paket Upgrade")
   expect(message.reply_markup.inline_keyboard).toEqual([
     [
       { text: "Starter · Bulanan (Rp 99.000)", callback_data: "upgrade:starter:monthly" },

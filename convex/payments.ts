@@ -6,6 +6,7 @@ import type { MutationCtx } from "./_generated/server"
 import type { Id } from "./_generated/dataModel"
 import { confirmDepositForOwner, confirmSettlementForOwner } from "./bookings"
 import { markCurrentPeriodPaid } from "./rentCharges"
+import { internal } from "./_generated/api"
 
 export const confirmPaymentForOwner = async (ctx: MutationCtx, paymentId: Id<"payments">, ownerId: Id<"owners">) => {
   const payment = await ctx.db.get("payments", paymentId)
@@ -93,6 +94,7 @@ export const confirm = mutation({
     if (!payment) throw new Error("Pembayaran tidak ditemukan.")
     const { owner } = await requirePropertyOwner(ctx, payment.propertyId)
     await confirmPaymentForOwner(ctx, payment._id, owner._id)
+    await ctx.scheduler.runAfter(0, internal.bots.delivery.sendPaymentDecisionNotice, { ownerId: owner._id, paymentId: payment._id, decision: "confirmed" })
     return null
   },
 })
@@ -104,6 +106,7 @@ export const reject = mutation({
     if (!payment) throw new Error("Pembayaran tidak ditemukan.")
     const { owner } = await requirePropertyOwner(ctx, payment.propertyId)
     await rejectPaymentForOwner(ctx, payment._id, owner._id, args.reason)
+    await ctx.scheduler.runAfter(0, internal.bots.delivery.sendPaymentDecisionNotice, { ownerId: owner._id, paymentId: payment._id, decision: "rejected" })
     return null
   },
 })

@@ -15,6 +15,7 @@ test("subscription period processing marks expired subscriptions past due once",
   const second = await t.mutation(internal.crons.processSubscriptionPeriods, {})
   const subscription = await t.run(async (ctx) => ctx.db.get("subscriptions", subscriptionId))
   expect(subscription?.status).toBe("past_due")
-  expect(first.processed).toBe(1)
-  expect(second.processed).toBe(0)
+  expect(first.markedPastDue).toBe(1)
+  expect(second.markedPastDue).toBe(0)
 })
+

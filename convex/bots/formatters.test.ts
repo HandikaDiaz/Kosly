@@ -122,12 +122,12 @@ test("buildStatusMessage - Multi-property summary stays scannable", () => {
       { id: "prop2", name: "Kos Anggrek", activeTenantsCount: 3, pendingCount: 0, vacantCount: 0, vacantRooms: [], totalRooms: 3 },
     ],
   }, "whatsapp", 1000)
-  expect(msg).toContain("📊 *Ringkasan properti*")
-  expect(msg).toContain("🏠 *Kos Melati*")
+  expect(msg).toContain("🔑 *Ringkasan properti*")
+  expect(msg).toContain("🔑 *Kos Melati*")
   expect(msg).toContain("Total kamar: *6*")
   expect(msg).toContain("Kamar kosong: *2*")
   expect(msg).toContain("• 101 — Rp 1.200.000/bulan")
-  expect(msg).toContain("🏠 *Kos Anggrek*")
+  expect(msg).toContain("🔑 *Kos Anggrek*")
 })
 
 test("buildUnpaidMessage - empty vs items", () => {
@@ -158,7 +158,7 @@ test("buildUnpaidMessage - empty vs items", () => {
 
 test("buildVacantMessage - empty vs items", () => {
   const emptyMsgSeed1 = buildVacantMessage([], "whatsapp", 0)
-  expect(emptyMsgSeed1).toContain("terisi penuh")
+  expect(emptyMsgSeed1).toContain("Seluruh kamar terisi")
 
   const emptyMsgSeed2 = buildVacantMessage([], "whatsapp", 1000)
   expect(emptyMsgSeed2).toContain("Okupansi 100%")
@@ -189,11 +189,11 @@ test("buildReviewMessage - Telegram vs WhatsApp", () => {
   }
 
   const wa = buildReviewMessage(summary, "whatsapp")
-  expect(wa.text).toContain("*Kos Aziza*")
+  expect(wa.text).toContain("Properti: Kos Aziza")
   expect(wa.text).not.toContain("Balas:")
   expect(wa.text).not.toContain("KONFIRMASI KSL-TEST123")
 
   const tg = buildReviewMessage(summary, "telegram")
-  expect(tg.text).toContain("<b>Kos Aziza</b>")
+  expect(tg.text).toContain("Properti: Kos Aziza")
   expect(tg.parseMode).toBe("HTML")
 })

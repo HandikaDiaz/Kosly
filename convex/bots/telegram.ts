@@ -1,8 +1,19 @@
 import type { PaymentReviewSummary } from "./types"
 import { buildReviewMessage } from "./formatters"
+import { OWNER_COMMANDS } from "./commands"
 
 export type TelegramInlineButton = { text: string; callback_data: string }
 export type TelegramReplyMarkup = { inline_keyboard: TelegramInlineButton[][] }
+
+export const registerTelegramCommands = async (token: string) => {
+  const response = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ commands: OWNER_COMMANDS }),
+  })
+  if (!response.ok) throw new Error(`Telegram setMyCommands gagal (${response.status}): ${(await response.text()).slice(0, 500)}`)
+  return (await response.json()) as { ok: boolean }
+}
 
 export const buildTelegramReviewMessage = (summary: PaymentReviewSummary) => {
   const { text } = buildReviewMessage(summary, "telegram")
@@ -24,7 +35,7 @@ const formatPrice = (value: number) => `Rp ${value.toLocaleString("id-ID")}`
 const titleTier = (tier: UpgradeOption["tier"]) => tier.charAt(0).toUpperCase() + tier.slice(1)
 
 export const buildTelegramUpgradeMessage = (options: ReadonlyArray<UpgradeOption>) => ({
-  text: "⬆️ <b>Pilih tier upgrade</b>\n\nPilih paket dan siklus tagihan di bawah ini:",
+  text: "🔑 <b>Pilih Paket Upgrade</b>\n\nPilih tier dan periode langganan.",
   reply_markup: {
     inline_keyboard: [
       ...options.map((option) => [

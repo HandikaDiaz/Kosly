@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Building2, CheckCircle2, ChevronDown, Clock3, FileText, LayoutDashboard, LogOut, Menu, ReceiptText, Settings, ShieldCheck, Users, X, WalletCards } from "lucide-react"
+import { Building2, CheckCircle2, ChevronDown, Clock3, FileText, LayoutDashboard, LogOut, Menu, ReceiptText, Settings, ShieldCheck, Ticket, Users, X, WalletCards } from "lucide-react"
 import { useState } from "react"
 import { usePathname } from "next/navigation"
 import { useQuery } from "convex/react"
@@ -54,6 +54,7 @@ export function DashboardNav({ mode = "owner" }: DashboardNavProps) {
             <Link className={`nav-link ${pathname.startsWith("/admin/billing") ? "nav-link-active" : ""}`} href="/admin/billing"><WalletCards size={16} />Billing</Link>
             <Link className={`nav-link ${pathname.startsWith("/admin/verification") ? "nav-link-active" : ""}`} href="/admin/verification"><CheckCircle2 size={16} />Verifikasi</Link>
             <Link className={`nav-link ${pathname.startsWith("/admin/reports") ? "nav-link-active" : ""}`} href="/admin/reports"><FileText size={16} />Laporan</Link>
+            <Link className={`nav-link ${pathname.startsWith("/admin/tickets") ? "nav-link-active" : ""}`} href="/admin/tickets"><Ticket size={16} />Tiket</Link>
           </> : <>
             <Link className={`nav-link ${pathname === "/dashboard" ? "nav-link-active" : ""}`} href="/dashboard"><LayoutDashboard size={16} />Ringkasan</Link>
             <Link className={`nav-link ${pathname.startsWith("/dashboard/properties") ? "nav-link-active" : ""}`} href="/dashboard/properties"><Building2 size={16} />Properti &amp; kamar</Link>

@@ -1,5 +1,17 @@
 import type { BotCommand } from "./types"
 
+export const OWNER_COMMANDS = [
+  { command: "status", description: "Lihat ringkasan properti" },
+  { command: "belum_bayar", description: "Lihat tagihan yang belum dibayar" },
+  { command: "kamar_kosong", description: "Lihat kamar yang siap disewakan" },
+  { command: "langganan", description: "Lihat info paket langganan aktif" },
+  { command: "upgrade", description: "Lihat pilihan upgrade paket" },
+  { command: "laporan", description: "Minta laporan bulanan (Growth & Pro)" },
+  { command: "tambahkamar", description: "Tambah kamar baru lewat chat (Growth & Pro)" },
+  { command: "editkamar", description: "Ubah harga/status kamar lewat chat (Growth & Pro)" },
+  { command: "help", description: "Lihat daftar command BotKos" },
+] as const
+
 const referencePattern = /^(?:KSL|VERIFY|BILL|REPORT)-[A-Z0-9]{4,32}$/
 const maxReasonLength = 160
 const isCommand = (value: string, name: string) => value === `/${name}` || value === name

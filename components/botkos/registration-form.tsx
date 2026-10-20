@@ -13,15 +13,19 @@ type RegistrationFormProps = {
   propertyName: string
   slug: string
   rooms: PublicRoom[]
+  selectedRoomId?: string
+  onSelectRoom?: (roomId: string) => void
 }
 
 export function RegistrationForm({
   propertyName,
   slug,
   rooms,
+  selectedRoomId: externalSelectedRoomId,
+  onSelectRoom,
 }: RegistrationFormProps) {
   const [submitted, setSubmitted] = useState(false)
-  const [selectedRoomId, setSelectedRoomId] = useState<string>(
+  const [internalSelectedRoomId, setInternalSelectedRoomId] = useState<string>(
     rooms.length > 0 ? rooms[0]._id : ""
   )
   const [paymentType, setPaymentType] = useState<"dp" | "full">("dp")
@@ -29,6 +33,13 @@ export function RegistrationForm({
   const [proofFile, setProofFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const selectedRoomId = externalSelectedRoomId ?? internalSelectedRoomId
+
+  const handleSelectRoom = (id: string) => {
+    setInternalSelectedRoomId(id)
+    onSelectRoom?.(id)
+  }
 
   const generateUploadUrl = useMutation(api.publicRegistration.generateUploadUrl)
   const createSubmission = useMutation(api.publicRegistration.createSubmission)
@@ -115,7 +126,7 @@ export function RegistrationForm({
   // ── Success State Display ─────────────────────────────────────────────────
   if (submitted) {
     return (
-      <div className="border border-[var(--line)] bg-[#fffefa] p-8 text-center sm:p-10">
+      <div className="border border-[var(--line)] bg-[#FFFFFF] p-8 text-center sm:p-10 rounded-2xl shadow-sm">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--wood)]/10 text-[var(--wood)]">
           <CheckCircle2 size={32} />
         </div>
@@ -127,7 +138,7 @@ export function RegistrationForm({
           <strong className="text-[var(--ink)]">{propertyName}</strong>.
           Pemilik akan mengonfirmasi pembayaran Anda secara manual.
         </p>
-        <div className="mt-6 border border-[var(--line)] bg-[var(--background)] p-4 text-xs text-[var(--ink-muted)]">
+        <div className="mt-6 border border-[var(--line)] bg-[var(--background)] p-4 text-xs text-[var(--ink-muted)] rounded-lg">
           Simpan tangkapan layar ini sebagai tanda pendaftaran sementara.
         </div>
       </div>
@@ -136,8 +147,9 @@ export function RegistrationForm({
 
   return (
     <form
+      id="form-pendaftaran"
       onSubmit={(e) => void handleSubmit(e)}
-      className="space-y-6 border border-[var(--line)] bg-[#fffefa] p-6 sm:p-8"
+      className="space-y-6 border border-[var(--line)] bg-[#FFFFFF] p-6 sm:p-8 rounded-2xl shadow-sm"
       noValidate
     >
       {/* ── Section Header ── */}
@@ -185,7 +197,7 @@ export function RegistrationForm({
         />
       </div>
 
-      {/* ── 3. Kamar yang diminati (Dropdown & RoomDetailCard) ── */}
+      {/* ── 3. Kamar yang diminati (Dropdown & Room Summary) ── */}
       <div>
         <FieldLabel
           htmlFor="roomId"
@@ -197,26 +209,55 @@ export function RegistrationForm({
           id="roomId"
           name="roomId"
           value={selectedRoomId}
-          onChange={(e) => setSelectedRoomId(e.target.value)}
+          onChange={(e) => handleSelectRoom(e.target.value)}
           className="field-input font-medium"
           required
         >
           <option value="">-- Pilih Kamar --</option>
           {rooms.map((room) => (
             <option value={room._id} key={room._id}>
-              Kamar {room.roomNumber} — Rp{" "}
+              Kamar {room.roomNumber} - Rp{" "}
               {room.monthlyRent.toLocaleString("id-ID")}/bulan
             </option>
           ))}
         </select>
 
-        {/* Selected Room Detailed Presentation */}
+        {/* Selected Room Summary */}
         {selectedRoom && (
-          <div className="mt-4">
-            <p className="mb-2 text-xs font-semibold tracking-wider uppercase text-[var(--ink-muted)]">
-              Detail Kamar Terpilih:
-            </p>
-            <RoomDetailCard room={selectedRoom} />
+          <div className="mt-3 rounded-xl border border-[var(--line)] bg-[#FCFBF9] p-3.5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-sm text-[var(--ink)]">
+                  Kamar {selectedRoom.roomNumber} {selectedRoom.roomType ? `• ${selectedRoom.roomType}` : ""}
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+                  {[
+                    selectedRoom.floor ? `Lantai ${selectedRoom.floor}` : null,
+                    selectedRoom.sizeSqm ? `${selectedRoom.sizeSqm} m²` : null,
+                    selectedRoom.bathroomType === "private"
+                      ? "K. Mandi Dalam"
+                      : selectedRoom.bathroomType === "shared"
+                      ? "K. Mandi Luar"
+                      : null,
+                    selectedRoom.genderCategory === "male"
+                      ? "Putra"
+                      : selectedRoom.genderCategory === "female"
+                      ? "Putri"
+                      : selectedRoom.genderCategory === "mixed"
+                      ? "Campur"
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" • ")}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="font-mono text-sm font-semibold text-[var(--wood)]">
+                  Rp {selectedRoom.monthlyRent.toLocaleString("id-ID")}
+                </span>
+                <span className="block text-[10px] text-[var(--ink-muted)]">/bulan</span>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -194,7 +194,7 @@ export function AddRoomForm({ propertyId, onClose, onSuccess }: AddRoomFormProps
               <FieldLabel
                 htmlFor={fid("roomType")}
                 label="Tipe Kamar"
-                hint="Jenis kamar, misal: Standar, AC, atau Kamar Mandi Dalam — membantu calon penyewa membandingkan kamar."
+                hint="Jenis kamar, misal: Standar, AC, atau Kamar Mandi Dalam - membantu calon penyewa membandingkan kamar."
               />
               <input
                 id={fid("roomType")}

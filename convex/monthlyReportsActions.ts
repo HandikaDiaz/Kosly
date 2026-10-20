@@ -1,10 +1,25 @@
 "use node"
 
-import { internalAction } from "./_generated/server"
+import { action, internalAction } from "./_generated/server"
 import { internal } from "./_generated/api"
 import { v } from "convex/values"
+import type { Id } from "./_generated/dataModel"
 import { sendTelegramDocument } from "./bots/telegram"
 import { sendWhatsAppDocument, uploadWhatsAppDocument } from "./bots/whatsapp"
+
+type BotLink = {
+  channel: "telegram" | "whatsapp"
+  chatId: string
+  status: "active" | "inactive"
+}
+
+type SimulationTarget = {
+  ownerId: Id<"owners">
+  propertyId: Id<"properties">
+  propertyName: string
+  propertySlug: string
+  defaultPeriod: string
+} | null
 
 type ReportSection = {
   property: { name: string; slug: string }
@@ -77,11 +92,11 @@ export const generateAndDeliver = internalAction({
     const fileName = `botkos-laporan-${report.property.slug}-${args.period}.pdf`
     const storageId = await ctx.storage.store(new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }))
     await ctx.runMutation(internal.monthlyReports.saveReport, { ownerId: args.ownerId, propertyId: args.propertyId, period: args.period, storageId, fileName })
-    const links = await ctx.runQuery(internal.notifications.getOwnerBotLinks, { ownerId: args.ownerId })
+    const links = (await ctx.runQuery(internal.notifications.getOwnerBotLinks, { ownerId: args.ownerId })) as BotLink[]
     const caption = `BotKos - Laporan ${report.property.name} (${report.label})`
     const env = process.env as Record<string, string | undefined>
     let delivered = 0
-    for (const link of links.filter((item) => item.status === "active")) {
+    for (const link of links.filter((item: BotLink) => item.status === "active")) {
       try {
         if (link.channel === "telegram" && env.TELEGRAM_BOT_TOKEN) {
           await sendTelegramDocument(env.TELEGRAM_BOT_TOKEN, link.chatId, bytes, fileName, caption)
@@ -96,5 +111,139 @@ export const generateAndDeliver = internalAction({
       }
     }
     return { delivered, saved: true, fileName }
+  },
+})
+
+export const simulateMonthlyReport = action({
+  args: {
+    propertyId: v.optional(v.id("properties")),
+    period: v.optional(v.string()),
+    useSampleDataIfEmpty: v.optional(v.boolean()),
+    sendToBot: v.optional(v.boolean()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean
+    fileName: string
+    storageId: string
+    pdfUrl: string | null
+    isSampleData: boolean
+    deliveredToBot: number
+    propertyName: string
+    period: string
+    periodLabel: string
+    reportText: string
+  }> => {
+    const target = (await ctx.runQuery(internal.monthlyReports.getSimulationContext, { propertyId: args.propertyId })) as SimulationTarget
+    const period = args.period ?? (target?.defaultPeriod ?? "2026-09")
+
+    let report: ReportSection | null = null
+    if (target) {
+      report = (await ctx.runQuery(internal.monthlyReports.getReportData, {
+        ownerId: target.ownerId,
+        propertyId: target.propertyId,
+        period,
+      })) as ReportSection | null
+    }
+
+    const shouldUseSample = args.useSampleDataIfEmpty !== false && (!report || report.current.total === 0)
+
+    if (shouldUseSample) {
+      report = {
+        property: {
+          name: target?.propertyName ?? "Kos Aziza Eksklusif",
+          slug: target?.propertySlug ?? "kos-aziza",
+        },
+        period,
+        label: "September 2026",
+        current: {
+          occupied: 8,
+          vacant: 1,
+          booked: 1,
+          total: 10,
+          occupancyRate: 80,
+          cash: {
+            monthlyRent: 12_000_000,
+            dp: 900_000,
+            settlement: 1_500_000,
+          },
+          overdue: [
+            { name: "Budi Santoso", roomNumber: "104", daysLate: 3 },
+          ],
+          newTenants: [
+            { roomNumber: "201", name: "Siti Rahma", date: 1 },
+          ],
+          movedOut: [
+            { roomNumber: "102", name: "Andi Pratama", date: 28 },
+          ],
+        },
+        previous: {
+          occupied: 7,
+          occupancyRate: 70,
+          cash: {
+            monthlyRent: 10_500_000,
+            dp: 450_000,
+            settlement: 0,
+          },
+        },
+      }
+    }
+
+    if (!report) {
+      throw new Error("Gagal menyusun data laporan bulanan.")
+    }
+
+    const generatedAt = new Date()
+    const textLines = buildReportText(report, generatedAt)
+    const bytes = createPdf(textLines)
+    const fileName = `botkos-laporan-${report.property.slug}-${period}.pdf`
+    const storageId = await ctx.storage.store(new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }))
+    const pdfUrl = await ctx.storage.getUrl(storageId)
+
+    if (target) {
+      await ctx.runMutation(internal.monthlyReports.saveReport, {
+        ownerId: target.ownerId,
+        propertyId: target.propertyId,
+        period,
+        storageId,
+        fileName,
+      })
+    }
+
+    let delivered = 0
+    if (target && args.sendToBot !== false) {
+      const links = (await ctx.runQuery(internal.notifications.getOwnerBotLinks, { ownerId: target.ownerId })) as BotLink[]
+      const caption = `[SIMULASI] BotKos - Laporan ${report.property.name} (${report.label})`
+      const env = process.env as Record<string, string | undefined>
+      for (const link of links.filter((item: BotLink) => item.status === "active")) {
+        try {
+          if (link.channel === "telegram" && env.TELEGRAM_BOT_TOKEN) {
+            await sendTelegramDocument(env.TELEGRAM_BOT_TOKEN, link.chatId, bytes, fileName, caption)
+            delivered += 1
+          } else if (link.channel === "whatsapp" && env.WHATSAPP_ACCESS_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID) {
+            const mediaId = await uploadWhatsAppDocument(env.WHATSAPP_ACCESS_TOKEN, env.WHATSAPP_PHONE_NUMBER_ID, bytes)
+            await sendWhatsAppDocument(env.WHATSAPP_ACCESS_TOKEN, env.WHATSAPP_PHONE_NUMBER_ID, link.chatId, mediaId, fileName, caption)
+            delivered += 1
+          }
+        } catch (error) {
+          console.error("Gagal mengirim simulasi laporan ke bot:", error)
+        }
+      }
+    }
+
+    return {
+      success: true,
+      fileName,
+      storageId,
+      pdfUrl,
+      isSampleData: shouldUseSample,
+      deliveredToBot: delivered,
+      propertyName: report.property.name,
+      period: report.period,
+      periodLabel: report.label,
+      reportText: textLines.join("\n"),
+    }
   },
 })
