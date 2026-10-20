@@ -13,6 +13,7 @@ import { useQuery } from "convex/react"
 import { useState } from "react"
 import { api } from "@/convex/_generated/api"
 import { TablePagination } from "@/components/botkos/table-pagination"
+import { PageLoader } from "@/components/botkos/page-loader"
 
 const PAGE_SIZE = 5
 
@@ -32,7 +33,13 @@ export default function TenantsPage() {
   const properties = useQuery(api.properties.listMine)
 
   if (!tenants || !properties) {
-    return <div className="p-8 text-sm text-[var(--ink-muted)]">Memuat data tenant…</div>
+    return (
+      <PageLoader
+        variant="inline"
+        message="Memuat data penyewa…"
+        submessage="Mengambil profil tenant dan riwayat sewa aktif"
+      />
+    )
   }
 
   // Filter tenants by search, status, and property

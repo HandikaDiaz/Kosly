@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { EmptyState } from "@/components/botkos/empty-state"
+import { PageLoader } from "@/components/botkos/page-loader"
 
 export default function AdminVerificationPage() {
   const identity = useQuery(api.verifications.listPendingIdentity)
@@ -16,7 +17,15 @@ export default function AdminVerificationPage() {
     return siteUrl ? `${siteUrl.replace(/\/$/, "")}/sensitive-file?storageId=${encodeURIComponent(storageId)}&fileType=${fileType}` : null
   }
 
-  if (!identity || !properties) return <p className="text-sm text-[var(--ink-muted)]">Memuat verifikasi…</p>
+  if (!identity || !properties) {
+    return (
+      <PageLoader
+        variant="inline"
+        message="Memuat antrean verifikasi…"
+        submessage="Mengambil dokumen identitas dan bukti kepemilikan kos"
+      />
+    )
+  }
 
   const review = async (kind: "identity" | "property", id: string, decision: "approved" | "rejected") => {
     setError(null)

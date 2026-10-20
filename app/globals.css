@@ -261,6 +261,91 @@
   .bot-card-actions { margin-top: .85rem; }
 }
 
+/* ─── Page Loader Animations ──────────────────────────────────────────────── */
+@keyframes loader-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loader-spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes loader-pulse {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.75;
+  }
+}
+
+@keyframes loader-breathe {
+  0%, 100% {
+    transform: scale(0.96);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes loader-fade {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes loader-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  50% {
+    transform: translateX(60%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+.animate-loader-spin {
+  animation: loader-spin 3.6s linear infinite;
+}
+
+.animate-loader-spin-reverse {
+  animation: loader-spin-reverse 4.8s linear infinite;
+}
+
+.animate-loader-pulse {
+  animation: loader-pulse 2.2s ease-in-out infinite;
+}
+
+.animate-loader-breathe {
+  animation: loader-breathe 2.4s ease-in-out infinite;
+}
+
+.animate-loader-fade {
+  animation: loader-fade 2.2s ease-in-out infinite;
+}
+
+.animate-loader-shimmer {
+  animation: loader-shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+

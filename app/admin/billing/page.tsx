@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { EmptyState } from "@/components/botkos/empty-state"
 import { LedgerTable } from "@/components/botkos/ledger-table"
+import { PageLoader } from "@/components/botkos/page-loader"
 
 const formatMoney = (value: number) => `Rp ${value.toLocaleString("id-ID")}`
 
@@ -14,7 +15,15 @@ export default function AdminBillingPage() {
   const reject = useMutation(api.admin.rejectSubscription)
   const [error, setError] = useState<string | null>(null)
 
-  if (!data) return <p className="text-sm text-[var(--ink-muted)]">Memuat billing…</p>
+  if (!data) {
+    return (
+      <PageLoader
+        variant="inline"
+        message="Memuat data billing admin…"
+        submessage="Mengambil transaksi paket langganan dan bukti bayar"
+      />
+    )
+  }
 
   const decide = async (id: typeof data.pending[number]["subscription"]["_id"], action: "approve" | "reject") => {
     setError(null)

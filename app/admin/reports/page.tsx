@@ -4,12 +4,21 @@ import { useState } from "react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { EmptyState } from "@/components/botkos/empty-state"
+import { PageLoader } from "@/components/botkos/page-loader"
 
 export default function AdminReportsPage() {
   const reports = useQuery(api.reports.listOpen)
   const updateStatus = useMutation(api.reports.updateStatus)
   const [error, setError] = useState<string | null>(null)
-  if (!reports) return <p className="text-sm text-[var(--ink-muted)]">Memuat laporan…</p>
+  if (!reports) {
+    return (
+      <PageLoader
+        variant="inline"
+        message="Memuat daftar laporan…"
+        submessage="Menghubungkan tiket bantuan dan pengaduan"
+      />
+    )
+  }
 
   const update = async (reportId: typeof reports[number]["_id"], status: "reviewed" | "resolved") => {
     setError(null)

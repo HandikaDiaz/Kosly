@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { LedgerTable } from "./ledger-table"
 import { PendingPaymentsList, type PendingPaymentItem } from "./pending-payments-list"
+import { PageLoader } from "./page-loader"
 import { Clock, CheckCircle2, Receipt } from "lucide-react"
 
 export function PaymentsLive() {
@@ -13,9 +14,11 @@ export function PaymentsLive() {
 
   if (!rows) {
     return (
-      <div className="p-8 text-sm text-[var(--ink-muted)]">
-        Memuat data pembayaran…
-      </div>
+      <PageLoader
+        variant="inline"
+        message="Memuat data pembayaran…"
+        submessage="Menghubungkan catatan mutasi dan konfirmasi sewa"
+      />
     )
   }
 

@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { api } from "@/convex/_generated/api"
+import { PageLoader } from "@/components/botkos/page-loader"
 
 export function OwnerGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -39,6 +40,14 @@ export function OwnerGate({ children }: { children: React.ReactNode }) {
     if (setup && !setup.onboardingCompleted) router.replace("/onboarding")
   }, [router, setup])
 
-  if (authLoading || !isAuthenticated || !ownerReady || !setup?.onboardingCompleted) return <div className="flex min-h-svh items-center justify-center text-sm text-[var(--ink-muted)]">Menyiapkan ruang owner…</div>
+  if (authLoading || !isAuthenticated || !ownerReady || !setup?.onboardingCompleted) {
+    return (
+      <PageLoader
+        message="Menyiapkan ruang owner…"
+        submessage="Memeriksa akun dan status properti Anda"
+      />
+    )
+  }
   return <>{children}</>
 }
+

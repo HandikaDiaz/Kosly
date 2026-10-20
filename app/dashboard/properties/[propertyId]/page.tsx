@@ -13,6 +13,7 @@ import { EditFacilityModal, type PropertyFacilityItem } from "@/components/botko
 import { EditRoomModal, type RoomItem } from "@/components/botkos/edit-room-modal"
 import { RoomCardCarousel } from "@/components/botkos/room-card-carousel"
 import { ImageLightbox } from "@/components/botkos/image-lightbox"
+import { PageLoader } from "@/components/botkos/page-loader"
 
 const facilityLabels = {
   shared: "Fasilitas bersama",
@@ -48,7 +49,13 @@ export default function PropertyDetailPage() {
   const [previewPropertyPhoto, setPreviewPropertyPhoto] = useState<{ url: string; caption?: string } | null>(null)
 
   if (!property || !rooms || !facilities || !roomMedia || !propertyPhotos || !bookings) {
-    return <div className="p-8 text-sm text-[var(--ink-muted)]">Memuat properti…</div>
+    return (
+      <PageLoader
+        variant="inline"
+        message="Memuat detail properti…"
+        submessage="Mengambil informasi kamar, fasilitas, dan foto kos"
+      />
+    )
   }
 
   const baseUrl =

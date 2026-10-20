@@ -10,13 +10,22 @@ import { LedgerTable } from "./ledger-table"
 import { DashboardAnalytics } from "./dashboard-analytics"
 import { SubscriptionBanner } from "./subscription-banner"
 import { IdentityVerificationForm } from "./identity-verification-form"
+import { PageLoader } from "./page-loader"
 
 const money = (value: number) => `Rp ${value.toLocaleString("id-ID")}`
 
 export function DashboardOverview() {
   const [now] = useState(() => Date.now())
   const data = useQuery(api.dashboard.getOverview, { now })
-  if (!data) return <div className="p-8 text-sm text-[var(--ink-muted)]">Memuat data dashboard…</div>
+  if (!data) {
+    return (
+      <PageLoader
+        variant="inline"
+        message="Memuat ringkasan dashboard…"
+        submessage="Mengumpulkan performa sewa dan okupansi kamar Anda"
+      />
+    )
+  }
   const firstProperty = data.properties[0]
   const ledger = data.recentPayments.map((payment) => ({
     room: payment.roomNumber,

@@ -1,27 +1,36 @@
 "use client"
 
 import { useConvexAuth } from "@convex-dev/auth/react"
+import { useQuery } from "convex/react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { GoogleLoginButton } from "@/components/botkos/google-login-button"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
+import { PageLoader } from "@/components/botkos/page-loader"
+import { api } from "@/convex/_generated/api"
 
 export default function LoginPage() {
   const router = useRouter()
   const { isAuthenticated, isLoading } = useConvexAuth()
+  const role = useQuery(
+    api.owners.getCurrentRole,
+    isAuthenticated ? {} : "skip"
+  )
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/dashboard")
+    if (!isLoading && isAuthenticated && role !== undefined) {
+      const destination = role === "admin" ? "/admin" : "/dashboard"
+      router.replace(destination)
     }
-  }, [isAuthenticated, isLoading, router])
+  }, [isAuthenticated, isLoading, role, router])
 
   if (isLoading || isAuthenticated) {
     return (
-      <main className="flex min-h-svh items-center justify-center px-5 text-sm text-[var(--ink-muted)]">
-        Memeriksa sesi Anda…
-      </main>
+      <PageLoader
+        message="Memeriksa sesi Anda…"
+        submessage="Menghubungkan ke akun BotKos Anda"
+      />
     )
   }
 

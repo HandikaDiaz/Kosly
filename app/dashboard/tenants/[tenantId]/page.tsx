@@ -9,6 +9,7 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { LedgerTable } from "@/components/botkos/ledger-table"
 import { StatusBadge } from "@/components/botkos/status-badge"
+import { PageLoader } from "@/components/botkos/page-loader"
 
 export default function TenantDetailPage() {
   const params = useParams<{ tenantId: string }>()
@@ -27,7 +28,13 @@ export default function TenantDetailPage() {
   const [submitting, setSubmitting] = useState(false)
 
   if (!tenant || !payments) {
-    return <div className="p-8 text-sm text-[var(--ink-muted)]">Memuat tenant…</div>
+    return (
+      <PageLoader
+        variant="inline"
+        message="Memuat profil penyewa…"
+        submessage="Mengambil riwayat pembayaran dan status kontrak"
+      />
+    )
   }
 
   const ledger = payments.map((payment) => ({
@@ -139,7 +146,7 @@ export default function TenantDetailPage() {
               <TriangleAlert size={18} className="mt-0.5 shrink-0 text-[var(--warn)]" />
               <div className="flex-1">
                 <p className="text-sm font-semibold text-[var(--ink)]">Tenant nunggak lebih dari 5 hari tanpa kabar</p>
-                <p className="mt-1 text-xs text-[var(--ink-muted)]">Diflag sejak {flaggedFormatted}. Sistem tidak mengubah status apa pun secara otomatis — keputusan ada di tangan Anda.</p>
+                <p className="mt-1 text-xs text-[var(--ink-muted)]">Diflag sejak {flaggedFormatted}. Sistem tidak mengubah status apa pun secara otomatis - keputusan ada di tangan Anda.</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button type="button" onClick={() => void doOverdueAction("tandai_kosong")} className="button-secondary text-xs">
                     Tandai Kamar Kosong

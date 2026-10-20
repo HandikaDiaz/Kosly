@@ -16,6 +16,7 @@ import { useState } from "react"
 import { api } from "@/convex/_generated/api"
 import { getRentStatus, type RentStatus } from "@/lib/rent-status"
 import { TablePagination } from "@/components/botkos/table-pagination"
+import { PageLoader } from "@/components/botkos/page-loader"
 
 const statusCopy: Record<RentStatus, { label: string; className: string }> = {
   paid: { label: "Lunas", className: "status-paid" },
@@ -47,7 +48,13 @@ export default function RentalsPage() {
   const properties = useQuery(api.properties.listMine)
 
   if (!rows || !properties) {
-    return <div className="p-8 text-sm text-[var(--ink-muted)]">Memuat status sewa…</div>
+    return (
+      <PageLoader
+        variant="inline"
+        message="Memuat status sewa…"
+        submessage="Merekonsiliasi jatuh tempo dan status bayar penyewa"
+      />
+    )
   }
 
   const enriched = rows.map((row) => ({
