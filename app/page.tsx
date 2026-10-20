@@ -47,7 +47,7 @@ const FEATURES = [
   {
     icon: LayoutDashboard,
     title: "Dashboard Kamar Real-time",
-    desc: "Lihat status tiap kamar — lunas, menunggu review, atau telat — dalam satu tampilan yang langsung diperbarui.",
+    desc: "Lihat status tiap kamar - lunas, menunggu review, atau telat - dalam satu tampilan yang langsung diperbarui.",
   },
   {
     icon: BellRing,
@@ -252,7 +252,7 @@ export default function LandingPage() {
                 variants={heroItemVariants}
               >
                 BotKos merapikan kamar, jatuh tempo, dan bukti transfer
-                dalam satu tempat — otomatis, tanpa aplikasi rumit untuk penyewa.
+                dalam satu tempat - otomatis, tanpa aplikasi rumit untuk penyewa.
               </motion.p>
 
               <motion.div
@@ -320,7 +320,7 @@ export default function LandingPage() {
               Masalah kos yang sama,<br /> berulang tiap bulan
             </h2>
             <p className="lp-section-sub">
-              Bukan karena penyewa nakal — tapi karena prosesnya memang belum punya sistem yang jelas.
+              Bukan karena penyewa nakal - tapi karena prosesnya memang belum punya sistem yang jelas.
             </p>
           </ScrollReveal>
 
@@ -389,7 +389,7 @@ export default function LandingPage() {
             <span className="lp-eyebrow">Fitur utama</span>
             <h2 className="lp-section-title">Semua yang dibutuhkan pemilik kos</h2>
             <p className="lp-section-sub">
-              Dibangun khusus untuk pemilik kos Indonesia — bukan alat akuntansi rumit, bukan spreadsheet.
+              Dibangun khusus untuk pemilik kos Indonesia - bukan alat akuntansi rumit, bukan spreadsheet.
             </p>
           </ScrollReveal>
 
@@ -491,8 +491,10 @@ export default function LandingPage() {
             © 2026 BotKos · botkos.id · Operasional kos otomatis tanpa istilah rumit
           </div>
           <div className="lp-footer-links">
+            <a href="/faq" className="lp-footer-link">FAQ</a>
             <a href="/privacy" className="lp-footer-link">Kebijakan Privasi</a>
             <a href="/terms" className="lp-footer-link">Syarat Layanan</a>
+            <a href="/bantuan" className="lp-footer-link">Bantuan</a>
           </div>
           <div className="lp-footer-right">Dibuat untuk pemilik kos Indonesia</div>
         </div>
