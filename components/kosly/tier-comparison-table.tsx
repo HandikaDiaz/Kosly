@@ -116,9 +116,9 @@ const renderValue = (value: FeatureValue, variant: TierComparisonVariant) => {
       <Check
         size={17}
         aria-label="Tersedia"
-        className={
+        className={`mx-auto ${
           variant === "landing" ? "text-[#D6B15E]" : "text-[var(--sage)]"
-        }
+        }`}
       />
     )
   if (value === false)
@@ -126,9 +126,9 @@ const renderValue = (value: FeatureValue, variant: TierComparisonVariant) => {
       <Minus
         size={17}
         aria-label="Tidak tersedia"
-        className={
+        className={`mx-auto ${
           variant === "landing" ? "text-white/25" : "text-[var(--ink-muted)]/50"
-        }
+        }`}
       />
     )
   return <span className="text-xs font-semibold">{value}</span>
@@ -308,8 +308,10 @@ export function TierComparisonTable({
                   </p>
                 </td>
                 {tierOrder.map((tier) => (
-                  <td key={tier} className="px-4 py-4 text-center align-top">
-                    {renderValue(feature.values[tier], variant)}
+                  <td key={tier} className="px-4 py-4 text-center align-middle">
+                    <div className="flex items-center justify-center">
+                      {renderValue(feature.values[tier], variant)}
+                    </div>
                   </td>
                 ))}
               </tr>
