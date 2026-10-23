@@ -30,6 +30,7 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
+  readonly APP_BASE_URL: string | undefined;
   readonly AUTH_GOOGLE_ID: string | undefined;
   readonly AUTH_GOOGLE_SECRET: string | undefined;
   readonly EMAIL_FROM: string | undefined;
@@ -37,9 +38,12 @@ type Env = {
   readonly RESEND_API_KEY: string | undefined;
   readonly SITE_URL: string | undefined;
   readonly TELEGRAM_BOT_TOKEN: string | undefined;
+  readonly TELEGRAM_BOT_USERNAME: string | undefined;
   readonly TELEGRAM_WEBHOOK_SECRET: string | undefined;
   readonly WHATSAPP_ACCESS_TOKEN: string | undefined;
+  readonly WHATSAPP_BOT_NUMBER: string | undefined;
   readonly WHATSAPP_PHONE_NUMBER_ID: string | undefined;
+  readonly WHATSAPP_TEMPLATES_ENABLED: string | undefined;
   readonly WHATSAPP_VERIFY_TOKEN: string | undefined;
 };
 

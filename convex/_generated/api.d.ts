@@ -8,132 +8,161 @@
  * @module
  */
 
-import type * as admin from "../admin.js"
-import type * as applications from "../applications.js"
-import type * as applicationFlow from "../applicationFlow.js"
-import type * as auth from "../auth.js"
-import type * as bookings from "../bookings.js"
-import type * as botLinks from "../botLinks.js"
-import type * as bots_commandRegistration from "../bots/commandRegistration.js"
-import type * as bots_commands from "../bots/commands.js"
-import type * as bots_delivery from "../bots/delivery.js"
-import type * as bots_formatters from "../bots/formatters.js"
-import type * as bots_help from "../bots/help.js"
-import type * as bots_processor from "../bots/processor.js"
-import type * as bots_queries from "../bots/queries.js"
-import type * as bots_queryDelivery from "../bots/queryDelivery.js"
-import type * as bots_roomFlow from "../bots/roomFlow.js"
-import type * as bots_roomWizard from "../bots/roomWizard.js"
-import type * as bots_subscriptionFlow from "../bots/subscriptionFlow.js"
-import type * as bots_telegram from "../bots/telegram.js"
-import type * as bots_types from "../bots/types.js"
-import type * as bots_webhooks from "../bots/webhooks.js"
-import type * as bots_whatsapp from "../bots/whatsapp.js"
-import type * as crons from "../crons.js"
-import type * as dashboard from "../dashboard.js"
-import type * as emails from "../emails.js"
-import type * as http from "../http.js"
-import type * as lib_auth from "../lib/auth.js"
-import type * as lib_locationVerification from "../lib/locationVerification.js"
-import type * as lib_publicProperty from "../lib/publicProperty.js"
-import type * as lib_subscription_tiers from "../lib/subscription_tiers.js"
-import type * as monthlyReports from "../monthlyReports.js"
-import type * as monthlyReportsActions from "../monthlyReportsActions.js"
-import type * as locationVerification from "../locationVerification.js"
-import type * as notifications from "../notifications.js"
-import type * as owners from "../owners.js"
-import type * as payments from "../payments.js"
-import type * as properties from "../properties.js"
-import type * as reviews from "../reviews.js"
-import type * as reviewDelivery from "../reviewDelivery.js"
-import type * as propertyFacilities from "../propertyFacilities.js"
-import type * as propertyPhotos from "../propertyPhotos.js"
-import type * as publicRegistration from "../publicRegistration.js"
-import type * as rentCharges from "../rentCharges.js"
-import type * as rentals from "../rentals.js"
-import type * as reports from "../reports.js"
-import type * as roomMedia from "../roomMedia.js"
-import type * as rooms from "../rooms.js"
-import type * as sensitiveFiles from "../sensitiveFiles.js"
-import type * as subscriptions from "../subscriptions.js"
-import type * as supportTickets from "../supportTickets.js"
-import type * as tenants from "../tenants.js"
-import type * as tenantIdentity from "../tenantIdentity.js"
-import type * as tenantRapor from "../tenantRapor.js"
-import type * as raporShares from "../raporShares.js"
-import type * as kosSearch from "../kosSearch.js"
-import type * as kosSearchActions from "../kosSearchActions.js"
-import type * as verifications from "../verifications.js"
-import type * as whatsappState from "../whatsappState.js"
-import type * as whatsappDelivery from "../whatsappDelivery.js"
+import type * as admin from "../admin.js";
+import type * as applicationFlow from "../applicationFlow.js";
+import type * as applications from "../applications.js";
+import type * as auth from "../auth.js";
+import type * as bookings from "../bookings.js";
+import type * as botLinks from "../botLinks.js";
+import type * as bots_commandRegistration from "../bots/commandRegistration.js";
+import type * as bots_commands from "../bots/commands.js";
+import type * as bots_delivery from "../bots/delivery.js";
+import type * as bots_formatters from "../bots/formatters.js";
+import type * as bots_help from "../bots/help.js";
+import type * as bots_processor from "../bots/processor.js";
+import type * as bots_queries from "../bots/queries.js";
+import type * as bots_queryDelivery from "../bots/queryDelivery.js";
+import type * as bots_roomFlow from "../bots/roomFlow.js";
+import type * as bots_roomWizard from "../bots/roomWizard.js";
+import type * as bots_subscriptionFlow from "../bots/subscriptionFlow.js";
+import type * as bots_telegram from "../bots/telegram.js";
+import type * as bots_types from "../bots/types.js";
+import type * as bots_webhooks from "../bots/webhooks.js";
+import type * as bots_whatsapp from "../bots/whatsapp.js";
+import type * as crons from "../crons.js";
+import type * as dashboard from "../dashboard.js";
+import type * as emails from "../emails.js";
+import type * as http from "../http.js";
+import type * as kosSearch from "../kosSearch.js";
+import type * as kosSearchActions from "../kosSearchActions.js";
+import type * as lib_applicationBookingSync from "../lib/applicationBookingSync.js";
+import type * as lib_applicationReply from "../lib/applicationReply.js";
+import type * as lib_applicationRules from "../lib/applicationRules.js";
+import type * as lib_auth from "../lib/auth.js";
+import type * as lib_consentTexts from "../lib/consentTexts.js";
+import type * as lib_locationVerification from "../lib/locationVerification.js";
+import type * as lib_paymentAdapter from "../lib/paymentAdapter.js";
+import type * as lib_paymentClassification from "../lib/paymentClassification.js";
+import type * as lib_publicProperty from "../lib/publicProperty.js";
+import type * as lib_raporRules from "../lib/raporRules.js";
+import type * as lib_reviewDelivery from "../lib/reviewDelivery.js";
+import type * as lib_reviewRules from "../lib/reviewRules.js";
+import type * as lib_roomHolds from "../lib/roomHolds.js";
+import type * as lib_searchRules from "../lib/searchRules.js";
+import type * as lib_shareRules from "../lib/shareRules.js";
+import type * as lib_subscription_tiers from "../lib/subscription_tiers.js";
+import type * as lib_tenantIdentity from "../lib/tenantIdentity.js";
+import type * as lib_whatsappNotification from "../lib/whatsappNotification.js";
+import type * as lib_whatsappTemplates from "../lib/whatsappTemplates.js";
+import type * as locationVerification from "../locationVerification.js";
+import type * as monthlyReports from "../monthlyReports.js";
+import type * as monthlyReportsActions from "../monthlyReportsActions.js";
+import type * as notifications from "../notifications.js";
+import type * as owners from "../owners.js";
+import type * as payments from "../payments.js";
+import type * as properties from "../properties.js";
+import type * as propertyFacilities from "../propertyFacilities.js";
+import type * as propertyPhotos from "../propertyPhotos.js";
+import type * as publicRegistration from "../publicRegistration.js";
+import type * as raporShares from "../raporShares.js";
+import type * as rentCharges from "../rentCharges.js";
+import type * as rentals from "../rentals.js";
+import type * as reports from "../reports.js";
+import type * as reviewDelivery from "../reviewDelivery.js";
+import type * as reviews from "../reviews.js";
+import type * as roomMedia from "../roomMedia.js";
+import type * as rooms from "../rooms.js";
+import type * as sensitiveFiles from "../sensitiveFiles.js";
+import type * as subscriptions from "../subscriptions.js";
+import type * as supportTickets from "../supportTickets.js";
+import type * as tenantIdentity from "../tenantIdentity.js";
+import type * as tenantRapor from "../tenantRapor.js";
+import type * as tenants from "../tenants.js";
+import type * as verifications from "../verifications.js";
+import type * as whatsappDelivery from "../whatsappDelivery.js";
+import type * as whatsappState from "../whatsappState.js";
 
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
-} from "convex/server"
-
+} from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  admin: typeof admin
-  applications: typeof applications
-  applicationFlow: typeof applicationFlow
-  auth: typeof auth
-  bookings: typeof bookings
-  botLinks: typeof botLinks
-  "bots/commandRegistration": typeof bots_commandRegistration
-  "bots/commands": typeof bots_commands
-  "bots/delivery": typeof bots_delivery
-  "bots/formatters": typeof bots_formatters
-  "bots/help": typeof bots_help
-  "bots/processor": typeof bots_processor
-  "bots/queries": typeof bots_queries
-  "bots/queryDelivery": typeof bots_queryDelivery
-  "bots/roomFlow": typeof bots_roomFlow
-  "bots/roomWizard": typeof bots_roomWizard
-  "bots/subscriptionFlow": typeof bots_subscriptionFlow
-  "bots/telegram": typeof bots_telegram
-  "bots/types": typeof bots_types
-  "bots/webhooks": typeof bots_webhooks
-  "bots/whatsapp": typeof bots_whatsapp
-  crons: typeof crons
-  dashboard: typeof dashboard
-  emails: typeof emails
-  http: typeof http
-  "lib/auth": typeof lib_auth
-  "lib/locationVerification": typeof lib_locationVerification
-  "lib/publicProperty": typeof lib_publicProperty
-  locationVerification: typeof locationVerification
-  "lib/subscription_tiers": typeof lib_subscription_tiers
-  monthlyReports: typeof monthlyReports
-  monthlyReportsActions: typeof monthlyReportsActions
-  notifications: typeof notifications
-  owners: typeof owners
-  payments: typeof payments
-  properties: typeof properties
-  reviews: typeof reviews
-  reviewDelivery: typeof reviewDelivery
-  propertyFacilities: typeof propertyFacilities
-  propertyPhotos: typeof propertyPhotos
-  publicRegistration: typeof publicRegistration
-  rentCharges: typeof rentCharges
-  rentals: typeof rentals
-  reports: typeof reports
-  roomMedia: typeof roomMedia
-  rooms: typeof rooms
-  sensitiveFiles: typeof sensitiveFiles
-  subscriptions: typeof subscriptions
-  supportTickets: typeof supportTickets
-  tenants: typeof tenants
-  tenantIdentity: typeof tenantIdentity
-  tenantRapor: typeof tenantRapor
-  raporShares: typeof raporShares
-  kosSearch: typeof kosSearch
-  kosSearchActions: typeof kosSearchActions
-  verifications: typeof verifications
-  whatsappState: typeof whatsappState
-  whatsappDelivery: typeof whatsappDelivery
-}>
+  admin: typeof admin;
+  applicationFlow: typeof applicationFlow;
+  applications: typeof applications;
+  auth: typeof auth;
+  bookings: typeof bookings;
+  botLinks: typeof botLinks;
+  "bots/commandRegistration": typeof bots_commandRegistration;
+  "bots/commands": typeof bots_commands;
+  "bots/delivery": typeof bots_delivery;
+  "bots/formatters": typeof bots_formatters;
+  "bots/help": typeof bots_help;
+  "bots/processor": typeof bots_processor;
+  "bots/queries": typeof bots_queries;
+  "bots/queryDelivery": typeof bots_queryDelivery;
+  "bots/roomFlow": typeof bots_roomFlow;
+  "bots/roomWizard": typeof bots_roomWizard;
+  "bots/subscriptionFlow": typeof bots_subscriptionFlow;
+  "bots/telegram": typeof bots_telegram;
+  "bots/types": typeof bots_types;
+  "bots/webhooks": typeof bots_webhooks;
+  "bots/whatsapp": typeof bots_whatsapp;
+  crons: typeof crons;
+  dashboard: typeof dashboard;
+  emails: typeof emails;
+  http: typeof http;
+  kosSearch: typeof kosSearch;
+  kosSearchActions: typeof kosSearchActions;
+  "lib/applicationBookingSync": typeof lib_applicationBookingSync;
+  "lib/applicationReply": typeof lib_applicationReply;
+  "lib/applicationRules": typeof lib_applicationRules;
+  "lib/auth": typeof lib_auth;
+  "lib/consentTexts": typeof lib_consentTexts;
+  "lib/locationVerification": typeof lib_locationVerification;
+  "lib/paymentAdapter": typeof lib_paymentAdapter;
+  "lib/paymentClassification": typeof lib_paymentClassification;
+  "lib/publicProperty": typeof lib_publicProperty;
+  "lib/raporRules": typeof lib_raporRules;
+  "lib/reviewDelivery": typeof lib_reviewDelivery;
+  "lib/reviewRules": typeof lib_reviewRules;
+  "lib/roomHolds": typeof lib_roomHolds;
+  "lib/searchRules": typeof lib_searchRules;
+  "lib/shareRules": typeof lib_shareRules;
+  "lib/subscription_tiers": typeof lib_subscription_tiers;
+  "lib/tenantIdentity": typeof lib_tenantIdentity;
+  "lib/whatsappNotification": typeof lib_whatsappNotification;
+  "lib/whatsappTemplates": typeof lib_whatsappTemplates;
+  locationVerification: typeof locationVerification;
+  monthlyReports: typeof monthlyReports;
+  monthlyReportsActions: typeof monthlyReportsActions;
+  notifications: typeof notifications;
+  owners: typeof owners;
+  payments: typeof payments;
+  properties: typeof properties;
+  propertyFacilities: typeof propertyFacilities;
+  propertyPhotos: typeof propertyPhotos;
+  publicRegistration: typeof publicRegistration;
+  raporShares: typeof raporShares;
+  rentCharges: typeof rentCharges;
+  rentals: typeof rentals;
+  reports: typeof reports;
+  reviewDelivery: typeof reviewDelivery;
+  reviews: typeof reviews;
+  roomMedia: typeof roomMedia;
+  rooms: typeof rooms;
+  sensitiveFiles: typeof sensitiveFiles;
+  subscriptions: typeof subscriptions;
+  supportTickets: typeof supportTickets;
+  tenantIdentity: typeof tenantIdentity;
+  tenantRapor: typeof tenantRapor;
+  tenants: typeof tenants;
+  verifications: typeof verifications;
+  whatsappDelivery: typeof whatsappDelivery;
+  whatsappState: typeof whatsappState;
+}>;
 
 /**
  * A utility for referencing Convex functions in your app's public API.
@@ -146,7 +175,7 @@ declare const fullApi: ApiFromModules<{
 export declare const api: FilterApi<
   typeof fullApi,
   FunctionReference<any, "public">
->
+>;
 
 /**
  * A utility for referencing Convex functions in your app's internal API.
@@ -159,6 +188,6 @@ export declare const api: FilterApi<
 export declare const internal: FilterApi<
   typeof fullApi,
   FunctionReference<any, "internal">
->
+>;
 
-export declare const components: {}
+export declare const components: {};
