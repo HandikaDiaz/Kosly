@@ -1,10 +1,11 @@
 import { httpAction, env } from "./_generated/server"
 import { httpRouter } from "convex/server"
 import { internal } from "./_generated/api"
-import { normalizeTelegramUpdate, normalizeWhatsAppEvent, verifyTelegramSecret, verifyWhatsAppChallenge, verifyWhatsAppSignature } from "./bots/webhooks"
+import { normalizeTelegramUpdate, normalizeWhatsAppEvent, normalizeWhatsAppStatuses, verifyTelegramSecret, verifyWhatsAppChallenge, verifyWhatsAppSignature } from "./bots/webhooks"
 import { answerTelegramCallback } from "./bots/telegram"
 import { auth } from "./auth"
 import { serve as serveSensitiveFile } from "./sensitiveFiles"
+import { mapWhatsAppError } from "./lib/whatsappNotification"
 
 const http = httpRouter()
 auth.addHttpRoutes(http)
@@ -31,6 +32,7 @@ http.route({
     }
     if (result.status === "query") await ctx.runAction(internal.bots.queryDelivery.sendResponse, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, query: result.query })
     if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text, replyMarkup: result.replyMarkup })
+    if (result.status === "search") { const found = result.kind === "cari" ? await ctx.runAction(internal.kosSearchActions.handleCariCommand, { channel: result.channel, senderKey: result.senderKey, text: result.text, location: result.location }) : result.kind === "detail" ? await ctx.runAction(internal.kosSearchActions.handleDetailCommand, { channel: result.channel, senderKey: result.senderKey, arg: result.arg ?? "" }) : await ctx.runAction(internal.kosSearchActions.handleKosDeepLink, { channel: result.channel, senderKey: result.senderKey, slug: result.arg ?? "" }); await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: found.text }) }
     if (result.status === "photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveSubscriptionProof, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, sessionId: result.sessionId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
     if (result.status === "room_photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveRoomPhoto, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, stateId: result.stateId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
     return new Response("OK", { status: 200 })
@@ -52,7 +54,6 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const rawBody = await request.text()
-    console.log("📥 [WhatsApp Webhook] Request POST diterima. Headers signature:", request.headers.get("x-hub-signature-256"))
     if (!await verifyWhatsAppSignature(rawBody, request.headers.get("x-hub-signature-256") ?? undefined, botEnv.META_APP_SECRET)) {
       console.warn("⚠️ [WhatsApp Webhook] Signature verification GAGAL! Periksa META_APP_SECRET.")
       return new Response("Unauthorized", { status: 401 })
@@ -62,17 +63,16 @@ http.route({
       console.error("❌ [WhatsApp Webhook] Gagal parse JSON body.")
       return new Response("Bad Request", { status: 400 }) 
     }
-    console.log("📦 [WhatsApp Webhook Payload]:", JSON.stringify(parsed, null, 2))
     const event = normalizeWhatsAppEvent(asRecord(parsed) ?? {})
+    for (const status of normalizeWhatsAppStatuses(asRecord(parsed) ?? {})) await ctx.runMutation(internal.whatsappState.recordStatus, { externalMessageId: status.externalMessageId, ok: status.ok, ...(status.providerCode ? { errorCode: mapWhatsAppError(undefined, status.providerCode) } : {}) })
     if (!event) {
-      console.log("ℹ️ [WhatsApp Webhook] Event diabaikan (bukan pesan teks/gambar dari user).")
       return new Response("Ignored", { status: 200 })
     }
-    console.log("💬 [WhatsApp Message Masuk]:", { chatId: event.chatId, text: event.text, photoMediaId: event.photoMediaId })
+    if (event.senderPhone) await ctx.runMutation(internal.whatsappState.recordInbound, { phone: event.senderPhone, at: Date.now() })
     const result = await ctx.runMutation(internal.bots.processor.processEvent, event)
-    console.log("⚙️ [WhatsApp Bot Result]:", result)
     if (result.status === "query") await ctx.runAction(internal.bots.queryDelivery.sendResponse, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, query: result.query })
     if (result.status === "response") await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: result.text, replyMarkup: result.replyMarkup })
+    if (result.status === "search") { const found = result.kind === "cari" ? await ctx.runAction(internal.kosSearchActions.handleCariCommand, { channel: result.channel, senderKey: result.senderKey, text: result.text, location: result.location }) : result.kind === "detail" ? await ctx.runAction(internal.kosSearchActions.handleDetailCommand, { channel: result.channel, senderKey: result.senderKey, arg: result.arg ?? "" }) : await ctx.runAction(internal.kosSearchActions.handleKosDeepLink, { channel: result.channel, senderKey: result.senderKey, slug: result.arg ?? "" }); await ctx.runAction(internal.bots.queryDelivery.sendTextResponse, { channel: result.channel, chatId: result.chatId, text: found.text }) }
     if (result.status === "photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveSubscriptionProof, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, sessionId: result.sessionId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
     if (result.status === "room_photo") await ctx.scheduler.runAfter(0, internal.bots.delivery.receiveRoomPhoto, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, stateId: result.stateId, photoFileId: result.photoFileId, photoMediaId: result.photoMediaId })
     return new Response("OK", { status: 200 })

@@ -19,16 +19,21 @@ export const normalizeTelegramUpdate = (body: UnknownRecord): NormalizedBotEvent
     const isUpgradeAction = data.length === 3 && action === "upgrade"
     const isCancelAction = data.length === 2 && action === "cancel"
     if ((isPaymentAction || isUpgradeAction || isCancelAction) && typeof callback.id === "string" && (typeof rawChatId === "number" || typeof rawChatId === "string")) {
-      return { channel: "telegram", eventId: String(updateId), chatId: String(rawChatId), callbackAction: action as "confirm" | "reject" | "upgrade" | "cancel", callbackReference: data.slice(1).join(":").trim().toUpperCase(), callbackQueryId: callback.id }
+      return { channel: "telegram", eventId: String(updateId), chatId: String(rawChatId), callbackAction: action as "confirm" | "reject" | "upgrade" | "cancel", callbackReference: data.slice(1).join(":").trim().toUpperCase(), callbackQueryId: callback.id, senderKey: String(rawChatId), fromUserId: typeof callbackFrom?.id === "number" || typeof callbackFrom?.id === "string" ? String(callbackFrom.id) : undefined }
     }
   }
   const message = body.message as UnknownRecord | undefined
   const chat = message?.chat as UnknownRecord | undefined
   if (message && chat && (typeof chat.id === "number" || typeof chat.id === "string")) {
+    const from = message.from as UnknownRecord | undefined
+    const contact = message.contact as UnknownRecord | undefined
+    const base = { channel: "telegram" as const, eventId: String(updateId), chatId: String(chat.id), senderKey: String(chat.id), fromUserId: typeof from?.id === "number" || typeof from?.id === "string" ? String(from.id) : undefined, contactPhone: typeof contact?.phone_number === "string" ? contact.phone_number : undefined, contactUserId: typeof contact?.user_id === "number" || typeof contact?.user_id === "string" ? String(contact.user_id) : undefined }
+    const location = message.location as UnknownRecord | undefined
+    if (typeof location?.latitude === "number" && typeof location.longitude === "number") return { ...base, location: { latitude: location.latitude, longitude: location.longitude } }
     const photos = Array.isArray(message.photo) ? message.photo : []
     const lastPhoto = photos.at(-1) as UnknownRecord | undefined
-    if (typeof lastPhoto?.file_id === "string") return { channel: "telegram", eventId: String(updateId), chatId: String(chat.id), text: typeof message.caption === "string" ? message.caption : undefined, photoFileId: lastPhoto.file_id }
-    if (typeof message.text === "string") return { channel: "telegram", eventId: String(updateId), chatId: String(chat.id), text: message.text }
+    if (typeof lastPhoto?.file_id === "string") return { ...base, text: typeof message.caption === "string" ? message.caption : undefined, photoFileId: lastPhoto.file_id }
+    if (typeof message.text === "string" || contact) return { ...base, text: typeof message.text === "string" ? message.text : "" }
   }
   return null
 }
@@ -44,6 +49,8 @@ export const normalizeWhatsAppEvent = (body: UnknownRecord): NormalizedBotEvent 
   const text = message?.text as UnknownRecord | undefined
   const image = message?.image as UnknownRecord | undefined
   if (!message || typeof message.id !== "string" || typeof message.from !== "string") return null
+  const location = message.location as UnknownRecord | undefined
+  if (typeof location?.latitude === "number" && typeof location.longitude === "number") return { channel: "whatsapp", eventId: message.id, chatId: message.from, senderKey: message.from, senderPhone: message.from, location: { latitude: location.latitude, longitude: location.longitude } }
   const interactive = message.interactive as UnknownRecord | undefined
   const buttonReply = interactive?.button_reply as UnknownRecord | undefined
   const templateButton = message.button as UnknownRecord | undefined
@@ -51,12 +58,34 @@ export const normalizeWhatsAppEvent = (body: UnknownRecord): NormalizedBotEvent 
   if (typeof buttonId === "string") {
     const [action, reference] = buttonId.trim().split(":")
     if ((action === "confirm" || action === "reject") && reference) {
-      return { channel: "whatsapp", eventId: message.id, chatId: message.from, callbackAction: action, callbackReference: reference.toUpperCase() }
+      return { channel: "whatsapp", eventId: message.id, chatId: message.from, senderKey: message.from, senderPhone: message.from, callbackAction: action, callbackReference: reference.toUpperCase() }
     }
   }
-  if (typeof image?.id === "string") return { channel: "whatsapp", eventId: message.id, chatId: message.from, text: typeof image.caption === "string" ? image.caption : undefined, photoMediaId: image.id }
-  if (typeof text?.body === "string") return { channel: "whatsapp", eventId: message.id, chatId: message.from, text: text.body }
+  if (typeof image?.id === "string") return { channel: "whatsapp", eventId: message.id, chatId: message.from, text: typeof image.caption === "string" ? image.caption : undefined, photoMediaId: image.id, senderKey: message.from, senderPhone: message.from }
+  const contacts = Array.isArray(message.contacts) ? message.contacts : []
+  const firstContact = contacts[0] as UnknownRecord | undefined
+  const contactPhones = Array.isArray(firstContact?.phones) ? firstContact.phones : []
+  const contactPhone = contactPhones[0] && typeof contactPhones[0] === "object" ? (contactPhones[0] as UnknownRecord).phone : undefined
+  if (typeof contactPhone === "string") return { channel: "whatsapp", eventId: message.id, chatId: message.from, senderKey: message.from, senderPhone: message.from, contactPhone }
+  if (typeof text?.body === "string") return { channel: "whatsapp", eventId: message.id, chatId: message.from, text: text.body, senderKey: message.from, senderPhone: message.from }
   return null
+}
+
+export const normalizeWhatsAppStatuses = (body: UnknownRecord) => {
+  const entries = Array.isArray(body.entry) ? body.entry : []
+  const entry = entries[0] as UnknownRecord | undefined
+  const changes = Array.isArray(entry?.changes) ? entry.changes : []
+  const value = changes[0] && typeof changes[0] === "object" ? changes[0] as UnknownRecord : undefined
+  const payload = value?.value as UnknownRecord | undefined
+  const statuses = Array.isArray(payload?.statuses) ? payload.statuses : []
+  return statuses.flatMap((item) => {
+    if (!item || typeof item !== "object") return []
+    const status = item as UnknownRecord
+    if (typeof status.id !== "string") return []
+    const errors = Array.isArray(status.errors) ? status.errors[0] as UnknownRecord | undefined : undefined
+    const code = typeof errors?.code === "number" ? errors.code : undefined
+    return [{ externalMessageId: status.id, ok: status.status !== "failed", providerCode: code }]
+  })
 }
 
 const toHex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes)).map((byte) => byte.toString(16).padStart(2, "0")).join("")

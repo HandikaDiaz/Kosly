@@ -12,6 +12,12 @@ export type NormalizedBotEvent = {
   callbackQueryId?: string
   photoFileId?: string
   photoMediaId?: string
+  senderKey?: string
+  senderPhone?: string
+  contactPhone?: string
+  contactUserId?: string
+  fromUserId?: string
+  location?: { latitude: number; longitude: number }
 }
 
 export type PaymentReviewSummary = {
@@ -32,6 +38,10 @@ export type BotCommand =
   | { kind: "selection"; value: string }
   | { kind: "cancel"; value: string }
   | { kind: "add_room" }
+  | { kind: "share" | "revoke_share" }
+  | { kind: "search" | "detail"; value?: string }
+  | { kind: "apply" }
+  | { kind: "application_decision"; decision: "accept" | "decline" | "release"; code: string }
   | { kind: "edit_room"; roomNumber: string; field: "price" | "status"; value: string }
   | { kind: "yes" }
   | { kind: "invalid" }

@@ -50,7 +50,9 @@ test("counts rooms across all owner properties without auto-upgrading", async ()
 
 test("owner cannot recalculate another owner's subscription", async () => {
   const t = convexTest(schema, modules)
-  const targetOwnerId = await t.run(async (ctx) => ctx.db.insert("owners", { tokenIdentifier: "target-owner", role: "owner" }))
-  await expect(t.withIdentity({ tokenIdentifier: "caller-owner" }).mutation(api.owners.ensureCurrentOwner, {})).resolves.toBeTruthy()
+  const targetOwnerId = await t.run(async (ctx) => {
+    await ctx.db.insert("owners", { tokenIdentifier: "caller-owner", role: "owner" })
+    return await ctx.db.insert("owners", { tokenIdentifier: "target-owner", role: "owner" })
+  })
   await expect(t.withIdentity({ tokenIdentifier: "caller-owner" }).mutation(api.subscriptions.recalculateForOwner, { ownerId: targetOwnerId })).rejects.toThrow("Akses subscription ditolak.")
 })

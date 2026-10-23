@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import { useQuery } from "convex/react"
 import Link from "next/link"
 import {
@@ -64,6 +64,8 @@ const categoryMeta: Record<string, { label: string; icon: typeof Coffee }> = {
 
 export default function PublicRegistrationPage() {
   const params = useParams<{ propertySlug: string }>()
+  const searchParams = useSearchParams()
+  const applicationCode = searchParams.get("pj") ?? undefined
   const property = useQuery(api.properties.getPublicBySlug, { slug: params.propertySlug })
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; caption?: string } | null>(null)
   const [selectedRoomId, setSelectedRoomId] = useState<string>("")
@@ -705,6 +707,7 @@ export default function PublicRegistrationPage() {
                 rooms={property.rooms}
                 selectedRoomId={selectedRoomId}
                 onSelectRoom={(roomId) => setSelectedRoomId(roomId)}
+                applicationCode={applicationCode}
               />
             ) : (
               <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[#FFFFFF] p-8 text-center text-sm text-[var(--ink-muted)]">

@@ -98,7 +98,6 @@ export const sendWhatsAppText = async (
   text: string,
   apiVersion = "v22.0"
 ) => {
-  console.log(`📤 [WhatsApp Kirim Pesan] Ke: ${phoneNumber} | PhoneID: ${phoneNumberId} | API: ${apiVersion}`)
   const response = await fetch(`https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`, {
     method: "POST",
     headers: {
@@ -113,13 +112,11 @@ export const sendWhatsAppText = async (
     }),
   })
   if (!response.ok) {
-    const body = await response.text()
-    console.error(`❌ [WhatsApp Kirim Gagal] Status: ${response.status} | Body:`, body)
-    throw new Error(`WhatsApp Cloud API gagal (${response.status}): ${body.slice(0, 500)}`)
+    await response.text()
+    console.error(`WhatsApp Cloud API gagal (${response.status})`)
+    throw new Error(`WhatsApp Cloud API gagal (${response.status})`)
   }
-  const result = await response.json()
-  console.log("✅ [WhatsApp Terkirim]:", result)
-  return result
+  return response.json()
 }
 
 export const sendWhatsAppImage = async (

@@ -10,6 +10,14 @@ export const OWNER_COMMANDS = [
   { command: "tambahkamar", description: "Tambah kamar baru lewat chat (Growth & Pro)" },
   { command: "editkamar", description: "Ubah harga/status kamar lewat chat (Growth & Pro)" },
   { command: "help", description: "Lihat daftar command BotKos" },
+  { command: "bagikan", description: "Buat tautan Rapor Penghuni" },
+  { command: "cabut", description: "Cabut tautan Rapor Penghuni aktif" },
+  { command: "cari", description: "Cari kos terdekat atau berdasarkan area" },
+  { command: "detail", description: "Lihat detail hasil pencarian kos" },
+  { command: "ajukan", description: "Ajukan kamar yang kamu pilih" },
+  { command: "terima", description: "Terima pengajuan sewa" },
+  { command: "tolak", description: "Tolak pengajuan sewa" },
+  { command: "lepas", description: "Lepas penahanan kamar" },
 ] as const
 
 const referencePattern = /^(?:KSL|VERIFY|BILL|REPORT)-[A-Z0-9]{4,32}$/
@@ -30,6 +38,12 @@ export const parseBotCommand = (text: string): BotCommand => {
   if (isCommand(upperNormalized, "PENDING")) return { kind: "pending" }
   if (isCommand(upperNormalized, "RINGKASAN")) return { kind: "summary" }
   if (isCommand(upperNormalized, "LAPORAN")) return { kind: "monthly_report" }
+  if (isCommand(upperNormalized, "BAGIKAN")) return { kind: "share" }
+  if (isCommand(upperNormalized, "CABUT")) return { kind: "revoke_share" }
+  if (isCommand(upperNormalized, "CARI")) return { kind: "search" }
+  if (/^\/?AJUKAN(?:\s|$)/.test(upperNormalized)) return { kind: "apply" }
+  if (/^\/?(TERIMA|TOLAK|LEPAS)\s+PJ[-\s]?[A-Z0-9]+$/.test(upperNormalized)) return { kind: "application_decision", decision: upperNormalized.startsWith("/TOLAK") || upperNormalized.startsWith("TOLAK") ? "decline" : upperNormalized.startsWith("/LEPAS") || upperNormalized.startsWith("LEPAS") ? "release" : "accept", code: normalized.split(/\s+/).slice(1).join("") }
+  if (upperCommandForSearch(upperNormalized)) return { kind: "detail", value: normalized.split(/\s+/).slice(1).join(" ") || undefined }
   if (isCommand(upperNormalized, "TAMBAHKAMAR")) return { kind: "add_room" }
 
   const [command, reference, ...reasonParts] = normalized.split(" ")
@@ -58,6 +72,8 @@ export const parseBotCommand = (text: string): BotCommand => {
   if (/^(STARTER|GROWTH|PRO|1|2|3)(?:\s+(MONTHLY|ANNUAL|BULANAN|TAHUNAN))?$/.test(upperNormalized)) return { kind: "selection", value: upperNormalized }
   return { kind: "invalid" }
 }
+
+const upperCommandForSearch = (value: string) => value.startsWith("/DETAIL") || value.startsWith("DETAIL")
 
 export const createPaymentReference = (paymentId: string) => {
   const encoded = paymentId.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()

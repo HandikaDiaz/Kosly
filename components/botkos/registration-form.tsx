@@ -15,6 +15,7 @@ type RegistrationFormProps = {
   rooms: PublicRoom[]
   selectedRoomId?: string
   onSelectRoom?: (roomId: string) => void
+  applicationCode?: string
 }
 
 export function RegistrationForm({
@@ -23,6 +24,7 @@ export function RegistrationForm({
   rooms,
   selectedRoomId: externalSelectedRoomId,
   onSelectRoom,
+  applicationCode,
 }: RegistrationFormProps) {
   const [submitted, setSubmitted] = useState(false)
   const [internalSelectedRoomId, setInternalSelectedRoomId] = useState<string>(
@@ -111,6 +113,7 @@ export function RegistrationForm({
             ? new Date(String(form.get("deadlineAt"))).getTime()
             : undefined,
         proofStorageId: uploaded.storageId as Id<"_storage">,
+        applicationCode,
       })
 
       setSubmitted(true)

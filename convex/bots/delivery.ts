@@ -5,7 +5,7 @@ import { v } from "convex/values"
 import { internal } from "../_generated/api"
 import { createPaymentReference } from "./commands"
 import { sendTelegramPaymentProof, sendTelegramPaymentReview, sendTelegramText } from "./telegram"
-import { sendWhatsAppImage, sendWhatsAppPaymentProof, sendWhatsAppPaymentReview, sendWhatsAppText } from "./whatsapp"
+import { buildWhatsAppReviewMessage, sendWhatsAppImage, sendWhatsAppPaymentProof, sendWhatsAppPaymentReview, sendWhatsAppText } from "./whatsapp"
 
 const botEnv = env as typeof env & Record<string, string | undefined>
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -25,10 +25,13 @@ export const sendPaymentUploaded = internalAction({
           delivered += 1
         }
         if (link.channel === "whatsapp") {
-          if (!botEnv.WHATSAPP_ACCESS_TOKEN || !botEnv.WHATSAPP_PHONE_NUMBER_ID) {
-            await ctx.runMutation(internal.notifications.recordDelivery, { paymentId: review.paymentId, ownerId: review.ownerId, channel: "whatsapp", status: "failed", errorMessage: "WHATSAPP_ACCESS_TOKEN atau WHATSAPP_PHONE_NUMBER_ID belum tersedia di Convex." })
+          if (review.paymentType === "dp") {
+            const result = await ctx.runAction(internal.whatsappDelivery.sendWhatsAppNotification, { toPhoneE164: link.chatId, kind: "owner_dp_claim", params: { kode: summary.reference, kos: review.propertyName }, fallbackText: buildWhatsAppReviewMessage(summary), idempotencyKey: `payment:${review.paymentId}:owner_dp_claim` })
+            await ctx.runMutation(internal.notifications.recordDelivery, { paymentId: review.paymentId, ownerId: review.ownerId, channel: "whatsapp", status: result.ok ? "logged" : "failed", errorMessage: result.errorCode })
+            if (result.ok) delivered += 1
             continue
           }
+          if (!botEnv.WHATSAPP_ACCESS_TOKEN || !botEnv.WHATSAPP_PHONE_NUMBER_ID) continue
           const result = review.proofUrl
             ? await sendWhatsAppPaymentProof(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, summary, review.proofUrl)
             : await sendWhatsAppPaymentReview(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, summary)

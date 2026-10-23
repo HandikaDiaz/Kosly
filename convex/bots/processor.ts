@@ -20,7 +20,14 @@ import { buildChatIdMessage, buildHelpMessage, buildUnknownCommandMessage, build
 
 const channelValidator = v.union(v.literal("telegram"), v.literal("whatsapp"))
 const decisionValidator = v.union(v.literal("approve"), v.literal("reject"))
-const response = (channel: "telegram" | "whatsapp", chatId: string, text: string, replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> }) => ({ status: "response" as const, channel, chatId, text, ...(replyMarkup ? { replyMarkup } : {}) })
+const response = (channel: "telegram" | "whatsapp", chatId: string, text: string, replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> } | { keyboard: Array<Array<{ text: string; request_location?: boolean }>>; resize_keyboard?: boolean; one_time_keyboard?: boolean }) => ({ status: "response" as const, channel, chatId, text, ...(replyMarkup ? { replyMarkup } : {}) })
+type ProcessResult =
+  | { status: "duplicate" | "invalid" | "silent" }
+  | ReturnType<typeof response>
+  | { status: "query"; query: "status" | "unpaid" | "vacant"; ownerId: Id<"owners">; channel: "telegram" | "whatsapp"; chatId: string }
+  | { status: "photo"; channel: "telegram" | "whatsapp"; chatId: string; ownerId: Id<"owners">; sessionId: Id<"bot_sessions">; photoFileId?: string; photoMediaId?: string }
+  | { status: "room_photo"; channel: "telegram" | "whatsapp"; chatId: string; ownerId: Id<"owners">; stateId: Id<"bot_conversation_state">; photoFileId?: string; photoMediaId?: string }
+  | { status: "search"; kind: "cari" | "detail" | "deep_link"; channel: "telegram" | "whatsapp"; chatId: string; senderKey: string; text: string; arg?: string; location?: { latitude: number; longitude: number } }
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 const displayValue = (channel: "telegram" | "whatsapp", value: string) => channel === "telegram" ? escapeHtml(value) : value
 const dateText = (value?: number) => value ? new Date(value).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "belum ditentukan"
@@ -42,14 +49,35 @@ const latestCompletedReportPeriod = () => {
 }
 
 export const processEvent = internalMutation({
-    args: { channel: channelValidator, eventId: v.string(), chatId: v.string(), text: v.optional(v.string()), callbackAction: v.optional(v.union(v.literal("confirm"), v.literal("reject"), v.literal("upgrade"), v.literal("cancel"))), callbackReference: v.optional(v.string()), callbackQueryId: v.optional(v.string()), photoFileId: v.optional(v.string()), photoMediaId: v.optional(v.string()) },
-  handler: async (ctx, args) => {
+    args: { channel: channelValidator, eventId: v.string(), chatId: v.string(), text: v.optional(v.string()), callbackAction: v.optional(v.union(v.literal("confirm"), v.literal("reject"), v.literal("upgrade"), v.literal("cancel"))), callbackReference: v.optional(v.string()), callbackQueryId: v.optional(v.string()), photoFileId: v.optional(v.string()), photoMediaId: v.optional(v.string()), senderKey: v.optional(v.string()), senderPhone: v.optional(v.string()), contactPhone: v.optional(v.string()), contactUserId: v.optional(v.string()), fromUserId: v.optional(v.string()), location: v.optional(v.object({ latitude: v.number(), longitude: v.number() })) },
+  handler: async (ctx, args): Promise<ProcessResult> => {
     const duplicate = await ctx.db.query("notification_log").withIndex("by_provider_event", (q) => q.eq("providerEventId", args.eventId)).unique()
     if (duplicate) return { status: "duplicate" as const }
     const chatId = normalizeChatId(args.channel, args.chatId)
+    const incomingText = (args.text ?? "").trim()
+    const startSlug = incomingText.match(/^\/start\s+kos_([a-z0-9-]+)$/i)?.[1] ?? incomingText.match(/(?:^|\s)kos_([a-z0-9-]+)(?:\s|$)/i)?.[1]
+    if (args.senderKey && startSlug) return { status: "search" as const, kind: "deep_link" as const, channel: args.channel, chatId, senderKey: args.senderKey, text: incomingText, arg: startSlug }
+    if (args.senderKey && /^\/?cari(?:\s|$)/i.test(incomingText) && !args.location && !incomingText.replace(/^\/?cari\s*/i, "").trim()) return args.channel === "telegram" ? response(args.channel, chatId, "Bagikan lokasi untuk mencari kos terdekat. Lokasimu hanya dipakai sesaat dan tidak disimpan.", { keyboard: [[{ text: "Bagikan lokasi", request_location: true }]], resize_keyboard: true, one_time_keyboard: true }) : response(args.channel, chatId, "Kirim lokasi lewat tombol lampiran > Lokasi. Lokasimu hanya dipakai sesaat dan tidak disimpan.")
+    if (args.senderKey && /^\/?cari(?:\s|$)/i.test(incomingText)) return { status: "search" as const, kind: "cari" as const, channel: args.channel, chatId, senderKey: args.senderKey, text: incomingText, location: args.location }
+    if (args.senderKey && /^\/?detail(?:\s|$)/i.test(incomingText)) return { status: "search" as const, kind: "detail" as const, channel: args.channel, chatId, senderKey: args.senderKey, text: incomingText, arg: incomingText.replace(/^\/?detail\s*/i, "") }
+    if (args.location) return response(args.channel, chatId, "Mau cari kos di dekat sini? Ketik /cari.")
+    if (args.senderKey && args.text !== undefined) {
+      const identityResult: { handled: boolean; text?: string } = await ctx.runMutation(internal.tenantIdentity.receiveVerificationCode, { channel: args.channel, rawText: args.text, senderKey: args.senderKey, senderPhone: args.senderPhone, contactPhone: args.contactPhone, contactUserId: args.contactUserId, fromUserId: args.fromUserId })
+      if (identityResult.handled) return response(args.channel, chatId, identityResult.text ?? "Kode tidak valid atau sudah tidak berlaku.")
+    }
     const link = (await ctx.db.query("bot_links").withIndex("by_channel_and_chat_id", (q) => q.eq("channel", args.channel).eq("chatId", chatId)).take(10)).find((item) => item.status === "active")
     if (!link) {
       const unlinkedCommand = parseBotCommand(args.text ?? "")
+      if (args.senderKey && args.text) {
+        const applicationResult = await ctx.runMutation(internal.applicationFlow.handle, { channel: args.channel, senderKey: args.senderKey, chatId, text: args.text, senderPhone: args.senderPhone, contactPhone: args.contactPhone, contactUserId: args.contactUserId, fromUserId: args.fromUserId })
+        if (applicationResult.handled) return response(args.channel, chatId, applicationResult.text)
+      }
+      if ((unlinkedCommand.kind === "share" || unlinkedCommand.kind === "revoke_share") && args.senderKey) {
+        const result = unlinkedCommand.kind === "share"
+          ? await ctx.runMutation(internal.raporShares.botCreateShare, { channel: args.channel, senderKey: args.senderKey })
+          : await ctx.runMutation(internal.raporShares.botRevokeShares, { channel: args.channel, senderKey: args.senderKey })
+        return response(args.channel, chatId, result.text)
+      }
       if (args.channel === "telegram" && unlinkedCommand.kind === "chat_id") {
         return response(args.channel, chatId, buildChatIdMessage(chatId))
       }
@@ -64,7 +92,6 @@ export const processEvent = internalMutation({
 
     const session = (await ctx.db.query("bot_sessions").withIndex("by_chat", (q) => q.eq("channel", args.channel).eq("chatId", chatId).eq("status", "active")).take(5)).find((item) => item.expiresAt > Date.now())
     let conversation = (await ctx.db.query("bot_conversation_state").withIndex("by_chat_and_status", (q) => q.eq("channel", args.channel).eq("chatId", chatId).eq("status", "active")).take(5)).find((item) => item.flowType === "tambah_kamar")
-    const incomingText = (args.text ?? "").trim()
     if (conversation && conversation.expiresAt <= Date.now()) {
       await ctx.db.patch("bot_conversation_state", conversation._id, { status: "expired" })
       conversation = undefined
@@ -117,6 +144,22 @@ export const processEvent = internalMutation({
         : args.callbackAction && args.callbackReference
           ? { kind: args.callbackAction, reference: args.callbackReference, reason: "Ditolak melalui bot Telegram." }
           : parseBotCommand(args.text ?? "")
+
+    if (parsed.kind === "application_decision") {
+      try {
+        const result = await ctx.runMutation(internal.applications.ownerDecisionByCode, { ownerId: link.ownerId, code: parsed.code, action: parsed.decision })
+        return response(args.channel, chatId, result.text)
+      } catch (error) {
+        return response(args.channel, chatId, error instanceof Error ? error.message : "Pengajuan tidak dapat diproses.")
+      }
+    }
+
+    if ((parsed.kind === "share" || parsed.kind === "revoke_share") && args.senderKey) {
+      const result = parsed.kind === "share"
+        ? await ctx.runMutation(internal.raporShares.botCreateShare, { channel: args.channel, senderKey: args.senderKey })
+        : await ctx.runMutation(internal.raporShares.botRevokeShares, { channel: args.channel, senderKey: args.senderKey })
+      return response(args.channel, chatId, result.text)
+    }
 
     if (parsed.kind === "help") return response(args.channel, chatId, buildHelpMessage(args.channel))
     // Telegram /start intentionally reuses the HTML help response; BotFather description is not required.

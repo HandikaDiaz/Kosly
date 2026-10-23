@@ -7,13 +7,17 @@ const app = defineApp({
     AUTH_GOOGLE_SECRET: v.optional(v.string()),
     SITE_URL: v.optional(v.string()),
     TELEGRAM_BOT_TOKEN: v.optional(v.string()),
+    TELEGRAM_BOT_USERNAME: v.optional(v.string()),
     TELEGRAM_WEBHOOK_SECRET: v.optional(v.string()),
     WHATSAPP_ACCESS_TOKEN: v.optional(v.string()),
     WHATSAPP_PHONE_NUMBER_ID: v.optional(v.string()),
+    WHATSAPP_BOT_NUMBER: v.optional(v.string()),
+    WHATSAPP_TEMPLATES_ENABLED: v.optional(v.string()),
     WHATSAPP_VERIFY_TOKEN: v.optional(v.string()),
     META_APP_SECRET: v.optional(v.string()),
     RESEND_API_KEY: v.optional(v.string()),
     EMAIL_FROM: v.optional(v.string()),
+    APP_BASE_URL: v.optional(v.string()),
   },
 })
 

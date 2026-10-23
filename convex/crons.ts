@@ -181,6 +181,13 @@ crons.interval("daily subscription periods", { hours: 24 }, internal.crons.proce
 crons.interval("expire locked DP bookings", { hours: 24 }, internal.bookings.expireLocked, {})
 crons.interval("process settlement deadlines", { hours: 24 }, internal.bookings.processSettlementDeadlines, {})
 crons.interval("process tenant lifecycle", { hours: 24 }, internal.tenants.processLifecycle, {})
+crons.cron("daily review invitations", "0 2 * * *", internal.reviews.scheduleActiveReviewInvitations, {})
 crons.interval("delete expired identity files", { hours: 24 }, internal.verifications.deleteExpiredIdentityFiles, {})
+crons.interval("cleanup tenant identity data", { hours: 24 }, internal.tenantIdentity.cleanupTenantIdentityData, {})
+crons.interval("maintain tenant rapor disputes", { hours: 24 }, internal.tenantRapor.runDailyRaporMaintenance, {})
+crons.interval("cleanup tenant search contexts", { hours: 24 }, internal.kosSearch.cleanupBotSearchData, {})
+crons.interval("cleanup WhatsApp windows", { hours: 24 }, internal.whatsappState.cleanupWindows, {})
+crons.interval("process rental applications", { hours: 1 }, internal.applications.processApplicationLifecycle, {})
+crons.interval("rental application owner reminders", { hours: 1 }, internal.applications.sendOwnerApplicationReminders, {})
 crons.monthly("monthly PDF reports", { day: 3, hourUTC: 1, minuteUTC: 0 }, internal.monthlyReports.scheduleForEligibleOwners, {})
 export default crons

@@ -3,6 +3,7 @@ import { v } from "convex/values"
 import { internal } from "./_generated/api"
 import { requirePropertyOwner, requireOwner } from "./lib/auth"
 import { dueDateForPeriod, periodOf } from "../lib/rent-date"
+import { REVIEW_INVITE_DELAY_AFTER_MOVEOUT_HOURS } from "./lib/reviewRules"
 
 export const listForProperty = query({
   args: { propertyId: v.id("properties") },
@@ -122,6 +123,11 @@ export const handleOverdueFlag = mutation({
         deposit_refund_status: "pending",
         deposit_refund_reminded_at: now,
       })
+      try {
+        await ctx.scheduler.runAfter(REVIEW_INVITE_DELAY_AFTER_MOVEOUT_HOURS * 60 * 60 * 1000, internal.reviewDelivery.sendReviewInvitation, { tenancyId: tenant._id, reason: "moveout" })
+      } catch {
+        // Scheduling the optional review invitation must not block move-out.
+      }
       if (room && room.status === "occupied") {
         await ctx.db.patch("rooms", room._id, { status: "available" })
       }
@@ -156,6 +162,11 @@ export const processLifecycle = internalMutation({
       const room = await ctx.db.get("rooms", tenant.roomId)
       const property = await ctx.db.get("properties", tenant.propertyId)
       await ctx.db.patch("tenants", tenant._id, { status: "inactive", lifecycle_status: "moved_out", deposit_refund_status: "pending", deposit_refund_reminded_at: now })
+      try {
+        await ctx.scheduler.runAfter(REVIEW_INVITE_DELAY_AFTER_MOVEOUT_HOURS * 60 * 60 * 1000, internal.reviewDelivery.sendReviewInvitation, { tenancyId: tenant._id, reason: "moveout" })
+      } catch {
+        // Scheduling the optional review invitation must not block move-out.
+      }
       if (room && room.status === "occupied") await ctx.db.patch("rooms", room._id, { status: "available" })
       if (property) {
         await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId: tenant._id, type: "move_out_auto", channel: "log_only", occurredOn: todayDate, status: "logged", payload: JSON.stringify({ tenantName: tenant.name }) })

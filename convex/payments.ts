@@ -7,6 +7,7 @@ import type { Id } from "./_generated/dataModel"
 import { confirmDepositForOwner, confirmSettlementForOwner } from "./bookings"
 import { markCurrentPeriodPaid } from "./rentCharges"
 import { internal } from "./_generated/api"
+import { syncApplicationFromBooking } from "./lib/applicationBookingSync"
 
 export const confirmPaymentForOwner = async (ctx: MutationCtx, paymentId: Id<"payments">, ownerId: Id<"owners">) => {
   const payment = await ctx.db.get("payments", paymentId)
@@ -47,6 +48,7 @@ export const rejectPaymentForOwner = async (ctx: MutationCtx, paymentId: Id<"pay
   const property = await ctx.db.get("properties", payment.propertyId)
   if (!property || property.ownerId !== ownerId) throw new Error("Akses pembayaran ditolak.")
   await ctx.db.patch("payments", payment._id, { status: "rejected", reviewerOwnerId: ownerId, reviewedAt: Date.now(), rejectionReason: reason.trim() || "Bukti belum dapat diverifikasi." })
+  if (payment.bookingId) await syncApplicationFromBooking(ctx, payment.bookingId)
 }
 
 export const listPendingForOwner = query({

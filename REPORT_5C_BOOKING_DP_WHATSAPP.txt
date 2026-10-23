@@ -1,0 +1,315 @@
+LAPORAN KODE AKTUAL UNTUK PROMPT FASE 5C
+Tanggal pemeriksaan: 2026-10-23
+
+Tujuan
+-------
+Laporan ini memetakan model booking/DP, tenant, pembayaran, dan adapter template WhatsApp setelah implementasi. Semua nama file, fungsi, field, dan alur di bawah diambil dari kode repo saat ini.
+
+LANGKAH 1 - MODEL BOOKING, DP, DAN PENYEWA
+===========================================
+
+1.1 Skema tabel bookings
+-----------------------
+File: convex/schema.ts
+Tabel: bookings
+
+Field:
+- propertyId: Id<"properties">
+- roomId: Id<"rooms">
+- tenantId: Id<"tenants">
+- depositAmount: number
+- deadlineAt: number
+- status: "pending" | "locked" | "paid_off" | "expired"
+- createdAt: number
+- confirmedAt?: number
+- expiredAt?: number
+- dp_confirmed_at?: number
+- settlement_deadline?: number
+
+Index penting:
+- by_room_and_status
+- by_status_and_deadline
+- by_status_and_settlement_deadline
+- by_tenant
+
+Booking menahan kamar melalui status kamar, bukan hanya record booking:
+- createPending hanya mengizinkan room.status === "available".
+- confirmDepositForOwner mengubah booking pending -> locked dan room -> "booked".
+- confirmSettlementForOwner mengubah booking locked -> paid_off dan room -> "occupied".
+- expire/expireLocked mengubah booking locked -> expired dan room "booked" -> "available".
+
+1.2 Pembuat booking
+-------------------
+File: convex/bookings.ts
+
+createPending(ctx mutation, args: {
+  propertyId: Id<"properties">;
+  roomId: Id<"rooms">;
+  tenantId: Id<"tenants">;
+  depositAmount: number;
+  deadlineAt: number;
+})
+- Owner properti wajib terautentikasi melalui requirePropertyOwner.
+- depositAmount harus > 0.
+- deadlineAt harus di masa depan.
+- Room harus milik property dan berstatus available.
+- Tenant harus ada, berada di property yang sama, dan roomId tenant harus sama dengan room booking.
+- Tidak boleh ada booking room yang statusnya pending atau locked.
+- Insert booking dengan status pending.
+
+File: convex/publicRegistration.ts
+Fungsi: createSubmission(ctx mutation, args: {
+  slug: string;
+  roomId: Id<"rooms">;
+  name: string;
+  phone: string;
+  startedAt: number;
+  dueDate: number;
+  amount: number;
+  paymentType?: "dp" | "full";
+  deadlineAt?: number;
+  proofStorageId: Id<"_storage">;
+})
+- Endpoint publik berbasis slug.
+- Memvalidasi properti aktif/published dan room milik property.
+- Menolak room yang tidak available.
+- Membuat tenant terlebih dahulu.
+- Jika paymentType === "dp", deadlineAt wajib dan harus di masa depan.
+- Jika paymentType === "dp", membuat booking pending dengan depositAmount=args.amount.
+- Membuat payment pending_review yang terkait booking bila ada.
+- Payment purpose: "dp" untuk DP, "pelunasan" untuk full.
+
+1.3 Konfirmasi DP dan pelunasan
+------------------------------
+File: convex/bookings.ts
+
+confirmDepositForOwner(ctx: MutationCtx, bookingId, paymentId, ownerId)
+- Memastikan graph booking-property-room-tenant konsisten.
+- Memastikan property.ownerId === ownerId.
+- Payment harus milik booking dan berstatus pending_review.
+- Transisi valid hanya pending -> locked dan sebelum deadlineAt.
+- Room harus tetap available.
+- Payment menjadi confirmed dan menyimpan reviewerOwnerId/reviewedAt.
+- Booking menyimpan confirmedAt dan dp_confirmed_at.
+- Room menjadi booked.
+
+confirmSettlementForOwner(ctx: MutationCtx, bookingId, paymentId, ownerId)
+- Graph dan ownership divalidasi sama.
+- Payment harus pending_review dan terkait booking.
+- Transisi valid hanya locked -> paid_off.
+- Payment menjadi confirmed.
+- Booking menjadi paid_off.
+- Room menjadi occupied.
+- Tenant menjadi status active dan lifecycle_status active.
+- markCurrentPeriodPaid(...) dipanggil untuk membuat/menandai rent charge periode berjalan.
+
+Mutation publik pemilik:
+- confirmDeposit(args: { bookingId, paymentId })
+- confirmSettlement(args: { bookingId, paymentId })
+
+Keduanya memakai requireOwner lalu memanggil helper owner-only di atas.
+
+1.4 Settlement deadline tenant
+------------------------------
+File: convex/bookings.ts
+Fungsi: setSettlementDeadline(ctx mutation, args: {
+  bookingId: Id<"bookings">;
+  slug: string;
+  phone: string;
+  settlementDeadline: number;
+})
+- Booking harus locked.
+- dp_confirmed_at wajib sudah ada.
+- Slug property harus cocok.
+- Nomor phone harus cocok dengan tenant.phone setelah normalisasi digit.
+- Deadline harus di masa depan.
+- Batas maksimum = dp_confirmed_at + room.dp_max_days hari; default dp_max_days = 30.
+- Menulis bookings.settlement_deadline.
+
+1.5 Expiry booking
+------------------
+File: convex/bookings.ts
+- expire(args: { bookingId, now }): helper satu booking.
+- expireLocked(): internalMutation terjadwal harian; memproses booking locked yang deadlineAt lewat.
+- processSettlementDeadlines(): internalMutation terjadwal harian; H-1 hanya menulis notification_log settlement_reminder, sedangkan deadline yang lewat memindahkan booking ke expired dan melepas room.
+- Tidak ada pembuatan tenant baru saat expiry.
+
+1.6 Jalur pembayaran yang mengaktifkan tenant
+----------------------------------------------
+File: convex/payments.ts
+Fungsi: confirmPaymentForOwner(ctx: MutationCtx, paymentId, ownerId)
+- Jika payment.bookingId && payment.paymentType === "dp": delegasi ke confirmDepositForOwner.
+- Jika payment.bookingId && payment.paymentType === "full": delegasi ke confirmSettlementForOwner.
+- Jika bukan booking payment:
+  - tenant aktif: payment confirmed dan rent charge ditandai paid.
+  - tenant tidak aktif: room harus available; payment confirmed; tenant menjadi active; room menjadi occupied; rent charge ditandai paid.
+
+Kesimpulan jalur booking -> tenant:
+- Tenant sudah dibuat sebelum booking DP melalui publicRegistration.createSubmission.
+- Tenant menjadi aktif dan room occupied hanya saat pelunasan booking dikonfirmasi melalui confirmSettlementForOwner.
+- Tidak ada fungsi yang mengubah rentalApplications langsung menjadi booking/tenant dalam kode yang diperiksa.
+
+LANGKAH 2 - MODEL PAYMENT DAN INVARIAN DP
+==========================================
+
+2.1 Skema payments
+------------------
+File: convex/schema.ts
+
+Field:
+- propertyId, tenantId, roomId
+- amount: number
+- paymentType?: "dp" | "full"
+- purpose?: "dp" | "pelunasan" | "sewa_bulanan"
+- bookingId?: Id<"bookings">
+- paidAt: number
+- dueDate: number
+- billingPeriod?: string
+- status: "pending_review" | "confirmed" | "rejected"
+- proofStorageId?: Id<"_storage">
+- reviewerOwnerId?: Id<"owners">
+- reviewedAt?: number
+- rejectionReason?: string
+
+2.2 Pembuat payment
+--------------------
+File: convex/publicRegistration.ts:createSubmission
+- DP: paymentType=dp, purpose=dp, bookingId menunjuk booking pending, status pending_review.
+- Full: paymentType=full, purpose=pelunasan, tanpa booking DP.
+
+File: convex/rentals.ts:submitRentPayment(ctx mutation, args)
+- Menulis paymentType=full.
+- purpose=pelunasan bila terkait booking, sewa_bulanan bila pembayaran sewa pertama/non-booking sesuai kondisi kode.
+- status awal pending_review.
+
+File: convex/payments.ts:confirmPaymentForOwner
+- Payment pending_review -> confirmed hanya setelah validasi owner dan graph terkait.
+- Payment DP/full dengan booking masuk ke state machine bookings.
+- Payment sewa tanpa booking memengaruhi tenant/room dan rent charge.
+
+2.3 Pembacaan rent vs DP setelah klasifikasi
+---------------------------------------------
+File: convex/lib/paymentClassification.ts
+- RENT_PAYMENT_TYPES = ["full"] (allow-list eksplisit).
+- isRentPayment(payment): hanya status confirmed yang dipertimbangkan.
+- Jika paymentType ada: hanya full yang dianggap sewa; purpose yang dikenal tetap dibatasi ke pelunasan/sewa_bulanan.
+- Jika paymentType tidak ada (legacy): hanya purpose pelunasan atau sewa_bulanan yang dianggap sewa.
+- Payment tanpa type dan tanpa purpose, atau purpose dp, tidak dihitung sebagai sewa.
+
+Pemakai:
+- convex/reviews.ts:getTenantPaymentState dan scheduleActiveReviewInvitations.
+- convex/lib/paymentAdapter.ts:toPaymentPeriod/listPaymentPeriodsForTenancy.
+- DP/deposit tetap sengaja dihitung untuk tampilan/rekap finansial yang memang membutuhkan seluruh payment, misalnya monthlyReports.ts dan dashboard.ts.
+
+2.4 Dua sumber penahanan kamar
+------------------------------
+Saat ini terdapat dua mekanisme berbeda:
+
+1) bookings:
+- Room ditahan secara fisik dengan rooms.status = "booked" setelah DP confirmed.
+- Validasi menggunakan booking status pending/locked.
+
+2) rentalApplications:
+- Pengajuan accepted menahan kamar secara logis menggunakan rentalApplications.status=accepted dan holdExpiresAt.
+- isRoomAvailable(...) menerima active holds aplikasi sebagai input.
+- Rental application belum otomatis membuat booking atau mengubah rooms.status.
+
+Implikasi integrasi 5C:
+- Jangan membuat hold kedua tanpa aturan prioritas.
+- Konversi application accepted ke booking harus atomik terhadap pengecekan room, active booking, dan active rental application hold.
+- Sumber kebenaran status kamar saat ini adalah rooms.status untuk booking/tenant, sedangkan rentalApplications adalah hold pra-booking.
+
+ADAPTER TEMPLATE WHATSAPP SETELAH IMPLEMENTASI
+================================================
+
+A. File dan fungsi
+------------------
+convex/lib/whatsappTemplates.ts
+- WINDOW_MS = 24 jam.
+- WINDOW_SAFETY_MS = 30 menit.
+- TEMPLATE_LANGUAGE = "id".
+- TEMPLATE_REGISTRY berisi 7 kind UTILITY.
+- isWindowOpen(lastInboundAt, now): true hanya bila masih di bawah 23 jam 30 menit sejak inbound terakhir.
+- sanitizeTemplateParam(value, label, maxLength): menghapus newline/tab, merapikan spasi, trim, truncate, menolak kosong.
+- buildTemplatePayload(kind, params, buttonParam?): membangun body template dan tombol URL review.
+
+convex/lib/whatsappNotification.ts
+- sendWhatsAppNotification(input, deps): fungsi murni teruji dengan dependency injection.
+- Jika window terbuka: hanya sendText(fallbackText), tidak pernah template.
+- Jika window tertutup/tidak diketahui: template.
+- Jika template disabled: mode skipped, errorCode dinonaktifkan.
+- Jika idempotency sudah pernah dicatat: mode skipped, errorCode sudah_dicoba.
+- Kegagalan tidak dilempar ke pemanggil; dicatat sebagai result terstruktur.
+- mapWhatsAppError memetakan kode provider ke di_luar_jendela, template_tidak_disetujui, parameter_tidak_valid, nomor_tidak_valid, batas_laju, provider_gagal.
+
+convex/whatsappDelivery.ts
+- internalAction sendWhatsAppNotification(args: {
+  toPhoneE164: string;
+  kind: WhatsAppTemplateKind;
+  params: Record<string,string>;
+  fallbackText: string;
+  idempotencyKey: string;
+  buttonParam?: string;
+})
+- Memakai Graph API endpoint https://graph.facebook.com/{version}/{phoneNumberId}/messages.
+- Versi default aktual: v22.0, dapat diganti WHATSAPP_GRAPH_API_VERSION.
+- Env credential: WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID.
+- Env feature flag: WHATSAPP_TEMPLATES_ENABLED; nilai "false" menonaktifkan template.
+
+convex/whatsappState.ts
+- waWindows: phoneHash + lastInboundAt, index by_phone_hash.
+- waDeliveryLog: kind, phoneHash, at, mode, ok, errorCode, idempotencyKey, externalMessageId; tidak menyimpan isi/parameter/nomor mentah.
+- waDailyStats: date, templateCount, byKind, textCount.
+- recordInbound: hash phone dan update/create window.
+- hasDeliveryAttempt: cek idempotensi.
+- recordDelivery: insert metadata aman sekali per kind/idempotencyKey.
+- recordStatus: update hasil akhir memakai externalMessageId.
+- incrementStats: counter text/template.
+- cleanupWindows: hapus window lebih tua dari 48 jam; dijadwalkan harian di convex/crons.ts.
+
+B. Webhook status dan inbound window
+------------------------------------
+File: convex/bots/webhooks.ts
+- normalizeWhatsAppEvent mendukung text, location, contact, image, dan interactive/template button reply.
+- Callback button sekarang membawa senderPhone sehingga tetap memperbarui window.
+- normalizeWhatsAppStatuses membaca callback status Meta tanpa menyimpan isi pesan.
+
+File: convex/http.ts
+- POST /whatsapp/webhook tetap memvalidasi x-hub-signature-256 dengan META_APP_SECRET.
+- Pesan inbound memanggil internal.whatsappState.recordInbound.
+- Status callback memanggil internal.whatsappState.recordStatus.
+- Callback provider error diubah menjadi internal errorCode.
+
+C. Kind yang sudah dipasang
+----------------------------
+- Application baru ke pemilik: owner_new_application -> bk_owner_new_application.
+- Klaim DP ke pemilik: owner_dp_claim -> bk_owner_dp_claim.
+- Application diterima penyewa: tenant_application_accepted -> bk_tenant_application_accepted.
+- Ditolak/kedaluwarsa/hold dilepas: tenant_application_update -> bk_tenant_application_update.
+- Pengingat hold: tenant_hold_reminder -> bk_tenant_hold_reminder.
+- Undangan review: tenant_review_invite -> bk_tenant_review_invite; token hanya di tombol URL, bukan body.
+- owner_application_reminder sudah tersedia di registry; belum ada pemanggil aktual yang mengirim reminder owner dari lifecycle saat ini.
+
+D. Integrasi pemanggil
+-----------------------
+- convex/reviewDelivery.ts memakai adapter untuk undangan review dengan idempotency review:{invitationId} dan buttonParam token.
+- convex/bots/queryDelivery.ts memakai adapter untuk notifikasi rentalApplications WhatsApp; Telegram tetap memakai jalur Telegram.
+- convex/bots/delivery.ts memakai owner_dp_claim untuk payment upload yang paymentType=dp.
+- sendResponse/sendTextResponse tetap mengirim respons langsung karena dipicu segera oleh inbound dan berada dalam window terbuka.
+
+E. Batasan dan catatan untuk Fase 5C
+-------------------------------------
+- rentalApplications accepted belum otomatis menjadi bookings locked/paid_off.
+- Booking membutuhkan tenantId yang sudah ada; application hanya memiliki data applicant dan room/property.
+- Konversi perlu menentukan kapan tenant dibuat/diaktifkan, kapan payment DP dibuat, dan bagaimana mencegah konflik dengan booking atau accepted application lain.
+- Template WhatsApp hanya mengirim parameter yang sudah ditentukan; detail bisnis tambahan tetap berada di fallback teks saat window terbuka.
+- Jalur non-DP payment review lama belum memiliki template yang dispesifikasikan dalam registry ini dan tidak boleh dipetakan sembarang ke template application.
+- Tidak ada retry otomatis.
+
+VERIFIKASI
+==========
+- Tes adapter/template/webhook baru lulus.
+- TypeScript lulus.
+- ESLint lulus tanpa error; warning yang ada berasal dari kode repo sebelumnya.
+- Suite penuh masih terpengaruh error ENOENT file SSR sementara pada sandbox Vitest/Convex.
+- Next build masih terhenti pada panic Turbopack saat memproses app/globals.css; bukan error TypeScript adapter.

@@ -24,11 +24,11 @@ test("buildStatusMessage - Single Property with pending items", () => {
 
   const waMsg = buildStatusMessage(data, "whatsapp", 1000)
   expect(waMsg).toContain("Kos Aziza")
-  expect(waMsg).toContain("*1 item*")
+  expect(waMsg).toContain("1 pembayaran")
   expect(waMsg).toContain("menunggu verifikasi Anda")
 
   const tgMsg = buildStatusMessage(data, "telegram", 1000)
-  expect(tgMsg).toContain("<b>1 item</b>")
+  expect(tgMsg).toContain("1 pembayaran")
 })
 
 test("buildStatusMessage - Single Property with vacant rooms", () => {

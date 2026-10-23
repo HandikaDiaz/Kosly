@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel"
 import type { MutationCtx } from "./_generated/server"
 import { requireOwner, requirePropertyOwner } from "./lib/auth"
 import { markCurrentPeriodPaid } from "./rentCharges"
+import { syncApplicationFromBooking } from "./lib/applicationBookingSync"
 
 export type BookingStatus = "pending" | "locked" | "paid_off" | "expired"
 export type BookingAction = "confirm_deposit" | "settle" | "expire"
@@ -88,6 +89,7 @@ export const confirmDepositForOwner = async (ctx: MutationCtx, bookingId: Id<"bo
   // Record dp_confirmed_at so tenant can choose settlement_deadline
   await ctx.db.patch("bookings", booking._id, { status: "locked", confirmedAt: now, dp_confirmed_at: now })
   await ctx.db.patch("rooms", room._id, { status: "booked" })
+  await syncApplicationFromBooking(ctx, booking._id)
   return { tenantId: tenant._id, propertyId: property._id }
 }
 
@@ -102,6 +104,7 @@ export const confirmSettlementForOwner = async (ctx: MutationCtx, bookingId: Id<
   await ctx.db.patch("rooms", room._id, { status: "occupied" })
   await ctx.db.patch("tenants", tenant._id, { status: "active", lifecycle_status: "active" })
   await markCurrentPeriodPaid(ctx, tenant._id, payment._id, payment.amount, Date.now())
+  await syncApplicationFromBooking(ctx, booking._id)
   return { tenantId: tenant._id, propertyId: property._id }
 }
 
@@ -154,6 +157,7 @@ export const expire = internalMutation({
     if (getBookingTransition(booking.status, "expire", args.now, booking.deadlineAt) !== "expired") return false
     await ctx.db.patch("bookings", booking._id, { status: "expired", expiredAt: args.now })
     if (room.status === "booked") await ctx.db.patch("rooms", room._id, { status: "available" })
+    await syncApplicationFromBooking(ctx, booking._id)
     return true
   },
 })
@@ -170,6 +174,7 @@ export const expireLocked = internalMutation({
       if (getBookingTransition(graph.booking.status, "expire", now, graph.booking.deadlineAt) !== "expired") continue
       await ctx.db.patch("bookings", graph.booking._id, { status: "expired", expiredAt: now })
       if (graph.room.status === "booked") await ctx.db.patch("rooms", graph.room._id, { status: "available" })
+      await syncApplicationFromBooking(ctx, graph.booking._id)
       const changed = true
       if (changed) {
         const property = await ctx.db.get("properties", booking.propertyId)
@@ -221,6 +226,7 @@ export const processSettlementDeadlines = internalMutation({
       if (daysToDeadline < -1) {
         await ctx.db.patch("bookings", booking._id, { status: "expired", expiredAt: now })
         if (room.status === "booked") await ctx.db.patch("rooms", room._id, { status: "available" })
+        await syncApplicationFromBooking(ctx, booking._id)
         await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId: tenant._id, type: "settlement_expired", channel: "log_only", occurredOn: todayDate, status: "logged", payload: JSON.stringify({ bookingId: booking._id }) })
         expired++
       }
