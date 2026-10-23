@@ -146,8 +146,9 @@ export default defineSchema({
     reason: v.optional(v.string()),
     supersededAt: v.optional(v.number()),
   })
-    .index("by_property", ["propertyId"])
-    .index("by_property_and_creation", ["propertyId"]),
+    // Convex indexes already append _creationTime as a tiebreaker, so a
+    // second index with only propertyId would be identical to by_property.
+    .index("by_property", ["propertyId"]),
   reports: defineTable({
     reporterOwnerId: v.optional(v.id("owners")),
     reporterTenantId: v.optional(v.id("tenants")),

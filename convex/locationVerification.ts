@@ -153,7 +153,7 @@ export const submitLocationCapture = mutation({
     }
     const recentCaptures = await ctx.db
       .query("locationCaptures")
-      .withIndex("by_property_and_creation", (q) =>
+      .withIndex("by_property", (q) =>
         q
           .eq("propertyId", args.propertyId)
           .gte("_creationTime", now - 60 * 60 * 1000)

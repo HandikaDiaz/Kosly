@@ -64,7 +64,7 @@ export const sendTextResponse = internalAction({
 })
 
 export const sendApplicationOwnerNotice = internalAction({
-  args: { ownerId: v.id("owners"), text: v.string(), applicationId: v.id("rentalApplications"), kind: v.literal("owner_new_application"), params: v.record(v.string(), v.string()) },
+    args: { ownerId: v.id("owners"), text: v.string(), applicationId: v.id("rentalApplications"), kind: v.union(v.literal("owner_new_application"), v.literal("owner_application_reminder")), params: v.record(v.string(), v.string()) },
   handler: async (ctx, args) => {
     const links = await ctx.runQuery(internal.notifications.getOwnerBotLinks, { ownerId: args.ownerId })
     for (const link of links) {

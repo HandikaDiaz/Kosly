@@ -36,7 +36,8 @@ export const getRegistrationHint = query({
     const application = await ctx.db.query("rentalApplications").withIndex("by_code", (q) => q.eq("code", args.applicationCode.trim().toUpperCase())).unique()
     if (!property || !application || application.propertyId !== property._id || application.status !== "accepted" || (application.holdExpiresAt ?? 0) <= Date.now()) return { valid: false as const }
     const room = await ctx.db.get("rooms", application.roomId)
-    if (!room || (await getRoomHoldBlockers(ctx, room._id, Date.now())).every((row: any) => row._id === application._id)) return { valid: true as const, roomId: room._id, roomLabel: room.roomNumber, kosName: property.name, moveInDate: application.moveInDate }
+    if (!room) return { valid: false as const }
+    if ((await getRoomHoldBlockers(ctx, room._id, Date.now())).every((row: any) => row._id === application._id)) return { valid: true as const, roomId: room._id, roomLabel: room.roomNumber, kosName: property.name, moveInDate: application.moveInDate }
     return { valid: false as const }
   },
 })
