@@ -6,6 +6,7 @@ import { v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
 import { sendTelegramDocument } from "./bots/telegram"
 import { sendWhatsAppDocument, uploadWhatsAppDocument } from "./bots/whatsapp"
+import { propertyTabUrl } from "./lib/propertyTabs"
 
 type BotLink = {
   channel: "telegram" | "whatsapp"
@@ -32,7 +33,7 @@ type ReportSection = {
 const rupiah = (value: number) => `Rp ${value.toLocaleString("id-ID")}`
 const safe = (value: string) => value.normalize("NFKD").replace(/[^\x20-\x7E]/g, "?")
 
-const buildReportText = (report: ReportSection, generatedAt: Date) => {
+const buildReportText = (report: ReportSection, generatedAt: Date, propertyId: Id<"properties">) => {
   const current = report.current
   const previous = report.previous
   const totalCash = current.cash.monthlyRent + current.cash.dp + current.cash.settlement
@@ -67,7 +68,7 @@ const buildReportText = (report: ReportSection, generatedAt: Date) => {
   lines.push("", "Tenant keluar:")
   if (current.movedOut.length === 0) lines.push("  Tidak ada")
   else current.movedOut.forEach((item) => lines.push(`  * Kamar ${item.roomNumber} - ${safe(item.name)} (pindah ${item.date} ${report.label.split(" ")[0]})`))
-  lines.push("", "---------------------------------------------", `Laporan dibuat otomatis oleh BotKos pada ${generatedAt.toLocaleDateString("id-ID")}.`, `Detail lengkap: /dashboard/properties/${report.property.slug}`)
+  lines.push("", "---------------------------------------------", `Laporan dibuat otomatis oleh BotKos pada ${generatedAt.toLocaleDateString("id-ID")}.`, `Detail lengkap: ${propertyTabUrl(String(propertyId), "summary")}`)
   return lines
 }
 
@@ -88,7 +89,7 @@ export const generateAndDeliver = internalAction({
     const report = await ctx.runQuery(internal.monthlyReports.getReportData, args) as ReportSection | null
     if (!report) return { delivered: 0, saved: false }
     const generatedAt = new Date()
-    const bytes = createPdf(buildReportText(report, generatedAt))
+    const bytes = createPdf(buildReportText(report, generatedAt, args.propertyId))
     const fileName = `botkos-laporan-${report.property.slug}-${args.period}.pdf`
     const storageId = await ctx.storage.store(new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }))
     await ctx.runMutation(internal.monthlyReports.saveReport, { ownerId: args.ownerId, propertyId: args.propertyId, period: args.period, storageId, fileName })
@@ -196,7 +197,7 @@ export const simulateMonthlyReport = action({
     }
 
     const generatedAt = new Date()
-    const textLines = buildReportText(report, generatedAt)
+    const textLines = buildReportText(report, generatedAt, args.propertyId ?? target?.propertyId ?? "unknown" as Id<"properties">)
     const bytes = createPdf(textLines)
     const fileName = `botkos-laporan-${report.property.slug}-${period}.pdf`
     const storageId = await ctx.storage.store(new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }))

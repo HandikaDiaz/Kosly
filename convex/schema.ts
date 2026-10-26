@@ -73,6 +73,17 @@ export default defineSchema({
     publicLat: v.optional(v.number()),
     publicLng: v.optional(v.number()),
     publicGridCell: v.optional(v.string()),
+    publicKosType: v.optional(v.union(v.literal("putra"), v.literal("putri"), v.literal("campur"))),
+    publicRules: v.optional(v.object({
+      hewan: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))),
+      merokok: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))),
+      tamu: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))),
+      masak: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))),
+      jamMalam: v.optional(v.object({ value: v.union(v.literal("boleh"), v.literal("tidak")), time: v.optional(v.string()) })),
+    })),
+    publicLandmarks: v.optional(v.array(v.object({ name: v.string(), distanceM: v.number() }))),
+    publicInfoUpdatedAt: v.optional(v.number()),
+    publicAreaKey: v.optional(v.string()),
     contactForApplicants: v.optional(v.string()),
     pinLat: v.optional(v.number()),
     pinLng: v.optional(v.number()),
@@ -91,7 +102,8 @@ export default defineSchema({
     .index("by_is_published", ["isPublished"])
     .index("by_ownership_proof_storage", ["ownershipProofStorageId"])
     .index("by_owner_and_locked", ["ownerId", "lockedByTier"])
-    .index("by_public_grid_cell", ["publicGridCell", "isPublished"]),
+    .index("by_public_grid_cell", ["publicGridCell", "isPublished"])
+    .index("by_public_area_key", ["publicAreaKey", "isPublished"]),
   subscriptions: defineTable({
     ownerId: v.id("owners"),
     tier: v.union(
@@ -614,7 +626,7 @@ export default defineSchema({
     pollSecretHash: v.string(),
     createdAt: v.number(),
     expiresAt: v.number(),
-    status: v.union(v.literal("awaiting_message"), v.literal("awaiting_confirmation"), v.literal("verified"), v.literal("expired"), v.literal("cancelled")),
+    status: v.union(v.literal("awaiting_message"), v.literal("awaiting_contact"), v.literal("awaiting_confirmation"), v.literal("verified"), v.literal("expired"), v.literal("cancelled")),
     channel: v.optional(v.union(v.literal("whatsapp"), v.literal("telegram"))),
     senderKey: v.optional(v.string()),
     pendingPhoneE164: v.optional(v.string()),

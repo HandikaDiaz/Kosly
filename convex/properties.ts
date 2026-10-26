@@ -12,6 +12,7 @@ import {
 import { formatRatingSummary } from "./lib/reviewRules"
 import { gridCellFor } from "./lib/searchRules"
 import { isRoomAvailable } from "./lib/applicationRules"
+import { KOS_TYPES, MAX_LANDMARKS, RULE_KEYS, normalizePublicAreaKey, validateLandmark, RELATED_LIMIT } from "./lib/kosInfoRules"
 
 const normalizeSlug = (value: string) =>
   value
@@ -163,6 +164,15 @@ const publicProfileFields = {
   publicShowFullAddress: v.optional(v.boolean()),
   publicLat: v.optional(v.number()),
   publicLng: v.optional(v.number()),
+  publicKosType: v.optional(v.union(v.string(), v.null())),
+  publicRules: v.optional(v.union(v.object({
+    hewan: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))),
+    merokok: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))),
+    tamu: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))),
+    masak: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))),
+    jamMalam: v.optional(v.object({ value: v.union(v.literal("boleh"), v.literal("tidak")), time: v.optional(v.string()) })),
+  }), v.null())),
+  publicLandmarks: v.optional(v.union(v.array(v.object({ name: v.string(), distanceM: v.number() })), v.null())),
 }
 
 const publicationStatusValidator = v.object({
@@ -175,6 +185,12 @@ const publicationStatusValidator = v.object({
   publicPhotoIds: v.array(v.id("property_photos")),
   publicShowPrice: v.boolean(),
   publicShowFullAddress: v.boolean(),
+  publicKosType: v.union(v.string(), v.null()),
+  publicRules: v.union(v.object({
+    hewan: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), merokok: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), tamu: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), masak: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), jamMalam: v.optional(v.object({ value: v.union(v.literal("boleh"), v.literal("tidak")), time: v.optional(v.string()) })),
+  }), v.null()),
+  publicLandmarks: v.array(v.object({ name: v.string(), distanceM: v.number() })),
+  publicInfoUpdatedAt: v.union(v.number(), v.null()),
   requirements: v.object({
     name: v.boolean(),
     room: v.boolean(),
@@ -201,7 +217,9 @@ const publicRoomValidator = v.object({
 })
 const publicProfileValidator = v.object({
   name: v.string(),
+  slug: v.string(),
   publicSlug: v.string(),
+  propertySlug: v.string(),
   publicDescription: v.optional(v.string()),
   publicAreaLabel: v.optional(v.string()),
   publicLat: v.optional(v.number()),
@@ -220,6 +238,12 @@ const publicProfileValidator = v.object({
     })
   ),
   rooms: v.array(publicRoomValidator),
+  contactWhatsApp: v.optional(v.string()),
+  contactTelegram: v.optional(v.string()),
+  kosType: v.optional(v.string()),
+  rules: v.optional(v.object({ hewan: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), merokok: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), tamu: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), masak: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), jamMalam: v.optional(v.object({ value: v.union(v.literal("boleh"), v.literal("tidak")), time: v.optional(v.string()) })) })),
+  landmarks: v.optional(v.array(v.object({ name: v.string(), distanceM: v.number() }))),
+  infoUpdatedAt: v.optional(v.number()),
 })
 
 const publicationRequirements = async (
@@ -280,6 +304,10 @@ export const getPublicPublicationStatus = query({
       publicPhotoIds: property.publicPhotoIds ?? [],
       publicShowPrice: property.publicShowPrice === true,
       publicShowFullAddress: property.publicShowFullAddress === true,
+      publicKosType: property.publicKosType ?? null,
+      publicRules: property.publicRules ?? null,
+      publicLandmarks: property.publicLandmarks ?? [],
+      publicInfoUpdatedAt: property.publicInfoUpdatedAt ?? null,
       requirements,
       missing,
     }
@@ -292,16 +320,48 @@ export const updatePublicProfile = mutation({
   handler: async (ctx, args) => {
     const { property } = await requirePropertyOwner(ctx, args.propertyId)
     const patch: Record<string, unknown> = {}
+    let infoChanged = false
     if (args.publicDescription !== undefined) {
       if (args.publicDescription.length > 1000)
         throw new Error("Deskripsi publik maksimal 1000 karakter.")
       patch.publicDescription = args.publicDescription.trim() || undefined
+      infoChanged = true
     }
     if (args.publicAreaLabel !== undefined) {
       if (args.publicAreaLabel.length > 120)
         throw new Error("Label area maksimal 120 karakter.")
       patch.publicAreaLabel = args.publicAreaLabel.trim() || undefined
+      patch.publicAreaKey = args.publicAreaLabel.trim() ? normalizePublicAreaKey(args.publicAreaLabel) : undefined
+      infoChanged = true
     }
+    if (args.publicKosType !== undefined) {
+      if (args.publicKosType !== null && !KOS_TYPES.includes(args.publicKosType as (typeof KOS_TYPES)[number])) throw new Error("Tipe kos tidak valid.")
+      patch.publicKosType = args.publicKosType || undefined
+      infoChanged = true
+    }
+    if (args.publicRules !== undefined) {
+      if (args.publicRules === null) patch.publicRules = undefined
+      else {
+        for (const key of RULE_KEYS) {
+          const value = key === "jamMalam" ? args.publicRules.jamMalam?.value : args.publicRules[key]
+          if (value !== undefined && value !== "boleh" && value !== "tidak") throw new Error("Aturan kos tidak valid.")
+        }
+        const time = args.publicRules.jamMalam?.time
+        if (args.publicRules.jamMalam?.value === "tidak" && (!time || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) throw new Error("Jam malam harus berformat HH:MM.")
+        patch.publicRules = args.publicRules
+      }
+      infoChanged = true
+    }
+    if (args.publicLandmarks !== undefined) {
+      if (args.publicLandmarks === null) patch.publicLandmarks = undefined
+      else {
+        if (args.publicLandmarks.length > MAX_LANDMARKS) throw new Error(`Maksimal ${MAX_LANDMARKS} landmark.`)
+        const names: string[] = []
+        patch.publicLandmarks = args.publicLandmarks.map((landmark) => { const cleaned = validateLandmark(landmark, names); names.push(cleaned.name); return cleaned })
+      }
+      infoChanged = true
+    }
+    if (infoChanged) patch.publicInfoUpdatedAt = Date.now()
     if (args.publicPhotoIds !== undefined) {
       if (
         new Set(args.publicPhotoIds.map(String)).size !==
@@ -516,9 +576,33 @@ export const getPublishedKosBySlug = query({
           }
         : {}),
     }))
+    const ownerBotLinks = await ctx.db
+      .query("bot_links")
+      .withIndex("by_owner_and_channel", (q) =>
+        q.eq("ownerId", property.ownerId)
+      )
+      .take(10)
+
+    const activeWhatsApp = ownerBotLinks.find(
+      (link) => link.channel === "whatsapp" && link.status === "active"
+    )
+    const activeTelegram = ownerBotLinks.find(
+      (link) => link.channel === "telegram" && link.status === "active"
+    )
+
+    const contactWhatsApp = activeWhatsApp?.chatId?.trim() || undefined
+    const contactTelegram =
+      activeTelegram?.displayName?.trim().replace(/^@/, "") ||
+      activeTelegram?.chatId?.trim().replace(/^@/, "") ||
+      undefined
+
     return {
       name: property.name,
+      slug: property.slug,
       publicSlug,
+      propertySlug: property.slug,
+      ...(contactWhatsApp ? { contactWhatsApp } : {}),
+      ...(contactTelegram ? { contactTelegram } : {}),
       ...(property.publicDescription
         ? { publicDescription: property.publicDescription }
         : {}),
@@ -536,6 +620,10 @@ export const getPublishedKosBySlug = query({
       property.locationVerifiedAt !== undefined
         ? { locationVerifiedAt: property.locationVerifiedAt }
         : {}),
+      ...(property.publicKosType ? { kosType: property.publicKosType } : {}),
+      ...(property.publicRules ? { rules: property.publicRules } : {}),
+      ...(property.publicLandmarks ? { landmarks: property.publicLandmarks } : {}),
+      ...(property.publicInfoUpdatedAt !== undefined ? { infoUpdatedAt: property.publicInfoUpdatedAt } : {}),
       photos: photos.filter(
         (photo): photo is NonNullable<typeof photo> => photo !== null
       ),
@@ -544,6 +632,42 @@ export const getPublishedKosBySlug = query({
       reviewCount: ratingSummary.count,
       ratingAverage: ratingSummary.average,
     }
+  },
+})
+
+export const getRelatedPublishedKos = query({
+  args: { slug: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const source = await ctx.db.query("properties").withIndex("by_public_slug", (q) => q.eq("publicSlug", normalizePublicSlug(args.slug))).unique()
+    if (!source || source.isPublished !== true || !source.isActive || source.lockedByTier || !source.publicAreaKey) return []
+    const limit = Math.min(RELATED_LIMIT, Math.max(1, Math.floor(args.limit ?? RELATED_LIMIT)))
+    const properties = await ctx.db.query("properties").withIndex("by_public_area_key", (q) => q.eq("publicAreaKey", source.publicAreaKey).eq("isPublished", true)).take(limit + 1)
+    const related = properties.filter((property) => property._id !== source._id && property.isActive && !property.lockedByTier).slice(0, limit)
+    const result: Array<{ slug: string; name: string; areaLabel?: string; hargaMulai?: number; isLocationVerified: boolean }> = []
+    for (const property of related) {
+      if (!property.publicSlug) continue
+      let hargaMulai: number | undefined
+      if (property.publicShowPrice === true) {
+        const rooms = await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)
+        const prices = rooms.map((room) => room.monthlyRent).filter((value): value is number => typeof value === "number")
+        if (prices.length) hargaMulai = Math.min(...prices)
+      }
+      result.push({ slug: property.publicSlug, name: property.name, ...(property.publicAreaLabel ? { areaLabel: property.publicAreaLabel } : {}), ...(hargaMulai !== undefined ? { hargaMulai } : {}), isLocationVerified: property.locationVerificationStatus === "verified" })
+    }
+    return result
+  },
+})
+
+export const backfillPublicAreaKeys = internalMutation({
+  args: { cursor: v.optional(v.id("properties")), batchSize: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db.query("properties").order("asc").take(Math.min(100, Math.max(1, args.batchSize ?? 50)))
+    const selected = args.cursor ? rows.filter((row) => row._id > args.cursor!).slice(0, args.batchSize ?? 50) : rows
+    for (const property of selected) {
+      const key = property.publicAreaLabel?.trim() ? normalizePublicAreaKey(property.publicAreaLabel) : undefined
+      if (property.publicAreaKey !== key) await ctx.db.patch("properties", property._id, { publicAreaKey: key })
+    }
+    return { processed: selected.length, nextCursor: selected.length === rows.length ? null : selected.at(-1)?._id ?? null }
   },
 })
 
@@ -603,10 +727,18 @@ export const getMine = query({
 export const getPublicBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const property = await ctx.db
+    let property = await ctx.db
       .query("properties")
       .withIndex("by_slug", (q) => q.eq("slug", normalizeSlug(args.slug)))
       .unique()
+    if (!property) {
+      property = await ctx.db
+        .query("properties")
+        .withIndex("by_public_slug", (q) =>
+          q.eq("publicSlug", normalizePublicSlug(args.slug))
+        )
+        .unique()
+    }
     if (!property || !property.isActive || property.lockedByTier) return null
     const owner = await ctx.db.get("owners", property.ownerId)
     const rooms = await ctx.db

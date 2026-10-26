@@ -49,7 +49,21 @@ export const sendTextResponse = internalAction({
     channel: v.union(v.literal("telegram"), v.literal("whatsapp")),
     chatId: v.string(),
     text: v.string(),
-    replyMarkup: v.optional(v.union(v.object({ inline_keyboard: v.array(v.array(v.object({ text: v.string(), callback_data: v.string() }))) }), v.object({ keyboard: v.array(v.array(v.object({ text: v.string(), request_location: v.optional(v.boolean()) }))), resize_keyboard: v.optional(v.boolean()), one_time_keyboard: v.optional(v.boolean()) }))),
+    replyMarkup: v.optional(v.union(
+      v.object({ inline_keyboard: v.array(v.array(v.object({ text: v.string(), callback_data: v.string() }))) }),
+      v.object({
+        keyboard: v.array(v.array(v.object({
+          text: v.string(),
+          request_location: v.optional(v.boolean()),
+          request_contact: v.optional(v.boolean()),
+        }))),
+        resize_keyboard: v.optional(v.boolean()),
+        one_time_keyboard: v.optional(v.boolean()),
+      }),
+      v.object({
+        remove_keyboard: v.boolean(),
+      })
+    )),
   },
   handler: async (_ctx, args) => {
     if (args.channel === "telegram") {

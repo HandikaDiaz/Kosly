@@ -40,7 +40,11 @@ export const buildWhatsAppUrl = (
   propertyName: string,
   slug: string
 ) => {
-  const normalizedNumber = number?.trim().replace(/[^0-9]/g, "")
+  if (!number) return null
+  let normalizedNumber = number.trim().replace(/[^0-9]/g, "")
+  if (normalizedNumber.startsWith("0")) {
+    normalizedNumber = "62" + normalizedNumber.slice(1)
+  }
   if (!normalizedNumber) return null
 
   const message = `Halo, saya ingin bertanya tentang ${propertyName} (${slug}).`

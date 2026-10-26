@@ -37,13 +37,15 @@ export const parseVerificationCode = (text: string) => {
   return [...body].every((char) => CODE_ALPHABET.includes(char)) ? `${CODE_PREFIX}${body}` : null
 }
 
-export type ChallengeStatus = "awaiting_message" | "awaiting_confirmation" | "verified" | "expired" | "cancelled"
-export type ChallengeEvent = "message_received" | "confirm" | "cancel" | "expire"
+export type ChallengeStatus = "awaiting_message" | "awaiting_contact" | "awaiting_confirmation" | "verified" | "expired" | "cancelled"
+export type ChallengeEvent = "message_received" | "contact_received" | "confirm" | "cancel" | "expire"
 
 export const transitionChallenge = (status: ChallengeStatus, event: ChallengeEvent): ChallengeStatus => {
   if (status === "awaiting_message" && event === "message_received") return "awaiting_confirmation"
+  if (status === "awaiting_message" && event === "contact_received") return "awaiting_contact"
+  if (status === "awaiting_contact" && event === "contact_received") return "awaiting_confirmation"
   if (status === "awaiting_confirmation" && event === "confirm") return "verified"
   if (status === "awaiting_confirmation" && event === "cancel") return "cancelled"
-  if ((status === "awaiting_message" || status === "awaiting_confirmation") && event === "expire") return "expired"
+  if ((status === "awaiting_message" || status === "awaiting_contact" || status === "awaiting_confirmation") && event === "expire") return "expired"
   throw new Error("Transisi challenge tidak valid.")
 }

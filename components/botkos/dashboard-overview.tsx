@@ -5,6 +5,7 @@ import { ArrowUpRight, CalendarClock, CircleAlert, Plus, WalletCards } from "luc
 import { useQuery } from "convex/react"
 import { useState } from "react"
 import { api } from "@/convex/_generated/api"
+import { propertyTabUrl } from "@/lib/propertyTabs"
 import { RoomTag } from "./room-tag"
 import { LedgerTable } from "./ledger-table"
 import { DashboardAnalytics } from "./dashboard-analytics"
@@ -103,7 +104,7 @@ export function DashboardOverview() {
                 </h2>
               </div>
               <Link
-                href={`/dashboard/properties/${firstProperty._id}`}
+              href={propertyTabUrl(String(firstProperty._id), "summary")}
                 className="text-sm font-semibold text-[var(--gold-dark)] hover:underline"
               >
                 Kelola kamar <ArrowUpRight className="ml-1 inline" size={15} />

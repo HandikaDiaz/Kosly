@@ -3,7 +3,10 @@ import { buildReviewMessage } from "./formatters"
 import { OWNER_COMMANDS } from "./commands"
 
 export type TelegramInlineButton = { text: string; callback_data: string }
-export type TelegramReplyMarkup = { inline_keyboard: TelegramInlineButton[][] } | { keyboard: Array<Array<{ text: string; request_location?: boolean }>>; resize_keyboard?: boolean; one_time_keyboard?: boolean }
+export type TelegramReplyMarkup =
+  | { inline_keyboard: TelegramInlineButton[][] }
+  | { keyboard: Array<Array<{ text: string; request_location?: boolean; request_contact?: boolean }>>; resize_keyboard?: boolean; one_time_keyboard?: boolean }
+  | { remove_keyboard: boolean }
 
 export const registerTelegramCommands = async (token: string) => {
   const response = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {

@@ -1,6 +1,89 @@
 import { query } from "./_generated/server"
+import type { QueryCtx } from "./_generated/server"
+import type { Id } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { requireOwner } from "./lib/auth"
+
+const tabBadges = v.object({ applicationsOpen: v.number(), reviewsUnreplied: v.number(), disputesOpen: v.number(), locationVerified: v.boolean(), isPublished: v.boolean(), photoCountPublic: v.number() })
+
+const countDisputes = async (ctx: QueryCtx, propertyId: Id<"properties">) => {
+  const tenants = await ctx.db.query("tenants").withIndex("by_property", (q) => q.eq("propertyId", propertyId)).take(100)
+  const disputes = (await Promise.all(tenants.map((tenant) => ctx.db.query("paymentDisputes").withIndex("by_tenancy", (q) => q.eq("tenancyId", tenant._id)).take(100)))).flat()
+  return disputes.filter((item) => item.status === "open").length
+}
+
+export const getPropertyTabBadges = query({
+  args: { propertyId: v.id("properties") },
+  returns: tabBadges,
+  handler: async (ctx, args) => {
+    const owner = await requireOwner(ctx)
+    const property = await ctx.db.get("properties", args.propertyId)
+    if (!property || property.ownerId !== owner._id) throw new Error("Properti tidak ditemukan.")
+    const [submitted, accepted, registration, dpConfirmed, reviews, disputes] = await Promise.all([
+      ctx.db.query("rentalApplications").withIndex("by_property_and_status", (q) => q.eq("propertyId", args.propertyId).eq("status", "submitted")).take(100),
+      ctx.db.query("rentalApplications").withIndex("by_property_and_status", (q) => q.eq("propertyId", args.propertyId).eq("status", "accepted")).take(100),
+      ctx.db.query("rentalApplications").withIndex("by_property_and_status", (q) => q.eq("propertyId", args.propertyId).eq("status", "registration_submitted")).take(100),
+      ctx.db.query("rentalApplications").withIndex("by_property_and_status", (q) => q.eq("propertyId", args.propertyId).eq("status", "dp_confirmed")).take(100),
+      ctx.db.query("reviews").withIndex("by_property_and_status", (q) => q.eq("propertyId", args.propertyId).eq("status", "published")).take(100),
+      countDisputes(ctx, args.propertyId),
+    ])
+    return { applicationsOpen: submitted.length + accepted.length + registration.length + dpConfirmed.length, reviewsUnreplied: reviews.filter((review) => !review.ownerReply).length, disputesOpen: disputes, locationVerified: property.locationVerificationStatus === "verified", isPublished: property.isPublished === true, photoCountPublic: property.publicPhotoIds?.length ?? 0 }
+  },
+})
+
+export const listPropertiesWithStatus = query({
+  args: {},
+  returns: v.array(v.object({
+    id: v.id("properties"),
+    name: v.string(),
+    address: v.string(),
+    roomTotal: v.number(),
+    roomOccupied: v.number(),
+    roomAvailable: v.number(),
+    isPublished: v.boolean(),
+    locationVerified: v.boolean(),
+    applicationsOpen: v.number(),
+    reviewsUnreplied: v.number(),
+    coverPhotoUrl: v.optional(v.union(v.string(), v.null())),
+    slug: v.optional(v.string()),
+    publicSlug: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+    lockedByTier: v.optional(v.boolean()),
+  })),
+  handler: async (ctx) => {
+    const owner = await requireOwner(ctx)
+    const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", owner._id)).take(50)
+    return Promise.all(properties.map(async (property) => {
+      const rooms = await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)
+      const firstPhoto = await ctx.db.query("property_photos").withIndex("by_property", (q) => q.eq("propertyId", property._id)).first()
+      const coverPhotoUrl = firstPhoto ? await ctx.storage.getUrl(firstPhoto.storageId) : null
+      const [submitted, accepted, registration, dpConfirmed, reviews] = await Promise.all([
+        ctx.db.query("rentalApplications").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id).eq("status", "submitted")).take(100),
+        ctx.db.query("rentalApplications").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id).eq("status", "accepted")).take(100),
+        ctx.db.query("rentalApplications").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id).eq("status", "registration_submitted")).take(100),
+        ctx.db.query("rentalApplications").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id).eq("status", "dp_confirmed")).take(100),
+        ctx.db.query("reviews").withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id).eq("status", "published")).take(100),
+      ])
+      return {
+        id: property._id,
+        name: property.name,
+        address: property.address,
+        roomTotal: rooms.length,
+        roomOccupied: rooms.filter((room) => room.status === "occupied").length,
+        roomAvailable: rooms.filter((room) => room.status === "available").length,
+        isPublished: property.isPublished === true,
+        locationVerified: property.locationVerificationStatus === "verified",
+        applicationsOpen: submitted.length + accepted.length + registration.length + dpConfirmed.length,
+        reviewsUnreplied: reviews.filter((review) => !review.ownerReply).length,
+        coverPhotoUrl: coverPhotoUrl ?? undefined,
+        slug: property.slug,
+        publicSlug: property.publicSlug,
+        isActive: property.isActive ?? true,
+        lockedByTier: property.lockedByTier === true,
+      }
+    }))
+  },
+})
 
 export const getOverview = query({
   args: { now: v.number() },

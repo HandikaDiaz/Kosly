@@ -27,3 +27,45 @@ test("WhatsApp code verification links only normalized tenant phone after explic
   const status = await t.query(api.tenantIdentity.getChallengeStatus, { challengeId: challenge.challengeId, pollSecret: challenge.pollSecret })
   expect(status?.status).toBe("verified")
 })
+
+test("Telegram code verification handles two-step flow (code then contact share then YA confirmation)", async () => {
+  const t = convexTest(schema, modules)
+  const challenge = await t.mutation(api.tenantIdentity.startVerification, { noticeAccepted: true })
+
+  // 1. User sends /start verify_BK-...
+  const codeStep = await t.mutation(internal.tenantIdentity.receiveVerificationCode, {
+    channel: "telegram",
+    rawText: `/start verify_${challenge.code}`,
+    senderKey: "987654321",
+    fromUserId: "987654321",
+  })
+  expect(codeStep.handled).toBe(true)
+  expect("requestContact" in codeStep && codeStep.requestContact).toBe(true)
+
+  // 2. User shares contact
+  const contactStep = await t.mutation(internal.tenantIdentity.receiveVerificationCode, {
+    channel: "telegram",
+    rawText: "",
+    senderKey: "987654321",
+    fromUserId: "987654321",
+    contactUserId: "987654321",
+    contactPhone: "+6281299887766",
+  })
+  expect(contactStep.handled).toBe(true)
+  expect("requestConfirm" in contactStep && contactStep.requestConfirm).toBe(true)
+  expect("text" in contactStep ? contactStep.text : "").toContain("Konfirmasi Keamanan")
+
+  // 3. User sends YA
+  const confirmStep = await t.mutation(internal.tenantIdentity.receiveVerificationCode, {
+    channel: "telegram",
+    rawText: "YA",
+    senderKey: "987654321",
+    fromUserId: "987654321",
+  })
+  expect(confirmStep.handled).toBe(true)
+  expect("text" in confirmStep ? confirmStep.text : "").toContain("Nomor terhubung")
+  expect("clearKeyboard" in confirmStep && confirmStep.clearKeyboard).toBe(true)
+
+  const status = await t.query(api.tenantIdentity.getChallengeStatus, { challengeId: challenge.challengeId, pollSecret: challenge.pollSecret })
+  expect(status?.status).toBe("verified")
+})

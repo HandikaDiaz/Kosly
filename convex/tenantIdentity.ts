@@ -7,7 +7,9 @@ import { generateToken, hashToken } from "./lib/reviewRules"
 import { CHALLENGE_TTL_MIN, CONFIRM_TTL_MIN, IDENTITY_NOTICE_VERSION, MAX_CHALLENGES_PER_HOUR_GLOBAL, MAX_FAILED_CODE_ATTEMPTS_PER_SENDER_PER_HOUR, SESSION_TTL_DAYS, generateVerificationCode, normalizeIndonesianPhone, parseVerificationCode, transitionChallenge, type ChallengeStatus } from "./lib/tenantIdentity"
 
 const GENERIC_STATUS = "Kode tidak valid atau sudah tidak berlaku."
-const CONFIRMATION = "Seseorang meminta menghubungkan nomor ini ke Rapor Penghuni BotKos. Hanya balas YA jika KAMU sendiri yang membuka halaman verifikasi barusan. Jika ada orang lain yang menyuruhmu mengirim kode ini, balas TIDAK. Berlaku 5 menit."
+const TELEGRAM_SHARE_CONTACT_PROMPT = "📱 *Verifikasi Identitas — BotKos*\n\nKode verifikasi valid! Untuk menghubungkan data sewa dan Rapor Penghunimu, kami memerlukan verifikasi nomor telepon akun Telegram ini.\n\nSilakan tekan tombol *📱 Bagikan Nomor Telepon* di bawah untuk melanjutkan."
+const CONFIRMATION_WA = "🔒 *Konfirmasi Keamanan — Rapor Penghuni BotKos*\n\nSeseorang meminta menghubungkan nomor ini ke *Rapor Penghuni BotKos*.\n\nMohon pastikan keamanan akunmu:\n• Balas *YA* — Hanya jika *KAMU sendiri* yang membuka halaman verifikasi barusan.\n• Balas *TIDAK* — Jika ada orang lain yang menyuruhmu mengirim kode ini atau kamu tidak mengenali permintaan ini.\n\n⏱ *Berlaku 5 menit.*\n_Pesan otomatis sistem BotKos. Jangan bagikan pesan ini kepada siapa pun._"
+const CONFIRMATION_TG = "🔒 *Konfirmasi Keamanan — Rapor Penghuni BotKos*\n\nNomor teleponmu berhasil diverifikasi. Seseorang meminta menghubungkan nomor ini ke *Rapor Penghuni BotKos*.\n\nMohon pastikan keamanan akunmu:\n• Balas *YA* (atau tekan tombol di bawah) — Hanya jika *KAMU sendiri* yang membuka halaman verifikasi barusan.\n• Balas *TIDAK* — Jika ada orang lain yang menyuruhmu mengirim kode ini atau kamu tidak mengenali permintaan ini.\n\n⏱ *Berlaku 5 menit.*\n_Pesan otomatis sistem BotKos. Jangan bagikan pesan ini kepada siapa pun._"
 const envValues = env as typeof env & Record<string, string | undefined>
 
 const senderHash = (senderKey: string) => hashToken(`sender:${senderKey}`)
@@ -23,9 +25,12 @@ const sessionFromToken = async (ctx: QueryCtx | MutationCtx, token: string) => {
 export const requireTenantSession = sessionFromToken
 
 const botLinks = (code: string) => {
-  const links: { telegram?: string; whatsapp?: string } = {}
-  if (envValues.TELEGRAM_BOT_USERNAME) links.telegram = `https://t.me/${envValues.TELEGRAM_BOT_USERNAME}?start=verify_${code}`
-  if (envValues.WHATSAPP_BOT_NUMBER) links.whatsapp = `https://wa.me/${envValues.WHATSAPP_BOT_NUMBER.replace(/\D/g, "")}?text=${encodeURIComponent(code)}`
+  const telegramBot = envValues.TELEGRAM_BOT_USERNAME || "kosly_admin_bot"
+  const whatsappBot = envValues.WHATSAPP_BOT_NUMBER || "6289674745742"
+  const links: { telegram?: string; whatsapp?: string } = {
+    telegram: `https://t.me/${telegramBot.replace(/^@/, "")}?start=verify_${code}`,
+    whatsapp: `https://wa.me/${whatsappBot.replace(/\D/g, "")}?text=${encodeURIComponent(code)}`,
+  }
   return links
 }
 
@@ -70,7 +75,7 @@ const confirmInContext = async (ctx: MutationCtx, challenge: VerificationChallen
   if (!challenge || challenge.status !== "awaiting_confirmation" || challenge.senderKey !== await senderHash(senderKey) || !challenge.confirmExpiresAt || challenge.confirmExpiresAt <= Date.now()) throw new Error(GENERIC_STATUS)
   if (decision === "cancel") {
     await ctx.db.patch("verificationChallenges", challenge._id, { status: "cancelled" })
-    return { handled: true, text: "Verifikasi dibatalkan." }
+    return { handled: true, text: "❌ *Verifikasi Dibatalkan*\n\nPermintaan penghubungan nomor telah dibatalkan. Jika Anda tidak merasa meminta ini, nomor Anda tetap aman.", clearKeyboard: true }
   }
   const phone = challenge.pendingPhoneE164
   if (!phone) throw new Error(GENERIC_STATUS)
@@ -86,7 +91,7 @@ const confirmInContext = async (ctx: MutationCtx, challenge: VerificationChallen
   const keyHash = await senderHash(senderKey)
   const existingKey = (await ctx.db.query("identityChannelKeys").withIndex("by_channel_and_key", (q) => q.eq("channel", channel).eq("senderKeyHash", keyHash)).take(5)).find((item) => item.identityId === identityId)
   if (!existingKey) await ctx.db.insert("identityChannelKeys", { identityId, channel, senderKeyHash: keyHash, createdAt: Date.now() })
-  return { handled: true, text: "Nomor terhubung. Kembali ke halaman web untuk melanjutkan." }
+  return { handled: true, text: "✅ *Nomor Berhasil Terhubung!*\n\nNomor terhubung ke Portal Penghuni. Silakan kembali ke browser untuk mengakses Rapor Penghuni Anda.", clearKeyboard: true }
 }
 
 export const receiveVerificationCode = internalMutation({
@@ -94,24 +99,59 @@ export const receiveVerificationCode = internalMutation({
   handler: async (ctx, args) => {
     const now = Date.now()
     const senderKeyDigest = await senderHash(args.senderKey)
-    const awaiting = (await ctx.db.query("verificationChallenges").withIndex("by_created", (q) => q.gte("createdAt", now - CHALLENGE_TTL_MIN * 60 * 1000)).take(300)).find((item) => item.status === "awaiting_confirmation" && item.senderKey === senderKeyDigest)
-    const decision = args.rawText.trim().toUpperCase()
-    if (awaiting && (decision === "YA" || decision === "TIDAK")) return confirmInContext(ctx, awaiting, args.channel, args.senderKey, decision === "YA" ? "confirm" : "cancel")
-    const codeText = /verify[_\s-]*(BK[-\s]*[A-Z0-9-]+)/i.exec(args.rawText)?.[1] ?? args.rawText
+
+    // ── Handle YA/TIDAK replies to an awaiting_confirmation challenge ──
+    const decision = args.rawText.trim().replace(/^\//, "").toUpperCase()
+    const awaitingConfirm = (await ctx.db.query("verificationChallenges").withIndex("by_created", (q) => q.gte("createdAt", now - 60 * 60 * 1000)).take(300)).find((item) => item.status === "awaiting_confirmation" && item.senderKey === senderKeyDigest)
+    if (awaitingConfirm && (decision === "YA" || decision === "TIDAK")) return confirmInContext(ctx, awaitingConfirm, args.channel, args.senderKey, decision === "YA" ? "confirm" : "cancel")
+
+    // ── Telegram: handle contact share for an awaiting_contact challenge ──
+    if (args.channel === "telegram" && args.contactPhone && args.contactUserId && args.fromUserId && args.contactUserId === args.fromUserId) {
+      const awaitingContact = (await ctx.db.query("verificationChallenges").withIndex("by_created", (q) => q.gte("createdAt", now - 60 * 60 * 1000)).take(300)).find((item) => item.status === "awaiting_contact" && item.senderKey === senderKeyDigest)
+      if (awaitingContact && awaitingContact.expiresAt > now) {
+        const phone = normalizeIndonesianPhone(args.contactPhone)
+        if (!phone) return { handled: true, text: "⚠️ Nomor telepon tidak valid. Pastikan nomor telepon adalah nomor Indonesia yang aktif." }
+        await ctx.db.patch("verificationChallenges", awaitingContact._id, { status: "awaiting_confirmation" as const, pendingPhoneE164: phone, confirmExpiresAt: now + CONFIRM_TTL_MIN * 60 * 1000 })
+        return { handled: true, text: CONFIRMATION_TG, requestConfirm: true }
+      }
+    }
+
+    // ── Extract and validate verification code (supports /start verify_BK-..., /start BK-..., verify_BK-..., or raw BK-...) ──
+    const codeMatch = /(?:verify[_\s-]*|\/start\s+(?:verify[_\s-]*)?)?(BK[-\s]*[A-Z0-9]+)/i.exec(args.rawText)
+    const codeText = codeMatch?.[1] ?? args.rawText
     const code = parseVerificationCode(codeText)
     if (!code) return { handled: false }
     const codeHash = await hashToken(code)
-    const challenge = (await ctx.db.query("verificationChallenges").withIndex("by_code_hash", (q) => q.eq("codeHash", codeHash)).take(5)).find((item) => item.status === "awaiting_message")
+    const challenge = (await ctx.db.query("verificationChallenges").withIndex("by_code_hash", (q) => q.eq("codeHash", codeHash)).take(5)).find((item) => item.status === "awaiting_message" || (item.status === "awaiting_contact" && item.senderKey === senderKeyDigest))
     if (!challenge || challenge.expiresAt <= now) {
       if (!(await registerFailedAttempt(ctx, args.senderKey, now))) return { handled: true, text: GENERIC_STATUS }
       return { handled: true, text: GENERIC_STATUS }
     }
+
+    // ── If already in awaiting_contact on Telegram, re-prompt to share contact ──
+    if (challenge.status === "awaiting_contact" && args.channel === "telegram") {
+      return { handled: true, text: TELEGRAM_SHARE_CONTACT_PROMPT, requestContact: true }
+    }
+
+    // ── Resolve phone number ──
     let phone: string | null = null
-    if (args.channel === "whatsapp") phone = normalizeIndonesianPhone(args.senderPhone ?? args.senderKey)
-    else if (args.contactUserId && args.fromUserId && args.contactUserId === args.fromUserId) phone = normalizeIndonesianPhone(args.contactPhone ?? "")
-    if (!phone) return { handled: true, text: "Agar aman, bagikan kontakmu lewat tombol kontak Telegram lalu kirim kode lagi." }
+    if (args.channel === "whatsapp") {
+      phone = normalizeIndonesianPhone(args.senderPhone ?? args.senderKey)
+    } else if (args.channel === "telegram" && args.contactUserId && args.fromUserId && args.contactUserId === args.fromUserId) {
+      phone = normalizeIndonesianPhone(args.contactPhone ?? "")
+    }
+
+    // ── Telegram: code received but no contact yet → ask for contact share ──
+    if (!phone && args.channel === "telegram") {
+      await ctx.db.patch("verificationChallenges", challenge._id, { status: "awaiting_contact" as const, channel: args.channel, senderKey: senderKeyDigest })
+      return { handled: true, text: TELEGRAM_SHARE_CONTACT_PROMPT, requestContact: true }
+    }
+
+    if (!phone) return { handled: true, text: "Nomor telepon tidak dapat dikenali. Coba lagi." }
+
+    // ── WhatsApp: phone already known → go straight to confirmation ──
     await ctx.db.patch("verificationChallenges", challenge._id, { status: transitionChallenge("awaiting_message", "message_received"), channel: args.channel, senderKey: senderKeyDigest, pendingPhoneE164: phone, confirmExpiresAt: now + CONFIRM_TTL_MIN * 60 * 1000 })
-    return { handled: true, text: CONFIRMATION }
+    return { handled: true, text: CONFIRMATION_WA, requestConfirm: true }
   },
 })
 

@@ -6,6 +6,7 @@ import { internal } from "../_generated/api"
 import { createPaymentReference } from "./commands"
 import { sendTelegramPaymentProof, sendTelegramPaymentReview, sendTelegramText } from "./telegram"
 import { buildWhatsAppReviewMessage, sendWhatsAppImage, sendWhatsAppPaymentProof, sendWhatsAppPaymentReview, sendWhatsAppText } from "./whatsapp"
+import { propertyTabUrl } from "../lib/propertyTabs"
 
 const botEnv = env as typeof env & Record<string, string | undefined>
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -217,8 +218,8 @@ export const receiveRoomPhoto = internalAction({
     const storageId = await ctx.storage.store(await response.blob())
     const result = await ctx.runMutation(internal.bots.roomFlow.finalizeAddRoom, { ownerId: args.ownerId, stateId: args.stateId, storageId })
     const message = args.channel === "telegram"
-      ? `✅ <b>Kamar ${result.roomNumber} ditambahkan</b>\n\nHarga: Rp ${result.monthlyRent.toLocaleString("id-ID")}/bulan\nStatus: Tersedia\nFoto kamar juga sudah disimpan.\n\nLengkapi fasilitas dan detail lain di dashboard: /dashboard/properties/${result.propertyId}`
-      : `✅ *Kamar ${result.roomNumber} ditambahkan*\n\nHarga: Rp ${result.monthlyRent.toLocaleString("id-ID")}/bulan\nStatus: Tersedia\nFoto kamar juga sudah disimpan.\n\nLengkapi fasilitas dan detail lain di dashboard: /dashboard/properties/${result.propertyId}`
+      ? `✅ <b>Kamar ${result.roomNumber} ditambahkan</b>\n\nHarga: Rp ${result.monthlyRent.toLocaleString("id-ID")}/bulan\nStatus: Tersedia\nFoto kamar juga sudah disimpan.\n\nLengkapi fasilitas dan detail lain di dashboard: ${propertyTabUrl(String(result.propertyId), "rooms")}`
+      : `✅ *Kamar ${result.roomNumber} ditambahkan*\n\nHarga: Rp ${result.monthlyRent.toLocaleString("id-ID")}/bulan\nStatus: Tersedia\nFoto kamar juga sudah disimpan.\n\nLengkapi fasilitas dan detail lain di dashboard: ${propertyTabUrl(String(result.propertyId), "rooms")}`
     if (args.channel === "telegram") {
       if (!botEnv.TELEGRAM_BOT_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN belum dikonfigurasi.")
       await sendTelegramText(botEnv.TELEGRAM_BOT_TOKEN, args.chatId, message, { parseMode: "HTML" })

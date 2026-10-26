@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { LANDMARK_DISTANCE_MAX_M, LANDMARK_DISTANCE_MIN_M, MAX_LANDMARKS, type PublicRules } from "@/convex/lib/kosInfoRules"
 
 type PropertyPhoto = {
   _id: Id<"property_photos">
@@ -38,6 +39,9 @@ export function PublicPropertySection({
   const [showPrice, setShowPrice] = useState(false)
   const [showFullAddress, setShowFullAddress] = useState(false)
   const [slug, setSlug] = useState("")
+  const [kosType, setKosType] = useState<"putra" | "putri" | "campur" | "">("")
+  const [rules, setRules] = useState<PublicRules>({})
+  const [landmarks, setLandmarks] = useState<Array<{ name: string; distanceM: number }>>([])
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -50,6 +54,9 @@ export function PublicPropertySection({
     setShowPrice(status.publicShowPrice)
     setShowFullAddress(status.publicShowFullAddress)
     setSlug(status.publicSlug ?? "")
+    setKosType((status.publicKosType as "putra" | "putri" | "campur" | null) ?? "")
+    setRules((status.publicRules as PublicRules | null) ?? {})
+    setLandmarks(status.publicLandmarks ?? [])
   }, [status])
 
   const missingRequirements = status?.missing ?? []
@@ -81,6 +88,9 @@ export function PublicPropertySection({
         publicPhotoIds: selectedPhotoIds,
         publicShowPrice: showPrice,
         publicShowFullAddress: showFullAddress,
+        publicKosType: kosType || null,
+        publicRules: Object.keys(rules).length ? rules : null,
+        publicLandmarks: landmarks.length ? landmarks : null,
       })
       if (slug && slug !== status.publicSlug)
         await updateSlug({ propertyId, publicSlug: slug })
@@ -216,6 +226,36 @@ export function PublicPropertySection({
       >
         Tetapkan pin dan verifikasi lokasi di bagian bawah halaman →
       </a>
+
+      <details className="mt-6 border-t border-[var(--line)] pt-5" open={!status.publicKosType && !status.publicRules && !status.publicLandmarks?.length}>
+        <summary className="cursor-pointer text-sm font-semibold text-[var(--ink)]">Info singkat</summary>
+        <div className="mt-4 space-y-5">
+          <div>
+            <p className="field-label">Tipe kos</p>
+            <div className="grid grid-cols-4 gap-2">
+              {["", "putra", "putri", "campur"].map((value) => <button key={value || "none"} type="button" onClick={() => setKosType(value as typeof kosType)} className={`min-h-11 rounded-lg border px-2 text-xs font-semibold ${kosType === value ? "border-[var(--wood)] bg-[var(--wood)]/10" : "border-[var(--line)]"}`}>{value ? value[0].toUpperCase() + value.slice(1) : "Tidak ditampilkan"}</button>)}
+            </div>
+          </div>
+          <div>
+            <p className="field-label">Aturan ringkas</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([['hewan', 'Hewan peliharaan'], ['merokok', 'Merokok'], ['tamu', 'Tamu lawan jenis'], ['masak', 'Memasak di kamar']] as const).map(([key, label]) => <label key={key} className="text-xs"><span className="mb-1 block font-semibold">{label}</span><select className="field-input min-h-11" value={rules[key] ?? ""} onChange={(event) => setRules((current) => ({ ...current, [key]: event.target.value ? event.target.value as "boleh" | "tidak" : undefined }))}><option value="">Tidak ditampilkan</option><option value="boleh">Boleh</option><option value="tidak">Tidak boleh</option></select></label>)}
+              <label className="text-xs"><span className="mb-1 block font-semibold">Jam malam</span><select className="field-input min-h-11" value={rules.jamMalam?.value ?? ""} onChange={(event) => setRules((current) => ({ ...current, jamMalam: event.target.value ? { value: event.target.value as "boleh" | "tidak", ...(event.target.value === "tidak" && current.jamMalam?.time ? { time: current.jamMalam.time } : {}) } : undefined }))}><option value="">Tidak ditampilkan</option><option value="boleh">Boleh</option><option value="tidak">Ada jam malam</option></select>{rules.jamMalam?.value === "tidak" ? <input type="time" className="field-input mt-2 min-h-11" value={rules.jamMalam.time ?? ""} onChange={(event) => setRules((current) => ({ ...current, jamMalam: { value: "tidak", time: event.target.value } }))} /> : null}</label>
+            </div>
+          </div>
+          <div>
+            <p className="field-label">Landmark sekitar (maksimal {MAX_LANDMARKS})</p>
+            <p className="mb-2 text-xs text-[var(--ink-muted)]">Jarak diisi dalam meter (1 km = 1.000 m). Jarak ini perkiraan menurut kamu. Jangan menulis alamat, nama jalan pribadi, atau nomor telepon.</p>
+            <div className="space-y-2">{landmarks.map((landmark, index) => <div key={`${index}-${landmark.name}`} className="grid grid-cols-[1fr_7rem_auto] gap-2"><input className="field-input min-h-11" value={landmark.name} onChange={(event) => setLandmarks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} placeholder="Contoh: Kampus" /><input type="number" min={LANDMARK_DISTANCE_MIN_M} max={LANDMARK_DISTANCE_MAX_M} className="field-input min-h-11" value={landmark.distanceM} onChange={(event) => setLandmarks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, distanceM: Number(event.target.value) } : item))} aria-label="Jarak dalam meter" /><button type="button" className="min-h-11 px-2 text-xs text-[var(--warn)]" onClick={() => setLandmarks((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Hapus</button></div>)}</div>
+            {landmarks.length < MAX_LANDMARKS ? <button type="button" className="button-secondary mt-3 min-h-11" onClick={() => setLandmarks((current) => [...current, { name: "", distanceM: LANDMARK_DISTANCE_MIN_M }])}>Tambah landmark</button> : null}
+          </div>
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--background)] p-4">
+            <p className="text-xs font-semibold">Pratinjau Info singkat</p>
+            <p className="mt-2 text-sm">{kosType ? `Kos ${kosType}.` : "Tipe kos belum ditampilkan."}</p>
+            {landmarks.filter((item) => item.name.trim()).slice(0, 3).map((item) => <p key={item.name} className="mt-1 text-xs text-[var(--ink-muted)]">{item.name} · sekitar {item.distanceM} m (perkiraan menurut pemilik)</p>)}
+          </div>
+        </div>
+      </details>
 
       <div className="mt-6 border-t border-[var(--line)] pt-5">
         <p className="text-sm font-semibold text-[var(--ink)]">

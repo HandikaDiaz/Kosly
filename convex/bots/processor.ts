@@ -16,11 +16,20 @@ import { parseQueryCommand } from "./queries"
 import { buildTelegramCancelMarkup, buildTelegramUpgradeMessage } from "./telegram"
 import { parseRoomWizardInput } from "./roomWizard"
 import { finalizeAddRoomInContext, type RoomWizardData } from "./roomFlow"
+import { propertyTabUrl } from "../lib/propertyTabs"
 import { buildChatIdMessage, buildHelpMessage, buildUnknownCommandMessage, buildWelcomeMessage, commandForChannel } from "./help"
 
 const channelValidator = v.union(v.literal("telegram"), v.literal("whatsapp"))
 const decisionValidator = v.union(v.literal("approve"), v.literal("reject"))
-const response = (channel: "telegram" | "whatsapp", chatId: string, text: string, replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> } | { keyboard: Array<Array<{ text: string; request_location?: boolean }>>; resize_keyboard?: boolean; one_time_keyboard?: boolean }) => ({ status: "response" as const, channel, chatId, text, ...(replyMarkup ? { replyMarkup } : {}) })
+const response = (
+  channel: "telegram" | "whatsapp",
+  chatId: string,
+  text: string,
+  replyMarkup?:
+    | { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> }
+    | { keyboard: Array<Array<{ text: string; request_location?: boolean; request_contact?: boolean }>>; resize_keyboard?: boolean; one_time_keyboard?: boolean }
+    | { remove_keyboard: boolean }
+) => ({ status: "response" as const, channel, chatId, text, ...(replyMarkup ? { replyMarkup } : {}) })
 type ProcessResult =
   | { status: "duplicate" | "invalid" | "silent" }
   | ReturnType<typeof response>
@@ -62,8 +71,20 @@ export const processEvent = internalMutation({
     if (args.senderKey && /^\/?detail(?:\s|$)/i.test(incomingText)) return { status: "search" as const, kind: "detail" as const, channel: args.channel, chatId, senderKey: args.senderKey, text: incomingText, arg: incomingText.replace(/^\/?detail\s*/i, "") }
     if (args.location) return response(args.channel, chatId, "Mau cari kos di dekat sini? Ketik /cari.")
     if (args.senderKey && args.text !== undefined) {
-      const identityResult: { handled: boolean; text?: string } = await ctx.runMutation(internal.tenantIdentity.receiveVerificationCode, { channel: args.channel, rawText: args.text, senderKey: args.senderKey, senderPhone: args.senderPhone, contactPhone: args.contactPhone, contactUserId: args.contactUserId, fromUserId: args.fromUserId })
-      if (identityResult.handled) return response(args.channel, chatId, identityResult.text ?? "Kode tidak valid atau sudah tidak berlaku.")
+      const identityResult: { handled: boolean; text?: string; requestContact?: boolean; requestConfirm?: boolean; clearKeyboard?: boolean } = await ctx.runMutation(internal.tenantIdentity.receiveVerificationCode, { channel: args.channel, rawText: args.text, senderKey: args.senderKey, senderPhone: args.senderPhone, contactPhone: args.contactPhone, contactUserId: args.contactUserId, fromUserId: args.fromUserId })
+      if (identityResult.handled) {
+        let replyMarkup: Parameters<typeof response>[3] = undefined
+        if (args.channel === "telegram") {
+          if (identityResult.requestContact) {
+            replyMarkup = { keyboard: [[{ text: "📱 Bagikan Nomor Telepon", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+          } else if (identityResult.requestConfirm) {
+            replyMarkup = { keyboard: [[{ text: "YA" }, { text: "TIDAK" }]], resize_keyboard: true, one_time_keyboard: true }
+          } else if (identityResult.clearKeyboard) {
+            replyMarkup = { remove_keyboard: true }
+          }
+        }
+        return response(args.channel, chatId, identityResult.text ?? "Kode tidak valid atau sudah tidak berlaku.", replyMarkup)
+      }
     }
     const link = (await ctx.db.query("bot_links").withIndex("by_channel_and_chat_id", (q) => q.eq("channel", args.channel).eq("chatId", chatId)).take(10)).find((item) => item.status === "active")
     if (!link) {
@@ -131,7 +152,7 @@ export const processEvent = internalMutation({
       }
       if (parsedWizard.value === "skip") {
         const result = await finalizeAddRoomInContext(ctx, conversation._id, link.ownerId, data)
-        return response(args.channel, chatId, `✅ *Kamar ${result.roomNumber} ditambahkan*\n\nHarga: Rp ${result.monthlyRent.toLocaleString("id-ID")}/bulan\nStatus: Tersedia\n\nLengkapi fasilitas dan detail lain di dashboard: /dashboard/properties/${result.propertyId}`)
+        return response(args.channel, chatId, `✅ *Kamar ${result.roomNumber} ditambahkan*\n\nHarga: Rp ${result.monthlyRent.toLocaleString("id-ID")}/bulan\nStatus: Tersedia\n\nLengkapi fasilitas dan detail lain di dashboard: ${propertyTabUrl(String(result.propertyId), "rooms")}`)
       }
     }
 
