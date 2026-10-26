@@ -28,6 +28,7 @@ import { buildFaqItems, buildInfoFacts, buildLodgingJsonLd, buildMetaDescription
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import {
   VerificationBadgeSlot,
+  LocationTrustCard,
   ReviewsSlot,
 } from "@/components/public-kos/future-trust-slots"
 import { PublicPropertyGallery } from "@/components/public-kos/public-property-gallery"
@@ -410,6 +411,111 @@ export default async function PublicKosPage({ params }: PublicKosPageProps) {
               )}
             </section>
 
+            {/* ── Location & Map Section ── */}
+            <section
+              aria-labelledby="lokasi-dan-peta"
+              className="rounded-3xl border border-[var(--line)] bg-[#FFFFFF] p-6 shadow-sm sm:p-8 space-y-6"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[var(--line)] pb-4">
+                <div>
+                  <h2
+                    id="lokasi-dan-peta"
+                    className="text-xl font-bold tracking-tight text-[var(--ink)]"
+                  >
+                    Lokasi &amp; Akses Sekitar
+                  </h2>
+                  <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                    Periksa rute perjalanan, titik peta, dan validitas lokasi kos ini.
+                  </p>
+                </div>
+
+                {property.isLocationVerified && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 border border-emerald-200">
+                    <ShieldCheck size={14} className="text-emerald-600" />
+                    <span>Terverifikasi GPS</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Location Trust Card */}
+              <LocationTrustCard
+                isLocationVerified={property.isLocationVerified}
+                locationVerifiedAt={property.locationVerifiedAt}
+                hasPin={Boolean(mapUrls)}
+              />
+
+              {/* Address / Area Info */}
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--background)] p-4">
+                <div className="flex items-start gap-2.5">
+                  <MapPin size={17} className="text-[var(--wood)] shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-semibold text-[var(--ink)]">
+                      {property.address || property.publicAreaLabel || "Area sekitar properti"}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-[var(--ink-muted)]">
+                      {property.address
+                        ? "Alamat lengkap kos telah dikonfirmasi oleh pemilik properti."
+                        : "Alamat spesifik akan diberikan oleh pemilik saat Anda menghubungi atau menjadwalkan survei."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Interactive Map Embed & Google Maps Navigation Link */}
+              {mapUrls && (
+                <div className="space-y-3.5">
+                  <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-stone-100 shadow-2xs">
+                    <iframe
+                      title={`Peta lokasi ${property.name}`}
+                      src={mapUrls.osmEmbedUrl}
+                      loading="lazy"
+                      className="h-64 sm:h-80 w-full border-0"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                    <p className="text-xs text-[var(--ink-muted)]">
+                      Buka panduan navigasi langsung di aplikasi Google Maps:
+                    </p>
+                    <a
+                      href={mapUrls.googleMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="button-primary inline-flex min-h-11 items-center gap-2 rounded-xl px-5 text-xs font-semibold shadow-sm"
+                    >
+                      <MapPin size={15} />
+                      <span>Buka di Google Maps</span>
+                      <ExternalLink size={13} className="opacity-80" />
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Nearby Landmarks */}
+              {property.landmarks && property.landmarks.length > 0 && (
+                <div className="pt-4 border-t border-[var(--line)]">
+                  <h3 className="text-sm font-bold text-[var(--ink)]">
+                    Tempat Terdekat &amp; Jarak Akses
+                  </h3>
+                  <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                    {property.landmarks.map((landmark, idx) => (
+                      <div
+                        key={`${landmark.name}-${idx}`}
+                        className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--background)] px-3.5 py-2.5 text-xs"
+                      >
+                        <span className="font-semibold text-[var(--ink)]">{landmark.name}</span>
+                        <span className="font-mono text-xs font-bold text-[var(--wood)]">
+                          {landmark.distanceM >= 1000
+                            ? `${(landmark.distanceM / 1000).toFixed(1)} km`
+                            : `${landmark.distanceM} m`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
             {/* Reviews Slot */}
             <div className="rounded-3xl border border-[var(--line)] bg-[#FFFFFF] p-6 shadow-sm sm:p-8">
               <ReviewsSlot
@@ -421,16 +527,16 @@ export default async function PublicKosPage({ params }: PublicKosPageProps) {
             </div>
           </div>
 
-          {/* ── Sidebar (Location & Map) ── */}
+          {/* ── Sidebar (Location & Inquire) ── */}
           <aside className="space-y-6">
             <section className="rounded-3xl border border-[var(--line)] bg-[#FFFFFF] p-6 shadow-sm">
               <div className="flex items-center gap-2">
                 <MapPin size={18} className="text-[var(--wood)]" />
-                <h2 className="font-bold text-base text-[var(--ink)]">Lokasi Properti</h2>
+                <h2 className="font-bold text-base text-[var(--ink)]">Lokasi &amp; Peta</h2>
               </div>
 
               <p className="mt-3 text-xs leading-6 text-[var(--ink-muted)]">
-                {property.address || "Lokasi ditampilkan secara perkiraan untuk kenyamanan privasi."}
+                {property.address || property.publicAreaLabel || "Lokasi ditampilkan secara perkiraan untuk kenyamanan privasi."}
               </p>
 
               {mapUrls && (

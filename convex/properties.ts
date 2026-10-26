@@ -611,7 +611,12 @@ export const getPublishedKosBySlug = query({
         : {}),
       ...(property.publicLat !== undefined && property.publicLng !== undefined
         ? { publicLat: property.publicLat, publicLng: property.publicLng }
-        : {}),
+        : property.pinLat !== undefined && property.pinLng !== undefined
+          ? {
+              publicLat: Math.round(property.pinLat * 1000) / 1000,
+              publicLng: Math.round(property.pinLng * 1000) / 1000,
+            }
+          : {}),
       ...(property.publicShowFullAddress === true
         ? { address: property.address }
         : {}),
