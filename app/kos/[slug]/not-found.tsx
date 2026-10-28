@@ -43,7 +43,7 @@ export default function KosNotFound() {
       </main>
 
       <footer className="border-t border-[var(--line)] bg-[#FFFFFF] px-4 py-6 text-center text-xs text-[var(--ink-muted)]">
-        <p>BotKos — Sistem Manajemen Kos & Komunitas Terpercaya</p>
+            <p>BotKos — Pencatatan kos dan penyewa yang rapi</p>
       </footer>
     </div>
   )

@@ -1,4 +1,5 @@
 import { internalMutation, mutation, query } from "./_generated/server"
+import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { requirePropertyOwner, requireOwner } from "./lib/auth"
 import { assertPropertyCapacityForOwner } from "./subscriptions"
@@ -12,7 +13,10 @@ import {
 import { formatRatingSummary } from "./lib/reviewRules"
 import { gridCellFor } from "./lib/searchRules"
 import { isRoomAvailable } from "./lib/applicationRules"
+import { getRoomHoldBlockers } from "./lib/roomHolds"
+import { parseRegistrationCode } from "./lib/registrationLink"
 import { KOS_TYPES, MAX_LANDMARKS, RULE_KEYS, normalizePublicAreaKey, validateLandmark, RELATED_LIMIT } from "./lib/kosInfoRules"
+import { bucketLabel, tenancyDisplay } from "./lib/ownerTrustRules"
 
 const normalizeSlug = (value: string) =>
   value
@@ -38,6 +42,11 @@ const ensureSlugAvailable = async (
     .unique()
   if (existingPublic && existingPublic._id !== propertyId)
     throw new Error("Link properti sudah digunakan oleh halaman publik.")
+  const redirect = await ctx.db
+    .query("slugRedirects")
+    .withIndex("by_old_slug", (q) => q.eq("oldSlug", slug))
+    .unique()
+  if (redirect) throw new Error("Slug publik pernah digunakan dan tidak dapat dipakai ulang.")
 }
 
 export const listMine = query({
@@ -225,6 +234,7 @@ const publicProfileValidator = v.object({
   publicLat: v.optional(v.number()),
   publicLng: v.optional(v.number()),
   address: v.optional(v.string()),
+  publicShowFullAddress: v.boolean(),
   isLocationVerified: v.boolean(),
   locationVerifiedAt: v.optional(v.number()),
   reviewCount: v.number(),
@@ -244,6 +254,7 @@ const publicProfileValidator = v.object({
   rules: v.optional(v.object({ hewan: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), merokok: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), tamu: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), masak: v.optional(v.union(v.literal("boleh"), v.literal("tidak"))), jamMalam: v.optional(v.object({ value: v.union(v.literal("boleh"), v.literal("tidak")), time: v.optional(v.string()) })) })),
   landmarks: v.optional(v.array(v.object({ name: v.string(), distanceM: v.number() }))),
   infoUpdatedAt: v.optional(v.number()),
+  ownerTrust: v.object({ identityVerified: v.boolean(), identityVerifiedMonth: v.optional(v.string()), propertyDocsReviewed: v.boolean(), joinedMonth: v.string(), tenancyDisplay: v.optional(v.string()), responseBucketLabel: v.optional(v.string()) }),
 })
 
 const publicationRequirements = async (
@@ -413,6 +424,10 @@ export const updatePublicSlug = mutation({
     if (RESERVED_SLUGS.has(slug))
       throw new Error("Slug publik menggunakan route sistem.")
     await ensureSlugAvailable(ctx, slug, property._id)
+    if (property.publicSlug && property.publicSlug !== slug) {
+      const existingRedirect = await ctx.db.query("slugRedirects").withIndex("by_old_slug", (q) => q.eq("oldSlug", property.publicSlug!)).unique()
+      if (!existingRedirect) await ctx.db.insert("slugRedirects", { oldSlug: property.publicSlug, propertyId: property._id, createdAt: Date.now() })
+    }
     const previous =
       property.publicSlug && property.publicSlug !== slug
         ? [...(property.previousSlugs ?? []), property.publicSlug].filter(
@@ -457,7 +472,8 @@ export const setPublishState = mutation({
           .query("properties")
           .withIndex("by_slug", (q) => q.eq("slug", publicSlug!))
           .unique()
-        if (!existing && !registration && !RESERVED_SLUGS.has(publicSlug)) break
+        const redirect = await ctx.db.query("slugRedirects").withIndex("by_old_slug", (q) => q.eq("oldSlug", publicSlug!)).unique()
+        if (!existing && !registration && !redirect && !RESERVED_SLUGS.has(publicSlug)) break
         publicSlug = `${base.slice(0, 75)}-${Math.random().toString(36).slice(2, 6)}`
       }
       assertValidPublicSlug(publicSlug)
@@ -485,11 +501,17 @@ export const getPublishedKosBySlug = query({
       !property ||
       property.isPublished !== true ||
       !property.isActive ||
-      property.lockedByTier
+      property.lockedByTier ||
+      property.publicSuspended
     )
       return null
     const publicSlug = property.publicSlug
     if (!publicSlug) return null
+    const owner = await ctx.db.get("owners", property.ownerId)
+    const ownerStats = await ctx.db.query("ownerPublicStats").withIndex("by_owner", (q) => q.eq("ownerId", property.ownerId)).unique()
+    const identityVerified = owner?.identityVerificationStatus === "verified"
+    const identityVerifiedMonth = owner?.identityVerificationReviewedAt ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date(owner.identityVerificationReviewedAt)) : undefined
+    const propertyDocsReviewed = property.propertyVerificationStatus === "verified" && property.propertyVerificationReviewedAt !== undefined
     const reviewStats = await ctx.db.query("reviewStats").withIndex("by_property", (q) => q.eq("propertyId", property._id)).unique()
     const ratingSummary = formatRatingSummary(reviewStats ? { count: reviewStats.count, sum: reviewStats.sum } : { count: 0, sum: 0 })
     const selectedIds = new Set((property.publicPhotoIds ?? []).map(String))
@@ -522,34 +544,8 @@ export const getPublishedKosBySlug = query({
       .query("rooms")
       .withIndex("by_property", (q) => q.eq("propertyId", property._id))
       .take(100)
-    const pendingPayments = await ctx.db
-      .query("payments")
-      .withIndex("by_property_and_status", (q) =>
-        q.eq("propertyId", property._id).eq("status", "pending_review")
-      )
-      .take(100)
-    const activeBookings = await ctx.db
-      .query("bookings")
-      .withIndex("by_property_and_status", (q) =>
-        q.eq("propertyId", property._id)
-      )
-      .take(100)
-    const blockedRoomIds = new Set([
-      ...pendingPayments.map((payment) => String(payment.roomId)),
-      ...activeBookings
-        .filter(
-          (booking) =>
-            booking.status === "pending" || booking.status === "locked"
-        )
-        .map((booking) => String(booking.roomId)),
-    ])
-    const activeApplicationHolds = await ctx.db
-      .query("rentalApplications")
-      .withIndex("by_property_and_status", (q) => q.eq("propertyId", property._id).eq("status", "accepted"))
-      .take(200)
-    for (const application of activeApplicationHolds) {
-      if ((application.holdExpiresAt ?? 0) > Date.now()) blockedRoomIds.add(String(application.roomId))
-    }
+    const blockedRoomIds = new Set<string>()
+    for (const room of rooms) if ((await getRoomHoldBlockers(ctx, room._id, Date.now())).length > 0) blockedRoomIds.add(String(room._id))
     const publicRooms = rooms.map((room) => ({
       label: room.roomNumber,
       ...(room.roomType ? { roomType: room.roomType } : {}),
@@ -620,6 +616,7 @@ export const getPublishedKosBySlug = query({
       ...(property.publicShowFullAddress === true
         ? { address: property.address }
         : {}),
+      publicShowFullAddress: property.publicShowFullAddress === true,
       isLocationVerified: property.locationVerificationStatus === "verified",
       ...(property.locationVerificationStatus === "verified" &&
       property.locationVerifiedAt !== undefined
@@ -629,6 +626,14 @@ export const getPublishedKosBySlug = query({
       ...(property.publicRules ? { rules: property.publicRules } : {}),
       ...(property.publicLandmarks ? { landmarks: property.publicLandmarks } : {}),
       ...(property.publicInfoUpdatedAt !== undefined ? { infoUpdatedAt: property.publicInfoUpdatedAt } : {}),
+      ownerTrust: {
+        identityVerified,
+        ...(identityVerified && identityVerifiedMonth ? { identityVerifiedMonth } : {}),
+        propertyDocsReviewed,
+        joinedMonth: ownerStats?.joinedMonth ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date(owner?.createdAt ?? owner?._creationTime ?? property._creationTime)),
+        ...(ownerStats?.tenancyCount !== undefined && tenancyDisplay(ownerStats.tenancyCount) ? { tenancyDisplay: tenancyDisplay(ownerStats.tenancyCount) } : {}),
+        ...(ownerStats?.responseBucket ? { responseBucketLabel: bucketLabel(ownerStats.responseBucket) } : {}),
+      },
       photos: photos.filter(
         (photo): photo is NonNullable<typeof photo> => photo !== null
       ),
@@ -644,10 +649,10 @@ export const getRelatedPublishedKos = query({
   args: { slug: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const source = await ctx.db.query("properties").withIndex("by_public_slug", (q) => q.eq("publicSlug", normalizePublicSlug(args.slug))).unique()
-    if (!source || source.isPublished !== true || !source.isActive || source.lockedByTier || !source.publicAreaKey) return []
+    if (!source || source.isPublished !== true || !source.isActive || source.lockedByTier || source.publicSuspended || !source.publicAreaKey) return []
     const limit = Math.min(RELATED_LIMIT, Math.max(1, Math.floor(args.limit ?? RELATED_LIMIT)))
     const properties = await ctx.db.query("properties").withIndex("by_public_area_key", (q) => q.eq("publicAreaKey", source.publicAreaKey).eq("isPublished", true)).take(limit + 1)
-    const related = properties.filter((property) => property._id !== source._id && property.isActive && !property.lockedByTier).slice(0, limit)
+    const related = properties.filter((property) => property._id !== source._id && property.isActive && !property.lockedByTier && !property.publicSuspended).slice(0, limit)
     const result: Array<{ slug: string; name: string; areaLabel?: string; hargaMulai?: number; isLocationVerified: boolean }> = []
     for (const property of related) {
       if (!property.publicSlug) continue
@@ -677,25 +682,26 @@ export const backfillPublicAreaKeys = internalMutation({
 })
 
 export const listPublishedSlugs = query({
-  args: {},
-  returns: v.array(v.object({ slug: v.string(), updatedAt: v.number() })),
-  handler: async (ctx) =>
-    (
-      await ctx.db
-        .query("properties")
-        .withIndex("by_is_published", (q) => q.eq("isPublished", true))
-        .take(100)
-    )
-      .filter(
-        (property) =>
-          Boolean(property.publicSlug) &&
-          property.isActive &&
-          !property.lockedByTier
-      )
-      .map((property) => ({
-        slug: property.publicSlug!,
-        updatedAt: property._creationTime,
-      })),
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("properties").withIndex("by_is_published", (q) => q.eq("isPublished", true)).paginate(args.paginationOpts)
+    return {
+      ...page,
+      page: page.page.filter((property) => Boolean(property.publicSlug) && property.isActive && !property.lockedByTier && !property.publicSuspended).map((property) => ({ slug: property.publicSlug!, updatedAt: Math.max(property._creationTime, property.publishedAt ?? 0, property.publicInfoUpdatedAt ?? 0) })),
+    }
+  },
+})
+
+export const resolvePublishedSlug = query({
+  args: { slug: v.string() },
+  returns: v.union(v.null(), v.object({ slug: v.string() })),
+  handler: async (ctx, args) => {
+    const redirect = await ctx.db.query("slugRedirects").withIndex("by_old_slug", (q) => q.eq("oldSlug", normalizePublicSlug(args.slug))).unique()
+    if (!redirect) return null
+    const property = await ctx.db.get("properties", redirect.propertyId)
+    if (!property || property.isPublished !== true || !property.isActive || property.lockedByTier || property.publicSuspended || !property.publicSlug) return null
+    return { slug: property.publicSlug }
+  },
 })
 
 export const setActive = mutation({
@@ -730,7 +736,7 @@ export const getMine = query({
 })
 
 export const getPublicBySlug = query({
-  args: { slug: v.string() },
+  args: { slug: v.string(), applicationCode: v.optional(v.string()) },
   handler: async (ctx, args) => {
     let property = await ctx.db
       .query("properties")
@@ -744,33 +750,20 @@ export const getPublicBySlug = query({
         )
         .unique()
     }
-    if (!property || !property.isActive || property.lockedByTier) return null
+    if (!property || !property.isActive || property.lockedByTier || property.publicSuspended) return null
     const owner = await ctx.db.get("owners", property.ownerId)
     const rooms = await ctx.db
       .query("rooms")
       .withIndex("by_property", (q) => q.eq("propertyId", property._id))
       .take(100)
-    const pendingPayments = await ctx.db
-      .query("payments")
-      .withIndex("by_property_and_status", (q) =>
-        q.eq("propertyId", property._id).eq("status", "pending_review")
-      )
-      .take(100)
-    const activeBookings = await ctx.db
-      .query("bookings")
-      .withIndex("by_property_and_status", (q) =>
-        q.eq("propertyId", property._id)
-      )
-      .take(100)
-    const unavailableRoomIds = new Set([
-      ...pendingPayments.map((payment) => String(payment.roomId)),
-      ...activeBookings
-        .filter(
-          (booking) =>
-            booking.status === "pending" || booking.status === "locked"
-        )
-        .map((booking) => String(booking.roomId)),
-    ])
+    const unavailableRoomIds = new Set<string>()
+    for (const room of rooms) if ((await getRoomHoldBlockers(ctx, room._id, Date.now())).length > 0) unavailableRoomIds.add(String(room._id))
+    const registrationCode = args.applicationCode ? parseRegistrationCode(args.applicationCode) : null
+    const registrationApplication = registrationCode ? await ctx.db.query("rentalApplications").withIndex("by_code", (q) => q.eq("code", registrationCode)).unique() : null
+    if (registrationApplication && registrationApplication.propertyId === property._id && registrationApplication.status === "accepted" && (registrationApplication.holdExpiresAt ?? 0) > Date.now()) {
+      const blockers = await getRoomHoldBlockers(ctx, registrationApplication.roomId, Date.now())
+      if (blockers.every((blocker) => blocker.applicationId === registrationApplication._id)) unavailableRoomIds.delete(String(registrationApplication.roomId))
+    }
     const facilities = await ctx.db
       .query("property_facilities")
       .withIndex("by_property", (q) => q.eq("propertyId", property._id))
@@ -822,6 +815,7 @@ export const getPublicBySlug = query({
       name: property.name,
       slug: property.slug,
       address: property.address,
+      publicShowFullAddress: property.publicShowFullAddress === true,
       isVerified: property.propertyVerificationStatus === "verified",
       ownerIdentityVerified: owner?.identityVerificationStatus === "verified",
       photos: await Promise.all(

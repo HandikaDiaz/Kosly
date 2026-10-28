@@ -26,8 +26,8 @@ http.route({
       const callbackText = result.status === "invalid" ? "Pembayaran tidak ditemukan atau sudah diproses." : "Perintah diterima."
       try {
         await answerTelegramCallback(botEnv.TELEGRAM_BOT_TOKEN, event.callbackQueryId, callbackText)
-      } catch (err) {
-        console.error("Failed to answer telegram callback:", err)
+      } catch {
+        console.error("Failed to answer telegram callback")
       }
     }
     if (result.status === "query") await ctx.runAction(internal.bots.queryDelivery.sendResponse, { channel: result.channel, chatId: result.chatId, ownerId: result.ownerId, query: result.query })

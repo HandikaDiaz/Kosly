@@ -48,7 +48,7 @@ export const rejectPaymentForOwner = async (ctx: MutationCtx, paymentId: Id<"pay
   const property = await ctx.db.get("properties", payment.propertyId)
   if (!property || property.ownerId !== ownerId) throw new Error("Akses pembayaran ditolak.")
   await ctx.db.patch("payments", payment._id, { status: "rejected", reviewerOwnerId: ownerId, reviewedAt: Date.now(), rejectionReason: reason.trim() || "Bukti belum dapat diverifikasi." })
-  if (payment.bookingId) await syncApplicationFromBooking(ctx, payment.bookingId)
+  if (payment.bookingId) await syncApplicationFromBooking(ctx, payment.bookingId, "payment_rejected")
 }
 
 export const listPendingForOwner = query({

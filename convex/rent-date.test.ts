@@ -1,16 +1,21 @@
 import { expect, test } from "vitest"
-import { dueDateForPeriod, periodOf } from "../lib/rent-date"
+import { dueDateForPeriod, jakartaDateKey, periodOf, startOfDayJakarta } from "../lib/rent-date"
 
-test("keeps an October payment in October instead of shifting it to November", () => {
-  const paidAt = new Date(2026, 9, 12).getTime()
-  expect(periodOf(new Date(paidAt))).toBe("2026-10")
+test("uses Jakarta calendar dates at the UTC boundary", () => {
+  expect(periodOf(Date.UTC(2027, 0, 31, 16, 59, 59, 999))).toBe("2027-01")
+  expect(periodOf(Date.UTC(2027, 0, 31, 17, 0, 0))).toBe("2027-02")
+  expect(jakartaDateKey(Date.UTC(2027, 0, 31, 23, 30))).toBe("2027-02-01")
 })
 
 test("clamps day 31 to November 30", () => {
-  expect(new Date(dueDateForPeriod("2026-11", 31)).getDate()).toBe(30)
+  expect(jakartaDateKey(dueDateForPeriod("2026-11", 31))).toBe("2026-11-30")
 })
 
 test("keeps day 29 in leap-year February and clamps it otherwise", () => {
-  expect(new Date(dueDateForPeriod("2028-02", 29)).getDate()).toBe(29)
-  expect(new Date(dueDateForPeriod("2027-02", 29)).getDate()).toBe(28)
+  expect(jakartaDateKey(dueDateForPeriod("2028-02", 29))).toBe("2028-02-29")
+  expect(jakartaDateKey(dueDateForPeriod("2027-02", 29))).toBe("2027-02-28")
+})
+
+test("returns Jakarta midnight for a timestamp near midnight UTC", () => {
+  expect(startOfDayJakarta(Date.UTC(2027, 0, 31, 23, 30))).toBe(Date.UTC(2027, 1, 1, -7))
 })

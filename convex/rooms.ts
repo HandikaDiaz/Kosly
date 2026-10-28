@@ -13,6 +13,16 @@ export const listForProperty = query({
   },
 })
 
+export const get = query({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get("rooms", args.roomId)
+    if (!room) return null
+    await requirePropertyOwner(ctx, room.propertyId)
+    return room
+  },
+})
+
 export const create = mutation({
   args: {
     propertyId: v.id("properties"), roomNumber: v.string(), monthlyRent: v.number(), floor: v.optional(v.string()), roomType: v.optional(v.string()), sizeSqm: v.optional(v.number()), maxOccupants: v.optional(v.number()), genderCategory: v.optional(v.union(v.literal("male"), v.literal("female"), v.literal("mixed"))), bathroomType: v.optional(v.union(v.literal("private"), v.literal("shared"), v.literal("none"))), bathroomFacilities: v.optional(v.array(v.string())), furnitureElectronics: v.optional(v.array(v.string())), bedSize: v.optional(v.string()), annualRent: v.optional(v.number()), depositFee: v.optional(v.number()), dpAmount: v.optional(v.number()), dp_max_days: v.optional(v.number()), electricityStatus: v.optional(v.union(v.literal("included"), v.literal("metered"), v.literal("excluded"))), additionalFees: v.optional(v.string()), description: v.optional(v.string())

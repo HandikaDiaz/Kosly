@@ -15,8 +15,10 @@ import { api } from "@/convex/_generated/api"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import { TenantIdentityStart } from "@/components/tenant/tenant-identity-start"
 import { TenantTabContainer } from "@/components/tenant/tenant-tab-container"
+import { isRaporEnabled, RAPOR_DISABLED_MESSAGE } from "@/lib/raporGate"
 
 export const dynamic = "force-dynamic"
+export const fetchCache = "force-no-store"
 
 export const metadata: Metadata = {
   title: "Portal & Rapor Penghuni | BotKos",
@@ -26,6 +28,7 @@ export const metadata: Metadata = {
 }
 
 export default async function TenantPage() {
+  if (!isRaporEnabled()) return <main className="min-h-svh px-6 py-20 text-center"><h1 className="text-2xl font-bold">{RAPOR_DISABLED_MESSAGE}</h1><p className="mt-3 text-sm text-[var(--ink-muted)]">Portal ini sedang disiapkan.</p></main>
   const token = (await cookies()).get("tenant_session")?.value
   let identity: Awaited<ReturnType<typeof fetchQuery<typeof api.tenantIdentity.getMyTenantIdentity>>> | null = null
   let candidates: Awaited<ReturnType<typeof fetchQuery<typeof api.tenantIdentity.listMyTenancyCandidates>>> = []
@@ -147,7 +150,7 @@ export default async function TenantPage() {
 
       {/* ── Cohesive Footer ── */}
       <footer className="border-t border-[var(--line)] bg-[#FFFFFF] px-4 py-6 text-center text-xs text-[var(--ink-muted)]">
-        <p>BotKos — Sistem Manajemen Kos & Komunitas Terpercaya</p>
+        <p>BotKos — Pencatatan kos dan penyewa yang rapi</p>
       </footer>
     </div>
   )

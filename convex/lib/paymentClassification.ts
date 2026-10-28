@@ -8,6 +8,7 @@ type PaymentLike = {
   status?: string
   paymentType?: string
   purpose?: string
+  origin?: string
 }
 
 /**
@@ -18,6 +19,7 @@ type PaymentLike = {
  * submission/payment flows; missing purpose is intentionally not inferred.
  */
 export const isRentPayment = (payment: PaymentLike) => {
+  if (payment.origin === "owner_import") return false
   if (payment.status !== "confirmed") return false
   if (payment.paymentType !== undefined) {
     return RENT_PAYMENT_TYPES.includes(payment.paymentType as (typeof RENT_PAYMENT_TYPES)[number]) &&

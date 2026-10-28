@@ -5,6 +5,7 @@ import type { MutationCtx } from "./_generated/server"
 import { requireOwner, requirePropertyOwner } from "./lib/auth"
 import { markCurrentPeriodPaid } from "./rentCharges"
 import { syncApplicationFromBooking } from "./lib/applicationBookingSync"
+import { assertRoomBookable } from "./lib/roomHolds"
 
 export type BookingStatus = "pending" | "locked" | "paid_off" | "expired"
 export type BookingAction = "confirm_deposit" | "settle" | "expire"
@@ -38,10 +39,9 @@ export const createPending = mutation({
     if (args.depositAmount <= 0 || args.deadlineAt <= Date.now()) throw new Error("Nominal DP dan batas waktu booking belum valid.")
     const room = await ctx.db.get("rooms", args.roomId)
     const tenant = await ctx.db.get("tenants", args.tenantId)
-    if (!room || room.propertyId !== args.propertyId || room.status !== "available") throw new Error("Kamar tidak tersedia.")
+    if (!room || room.propertyId !== args.propertyId) throw new Error("Kamar tidak tersedia.")
     if (!tenant || tenant.propertyId !== args.propertyId || tenant.roomId !== args.roomId) throw new Error("Tenant booking tidak valid.")
-    const pending = await ctx.db.query("bookings").withIndex("by_room_and_status", (q) => q.eq("roomId", args.roomId)).take(20)
-    if (pending.some((item) => item.status === "pending" || item.status === "locked")) throw new Error("Kamar sedang memiliki booking aktif.")
+    await assertRoomBookable(ctx, args.roomId, Date.now())
     return await ctx.db.insert("bookings", { propertyId: args.propertyId, roomId: args.roomId, tenantId: args.tenantId, depositAmount: args.depositAmount, deadlineAt: args.deadlineAt, status: "pending", createdAt: Date.now() })
   },
 })

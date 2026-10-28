@@ -4,6 +4,7 @@ import { v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
 import type { QueryCtx } from "./_generated/server"
 import { getEffectiveTier } from "./subscriptions"
+import { jakartaParts, periodOffset, periodOf } from "../lib/rent-date"
 
 const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 const dayMs = 86_400_000
@@ -16,16 +17,10 @@ const periodBounds = (period: string) => {
   return { start, end: Date.UTC(year, month + 1, 1) - 1, label: `${monthNames[month]} ${year}` }
 }
 
-const previousPeriod = (period: string) => {
-  const [year, month] = period.split("-").map(Number)
-  const date = new Date(Date.UTC(year, month - 2, 1))
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`
-}
+const previousPeriod = (period: string) => periodOffset(period, -1)
 
 const latestCompletedPeriod = () => {
-  const now = new Date()
-  const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`
+  return periodOffset(periodOf(Date.now()), -1)
 }
 
 export const getLatestCompletedPeriod = latestCompletedPeriod
@@ -56,8 +51,8 @@ const calculatePeriod = async (ctx: Pick<QueryCtx, "db">, propertyId: Id<"proper
     const room = rooms.find((item) => item._id === charge.roomId)
     return tenant && room ? { name: tenant.name, roomNumber: room.roomNumber, daysLate: Math.max(1, Math.floor((bounds.end - charge.dueDate) / dayMs)) } : null
   }).filter((item: { name: string; roomNumber: string; daysLate: number } | null): item is { name: string; roomNumber: string; daysLate: number } => Boolean(item))
-  const newTenants = tenants.filter((tenant) => tenant.startedAt >= bounds.start && tenant.startedAt < bounds.end).map((tenant) => ({ roomNumber: rooms.find((room) => room._id === tenant.roomId)?.roomNumber ?? "-", name: tenant.name, date: new Date(tenant.startedAt).getUTCDate() }))
-  const movedOut = tenants.filter((tenant) => tenant.move_out_date && tenant.move_out_date >= bounds.start && tenant.move_out_date < bounds.end).map((tenant) => ({ roomNumber: rooms.find((room) => room._id === tenant.roomId)?.roomNumber ?? "-", name: tenant.name, date: new Date(tenant.move_out_date as number).getUTCDate() }))
+  const newTenants = tenants.filter((tenant) => tenant.startedAt >= bounds.start && tenant.startedAt < bounds.end).map((tenant) => ({ roomNumber: rooms.find((room) => room._id === tenant.roomId)?.roomNumber ?? "-", name: tenant.name, date: jakartaParts(tenant.startedAt).day }))
+  const movedOut = tenants.filter((tenant) => tenant.move_out_date && tenant.move_out_date >= bounds.start && tenant.move_out_date < bounds.end).map((tenant) => ({ roomNumber: rooms.find((room) => room._id === tenant.roomId)?.roomNumber ?? "-", name: tenant.name, date: jakartaParts(tenant.move_out_date as number).day }))
   return { occupied, vacant, booked, total: rooms.length, occupancyRate: rooms.length ? Math.round((occupied / rooms.length) * 100) : 0, cash, overdue, newTenants, movedOut }
 }
 

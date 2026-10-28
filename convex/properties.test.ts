@@ -172,6 +172,13 @@ test("published profile returns only safe room, facility, profile, and resolved 
     publicLng: 107.611,
   })
   expect(result).not.toHaveProperty("address")
+  expect(result).not.toHaveProperty("ownerId")
+  expect(result).not.toHaveProperty("storageId")
+  expect(result).not.toHaveProperty("phone")
+  expect(result).not.toHaveProperty("monthlyRent")
+  expect(result).not.toHaveProperty("pinLat")
+  expect(result).not.toHaveProperty("pinLng")
+  expect(JSON.stringify(result)).not.toContain("Jalan Rahasia 123")
   expect(result?.photos[0]).toHaveProperty("url")
   expect(result?.photos[0]).toHaveProperty("sortOrder", 2)
   expect(result?.photos[0]).not.toHaveProperty("storageId")
@@ -274,6 +281,21 @@ test("published query skips deleted selected photos and unpublished properties r
   expect(
     await t.query(api.properties.getPublishedKosBySlug, { slug: "kos-hilang" })
   ).toBeNull()
+})
+
+test("public slug redirects survive multiple changes and old slugs cannot be reused", async () => {
+  const t = convexTest(schema, modules)
+  const setup = await t.run(async (ctx) => {
+    const ownerId = await ctx.db.insert("owners", { tokenIdentifier: "redirect-owner", role: "owner" })
+    const propertyId = await ctx.db.insert("properties", { ownerId, name: "Kos Redirect", address: "Alamat", slug: "kos-redirect-registration", publicSlug: "kos-lama", isActive: true, isPublished: true })
+    return { propertyId, ownerId }
+  })
+  const owner = t.withIdentity({ tokenIdentifier: "redirect-owner" })
+  await owner.mutation(api.properties.updatePublicSlug, { propertyId: setup.propertyId, publicSlug: "kos-tengah" })
+  await owner.mutation(api.properties.updatePublicSlug, { propertyId: setup.propertyId, publicSlug: "kos-baru" })
+  expect(await t.query(api.properties.resolvePublishedSlug, { slug: "kos-lama" })).toEqual({ slug: "kos-baru" })
+  expect(await t.query(api.properties.resolvePublishedSlug, { slug: "kos-tengah" })).toEqual({ slug: "kos-baru" })
+  await expect(owner.mutation(api.properties.updatePublicSlug, { propertyId: setup.propertyId, publicSlug: "kos-lama" })).rejects.toThrow("pernah digunakan")
 })
 
 test("owner publish reports every missing prerequisite and rejects another owner", async () => {

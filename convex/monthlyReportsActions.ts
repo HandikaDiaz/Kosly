@@ -107,8 +107,8 @@ export const generateAndDeliver = internalAction({
           await sendWhatsAppDocument(env.WHATSAPP_ACCESS_TOKEN, env.WHATSAPP_PHONE_NUMBER_ID, link.chatId, mediaId, fileName, caption)
           delivered += 1
         }
-      } catch (error) {
-        console.error("Gagal mengirim laporan bulanan:", error)
+      } catch {
+        console.error("Gagal mengirim laporan bulanan")
       }
     }
     return { delivered, saved: true, fileName }
@@ -228,8 +228,8 @@ export const simulateMonthlyReport = action({
             await sendWhatsAppDocument(env.WHATSAPP_ACCESS_TOKEN, env.WHATSAPP_PHONE_NUMBER_ID, link.chatId, mediaId, fileName, caption)
             delivered += 1
           }
-        } catch (error) {
-          console.error("Gagal mengirim simulasi laporan ke bot:", error)
+        } catch {
+          console.error("Gagal mengirim simulasi laporan ke bot")
         }
       }
     }

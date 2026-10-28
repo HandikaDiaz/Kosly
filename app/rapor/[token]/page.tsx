@@ -23,8 +23,10 @@ import { api } from "@/convex/_generated/api"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import { RevealButton } from "@/components/tenant/reveal-button"
 import { PrintButton } from "@/components/tenant/print-button"
+import { isRaporEnabled, RAPOR_DISABLED_MESSAGE } from "@/lib/raporGate"
 
 export const dynamic = "force-dynamic"
+export const fetchCache = "force-no-store"
 export const metadata: Metadata = {
   title: "Rapor Penghuni Terverifikasi | BotKos",
   robots: { index: false, follow: false },
@@ -32,6 +34,7 @@ export const metadata: Metadata = {
 }
 
 export default async function RaporPage({ params }: { params: Promise<{ token: string }> }) {
+  if (!isRaporEnabled()) return <main className="min-h-svh px-6 py-20 text-center"><h1 className="text-2xl font-bold">{RAPOR_DISABLED_MESSAGE}</h1></main>
   const { token } = await params
   const landing = await fetchQuery(api.raporShares.getShareLanding, { token })
 
@@ -276,7 +279,7 @@ export default async function RaporPage({ params }: { params: Promise<{ token: s
 
       {/* ── Cohesive Footer ── */}
       <footer className="border-t border-[var(--line)] bg-[#FFFFFF] px-4 py-6 text-center text-xs text-[var(--ink-muted)] print:hidden">
-        <p>BotKos — Sistem Manajemen Kos & Komunitas Terpercaya</p>
+        <p>BotKos — Pencatatan kos dan penyewa yang rapi</p>
       </footer>
     </div>
   )

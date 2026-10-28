@@ -18,7 +18,7 @@ import "@/app/landing.css"
 export const metadata = {
   title: "Kebijakan Privasi - BotKos",
   description:
-    "Pelajari bagaimana BotKos mengumpulkan, menggunakan, dan melindungi data pribadi pemilik kos dan penyewa sesuai UU Pelindungan Data Pribadi (UU PDP).",
+    "Pelajari bagaimana BotKos mengumpulkan dan menggunakan data pemilik kos dan penyewa berdasarkan perilaku sistem saat ini.",
 }
 
 export default function PrivacyPage() {
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
                 </h3>
                 <ul className="mt-3 list-disc pl-5 space-y-1.5 text-[var(--ink-muted)]">
                   <li>Riwayat transaksi dan status siklus pembayaran sewa.</li>
-                  <li>Log akses dokumen sensitif (KTP, selfie) - mencatat siapa yang mengakses dan waktu pengaksesan, untuk keperluan audit keamanan dan kepatuhan.</li>
+                  <li>Log akses dokumen sensitif (KTP, selfie), bila tersedia di alur sistem, untuk mencatat akses dan waktu pengaksesan.</li>
                 </ul>
               </div>
             </div>
@@ -177,7 +177,7 @@ export default function PrivacyPage() {
                 <strong className="text-[var(--ink)]">Pemilik Kos (Owner):</strong> Hanya dapat melihat data penyewa yang mendaftar di propertinya sendiri. Pemilik tidak dapat mengakses data penyewa milik properti lain.
               </li>
               <li>
-                <strong className="text-[var(--ink)]">Penyedia Infrastruktur Teknis:</strong> Layanan terpercaya yang kami gunakan untuk mengoperasikan platform: Convex (database &amp; penyimpanan file terisolasi), Google (login OAuth), Telegram Bot API dan Meta/WhatsApp Cloud API (pengiriman notifikasi bot). Pihak-pihak ini memproses data sejauh diperlukan secara teknis, bukan untuk kepentingan mereka sendiri.
+                <strong className="text-[var(--ink)]">Penyedia Infrastruktur Teknis:</strong> Layanan yang digunakan untuk mengoperasikan platform: Convex (database &amp; penyimpanan file), Google (login OAuth), Telegram Bot API dan Meta/WhatsApp Cloud API (pengiriman notifikasi bot). Detail pemrosesan pihak ketiga: PERLU KONFIRMASI.
               </li>
               <li>
                 <strong className="text-[var(--ink)]">Kewajiban Hukum:</strong> Kami dapat membuka data jika diwajibkan secara sah oleh peraturan perundang-undangan Republik Indonesia.

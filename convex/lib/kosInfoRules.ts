@@ -62,6 +62,8 @@ export type KosInfoView = {
   publicKosType?: KosType
   publicDescription?: string
   publicShowPrice?: boolean
+  publicShowFullAddress?: boolean
+  publicAddress?: string
   rooms?: Array<{ isAvailable: boolean; monthlyRent?: number }>
   facilities?: Array<{ name: string }>
   publicRules?: PublicRules
@@ -127,7 +129,9 @@ export const buildLodgingJsonLd = (view: KosInfoView) => ({
   "@type": "LodgingBusiness",
   name: view.name,
   ...(view.publicDescription ? { description: view.publicDescription } : {}),
-  ...(view.publicAreaLabel ? { address: { "@type": "PostalAddress", addressLocality: view.publicAreaLabel } } : {}),
+  ...(view.publicShowFullAddress && view.publicAddress ? { address: { "@type": "PostalAddress", streetAddress: view.publicAddress, addressLocality: view.publicAreaLabel } } : {}),
   ...(view.publicRules?.hewan ? { petsAllowed: view.publicRules.hewan === "boleh" } : {}),
   ...(view.facilities?.length ? { amenityFeature: view.facilities.map((facility) => ({ "@type": "LocationFeatureSpecification", name: facility.name })) } : {}),
 })
+
+export const serializeJsonLd = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003C").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029")

@@ -6,8 +6,7 @@ import { requireOwner } from "./lib/auth"
 import { dueDateForPeriod, periodOf } from "../lib/rent-date"
 
 export const ensureChargesForPeriod = async (ctx: MutationCtx, now: number) => {
-  const date = new Date(now)
-  const period = periodOf(date)
+  const period = periodOf(now)
   const tenants = await ctx.db.query("tenants").withIndex("by_status_and_due_day", (q) => q.eq("status", "active")).take(500)
   let created = 0
   for (const tenant of tenants) {
@@ -26,8 +25,7 @@ export const markCurrentPeriodPaid = async (ctx: MutationCtx, tenantId: Id<"tena
   if (!tenant) return
   const room = await ctx.db.get("rooms", tenant.roomId)
   if (!room) return
-  const date = new Date(now)
-  const targetPeriod = preferredPeriod || periodOf(date)
+  const targetPeriod = preferredPeriod || periodOf(now)
   const existing = await ctx.db.query("rent_charges").withIndex("by_tenant_and_period", (q) => q.eq("tenantId", tenantId).eq("period", targetPeriod)).unique()
   if (existing) {
     await ctx.db.patch("rent_charges", existing._id, { status: "paid", paymentId, paidAt: now, amount })

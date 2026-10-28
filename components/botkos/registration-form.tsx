@@ -16,6 +16,7 @@ type RegistrationFormProps = {
   selectedRoomId?: string
   onSelectRoom?: (roomId: string) => void
   applicationCode?: string
+  lockedRoomId?: string
 }
 
 export function RegistrationForm({
@@ -25,6 +26,7 @@ export function RegistrationForm({
   selectedRoomId: externalSelectedRoomId,
   onSelectRoom,
   applicationCode,
+  lockedRoomId,
 }: RegistrationFormProps) {
   const [submitted, setSubmitted] = useState(false)
   const [internalSelectedRoomId, setInternalSelectedRoomId] = useState<string>(
@@ -213,6 +215,7 @@ export function RegistrationForm({
           name="roomId"
           value={selectedRoomId}
           onChange={(e) => handleSelectRoom(e.target.value)}
+          disabled={Boolean(lockedRoomId)}
           className="field-input font-medium"
           required
         >

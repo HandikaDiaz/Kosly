@@ -5,6 +5,7 @@ const app = defineApp({
   env: {
     AUTH_GOOGLE_ID: v.optional(v.string()),
     AUTH_GOOGLE_SECRET: v.optional(v.string()),
+    JWT_PRIVATE_KEY: v.optional(v.string()),
     SITE_URL: v.optional(v.string()),
     TELEGRAM_BOT_TOKEN: v.optional(v.string()),
     TELEGRAM_BOT_USERNAME: v.optional(v.string()),
@@ -18,6 +19,8 @@ const app = defineApp({
     RESEND_API_KEY: v.optional(v.string()),
     EMAIL_FROM: v.optional(v.string()),
     APP_BASE_URL: v.optional(v.string()),
+    RAPOR_ENABLED: v.optional(v.string()),
+    NEXT_PUBLIC_LEGAL_REVIEWED: v.optional(v.string()),
   },
 })
 

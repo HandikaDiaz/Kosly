@@ -34,7 +34,10 @@ type Env = {
   readonly AUTH_GOOGLE_ID: string | undefined;
   readonly AUTH_GOOGLE_SECRET: string | undefined;
   readonly EMAIL_FROM: string | undefined;
+  readonly JWT_PRIVATE_KEY: string | undefined;
   readonly META_APP_SECRET: string | undefined;
+  readonly NEXT_PUBLIC_LEGAL_REVIEWED: string | undefined;
+  readonly RAPOR_ENABLED: string | undefined;
   readonly RESEND_API_KEY: string | undefined;
   readonly SITE_URL: string | undefined;
   readonly TELEGRAM_BOT_TOKEN: string | undefined;

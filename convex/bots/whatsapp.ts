@@ -56,8 +56,8 @@ const sendWhatsAppPaymentInteractive = async (
     }),
   })
   if (!response.ok) {
-    const errorBody = await response.text()
-    console.warn(`WhatsApp interactive button gagal (${response.status}), mencoba fallback teks: ${errorBody.slice(0, 300)}`)
+    await response.text()
+    console.warn(`WhatsApp interactive button gagal (${response.status}), mencoba fallback teks`)
     if (proofUrl) {
       const fallbackResponse = await fetch(`https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`, {
         method: "POST",

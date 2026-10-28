@@ -14,6 +14,8 @@ export const OWNER_COMMANDS = [
   { command: "cabut", description: "Cabut tautan Rapor Penghuni aktif" },
   { command: "cari", description: "Cari kos terdekat atau berdasarkan area" },
   { command: "detail", description: "Lihat detail hasil pencarian kos" },
+  { command: "privasi", description: "Lihat informasi privasi dan hak data" },
+  { command: "lapor", description: "Laporkan kos melalui formulir" },
   { command: "ajukan", description: "Ajukan kamar yang kamu pilih" },
   { command: "terima", description: "Terima pengajuan sewa" },
   { command: "tolak", description: "Tolak pengajuan sewa" },
@@ -40,6 +42,11 @@ export const parseBotCommand = (text: string): BotCommand => {
   if (isCommand(upperNormalized, "LAPORAN")) return { kind: "monthly_report" }
   if (isCommand(upperNormalized, "BAGIKAN")) return { kind: "share" }
   if (isCommand(upperNormalized, "CABUT")) return { kind: "revoke_share" }
+  if (isCommand(upperNormalized, "PRIVASI")) return { kind: "privacy" }
+  if (/^\/?LAPOR(?:\s|$)/.test(upperNormalized)) {
+    const value = normalized.split(/\s+/).slice(1).join(" ").trim()
+    return value ? { kind: "report_property", value } : { kind: "invalid" }
+  }
   if (isCommand(upperNormalized, "CARI")) return { kind: "search" }
   if (/^\/?AJUKAN(?:\s|$)/.test(upperNormalized)) return { kind: "apply" }
   if (/^\/?(TERIMA|TOLAK|LEPAS)\s+PJ[-\s]?[A-Z0-9]+$/.test(upperNormalized)) return { kind: "application_decision", decision: upperNormalized.startsWith("/TOLAK") || upperNormalized.startsWith("TOLAK") ? "decline" : upperNormalized.startsWith("/LEPAS") || upperNormalized.startsWith("LEPAS") ? "release" : "accept", code: normalized.split(/\s+/).slice(1).join("") }

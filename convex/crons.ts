@@ -1,17 +1,16 @@
 import { cronJobs } from "convex/server"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
-import { internalMutation, mutation } from "./_generated/server"
+import { internalMutation } from "./_generated/server"
 import { ensureChargesForPeriod } from "./rentCharges"
-import { requireOwner } from "./lib/auth"
-import { dueDateForPeriod, periodOf } from "../lib/rent-date"
+import { dueDateForPeriod, jakartaDateKey, jakartaDayDistance, periodOf } from "../lib/rent-date"
 
 export const runDailyReminders = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const today = new Date()
-    const todayDate = today.toISOString().slice(0, 10)
-    await ensureChargesForPeriod(ctx, today.getTime())
+    const now = Date.now()
+    const todayDate = jakartaDateKey(now)
+    await ensureChargesForPeriod(ctx, now)
 
     // Only active, BULANAN tenants get monthly reminder — skip tahunan
     const tenants = await ctx.db.query("tenants").withIndex("by_status_and_due_day", (q) => q.eq("status", "active")).take(500)
@@ -25,12 +24,13 @@ export const runDailyReminders = internalMutation({
       const property = await ctx.db.get("properties", tenant.propertyId)
       if (!property || !room) continue
 
-      const period = periodOf(today)
+      const period = periodOf(now)
       const charge = await ctx.db.query("rent_charges").withIndex("by_tenant_and_period", (q) => q.eq("tenantId", tenant._id).eq("period", period)).unique()
       if (charge?.status === "paid") continue
 
-      const due = new Date(dueDateForPeriod(period, tenant.dueDay))
-      const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000)
+      const dueTimestamp = dueDateForPeriod(period, tenant.dueDay)
+      const due = new Date(dueTimestamp)
+      const diffDays = jakartaDayDistance(now, dueTimestamp)
 
       let type: "reminder_due" | "reminder_today" | "reminder_overdue" | null = null
       let messageText = ""
@@ -73,7 +73,7 @@ export const processSubscriptionPeriods = internalMutation({
 
       // ── Phase 1: Mark past_due on the day it expires ──────────────────────
       await ctx.db.patch("subscriptions", subscription._id, { status: "past_due" })
-      const occurredOn = new Date(subscription.currentPeriodEnd).toISOString().slice(0, 10)
+      const occurredOn = jakartaDateKey(subscription.currentPeriodEnd)
       const alreadyNotified = (await ctx.db.query("notification_log").withIndex("by_owner_and_type", (q) => q.eq("ownerId", subscription.ownerId)).take(100)).some((item) => item.type === "subscription_past_due" && item.occurredOn === occurredOn)
       if (!alreadyNotified) {
         await ctx.db.insert("notification_log", { ownerId: subscription.ownerId, type: "subscription_past_due", channel: "log_only", occurredOn, status: "logged", payload: JSON.stringify({ subscriptionId: subscription._id }) })
@@ -90,7 +90,7 @@ export const processSubscriptionPeriods = internalMutation({
       const daysPastDue = now - subscription.currentPeriodEnd
       if (daysPastDue < THREE_DAYS_MS) continue
 
-      const todayDate = new Date(now).toISOString().slice(0, 10)
+      const todayDate = jakartaDateKey(now)
       const alreadyDowngraded = (await ctx.db.query("notification_log").withIndex("by_owner_and_type", (q) => q.eq("ownerId", subscription.ownerId)).take(100)).some((item) => item.type === "subscription_downgraded" && item.occurredOn === todayDate)
       if (alreadyDowngraded) continue
 
@@ -112,20 +112,14 @@ export const processSubscriptionPeriods = internalMutation({
 })
 
 
-export const simulateReminder = mutation({
+export const simulateReminder = internalMutation({
   args: {
+    ownerId: v.id("owners"),
     tenantId: v.optional(v.id("tenants")),
     scenario: v.union(v.literal("due_soon"), v.literal("due_today"), v.literal("overdue")),
   },
   handler: async (ctx, args) => {
-    let owner = null
-    try {
-      owner = await requireOwner(ctx)
-    } catch {
-      const activeLink = (await ctx.db.query("bot_links").take(10)).find((l) => l.status === "active")
-      if (activeLink) owner = await ctx.db.get("owners", activeLink.ownerId)
-      if (!owner) owner = await ctx.db.query("owners").first()
-    }
+    const owner = await ctx.db.get("owners", args.ownerId)
     if (!owner) throw new Error("Tidak ditemukan akun owner di database.")
 
     let tenant = args.tenantId ? await ctx.db.get("tenants", args.tenantId) : null
@@ -140,10 +134,9 @@ export const simulateReminder = mutation({
 
     const room = await ctx.db.get("rooms", tenant.roomId)
     const property = await ctx.db.get("properties", tenant.propertyId)
-    if (!property || !room) throw new Error("Data properti atau kamar tenant tidak lengkap.")
+    if (!property || !room || property.ownerId !== owner._id || tenant.propertyId !== property._id) throw new Error("Data properti atau kamar tenant tidak lengkap.")
 
-    const today = new Date()
-    const period = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
+    const period = periodOf(Date.now())
 
     let text = ""
     let type: "reminder_due" | "reminder_today" | "reminder_overdue" = "reminder_due"
@@ -164,7 +157,7 @@ export const simulateReminder = mutation({
       propertyId: property._id,
       tenantId: tenant._id,
       type,
-      occurredOn: new Date().toISOString().slice(0, 10),
+      occurredOn: jakartaDateKey(Date.now()),
       channel: "telegram",
       status: "logged",
       payload: JSON.stringify({ scenario: args.scenario, tenantName: tenant.name }),
@@ -184,6 +177,7 @@ crons.interval("process tenant lifecycle", { hours: 24 }, internal.tenants.proce
 crons.cron("daily review invitations", "0 2 * * *", internal.reviews.scheduleActiveReviewInvitations, {})
 crons.interval("delete expired identity files", { hours: 24 }, internal.verifications.deleteExpiredIdentityFiles, {})
 crons.interval("cleanup tenant identity data", { hours: 24 }, internal.tenantIdentity.cleanupTenantIdentityData, {})
+crons.interval("refresh owner public stats", { hours: 24 }, internal.ownerPublicStats.recomputeAll, {})
 crons.interval("maintain tenant rapor disputes", { hours: 24 }, internal.tenantRapor.runDailyRaporMaintenance, {})
 crons.interval("cleanup tenant search contexts", { hours: 24 }, internal.kosSearch.cleanupBotSearchData, {})
 crons.interval("cleanup WhatsApp windows", { hours: 24 }, internal.whatsappState.cleanupWindows, {})

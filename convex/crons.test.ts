@@ -19,3 +19,17 @@ test("subscription period processing marks expired subscriptions past due once",
   expect(second.markedPastDue).toBe(0)
 })
 
+test("reminder simulation is internal and cannot cross owner boundaries", async () => {
+  const t = convexTest(schema, modules)
+  const setup = await t.run(async (ctx) => {
+    const ownerA = await ctx.db.insert("owners", { tokenIdentifier: "cron-owner-a", role: "owner" })
+    const ownerB = await ctx.db.insert("owners", { tokenIdentifier: "cron-owner-b", role: "owner" })
+    const propertyId = await ctx.db.insert("properties", { ownerId: ownerA, name: "Kos A", address: "Alamat A", slug: "kos-a", isActive: true })
+    const roomId = await ctx.db.insert("rooms", { propertyId, roomNumber: "A1", monthlyRent: 1_000_000, status: "occupied" })
+    const tenantId = await ctx.db.insert("tenants", { propertyId, roomId, name: "Tenant A", phone: "08123456789", startedAt: Date.now(), dueDay: 1, status: "active" })
+    return { ownerA, ownerB, tenantId }
+  })
+
+  await expect(t.mutation(internal.crons.simulateReminder, { ownerId: setup.ownerB, tenantId: setup.tenantId, scenario: "due_today" })).rejects.toThrow("Data properti atau kamar tenant tidak lengkap.")
+})
+

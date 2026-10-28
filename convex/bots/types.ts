@@ -39,6 +39,8 @@ export type BotCommand =
   | { kind: "cancel"; value: string }
   | { kind: "add_room" }
   | { kind: "share" | "revoke_share" }
+  | { kind: "privacy" }
+  | { kind: "report_property"; value: string }
   | { kind: "search" | "detail"; value?: string }
   | { kind: "apply" }
   | { kind: "application_decision"; decision: "accept" | "decline" | "release"; code: string }

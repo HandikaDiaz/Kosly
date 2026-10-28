@@ -5,6 +5,8 @@ import { v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
 import { generateToken, hashToken } from "./lib/reviewRules"
 import { CHALLENGE_TTL_MIN, CONFIRM_TTL_MIN, IDENTITY_NOTICE_VERSION, MAX_CHALLENGES_PER_HOUR_GLOBAL, MAX_FAILED_CODE_ATTEMPTS_PER_SENDER_PER_HOUR, SESSION_TTL_DAYS, generateVerificationCode, normalizeIndonesianPhone, parseVerificationCode, transitionChallenge, type ChallengeStatus } from "./lib/tenantIdentity"
+import { assertRaporEnabled } from "./lib/raporGate"
+import { isTenantDataVerified } from "./lib/tenantImport"
 
 const GENERIC_STATUS = "Kode tidak valid atau sudah tidak berlaku."
 const TELEGRAM_SHARE_CONTACT_PROMPT = "📱 *Verifikasi Identitas — BotKos*\n\nKode verifikasi valid! Untuk menghubungkan data sewa dan Rapor Penghunimu, kami memerlukan verifikasi nomor telepon akun Telegram ini.\n\nSilakan tekan tombol *📱 Bagikan Nomor Telepon* di bawah untuk melanjutkan."
@@ -14,6 +16,7 @@ const envValues = env as typeof env & Record<string, string | undefined>
 
 const senderHash = (senderKey: string) => hashToken(`sender:${senderKey}`)
 const sessionFromToken = async (ctx: QueryCtx | MutationCtx, token: string) => {
+  assertRaporEnabled(envValues.RAPOR_ENABLED)
   const tokenHash = await hashToken(token)
   const session = await ctx.db.query("tenantSessions").withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash)).unique()
   if (!session || session.revokedAt || session.expiresAt <= Date.now()) throw new Error("Sesi penghuni tidak valid atau sudah berakhir.")
@@ -37,6 +40,7 @@ const botLinks = (code: string) => {
 export const startVerification = mutation({
   args: { noticeAccepted: v.boolean() },
   handler: async (ctx, args) => {
+    assertRaporEnabled(envValues.RAPOR_ENABLED)
     if (!args.noticeAccepted) throw new Error("Persetujuan pemberitahuan wajib dipilih.")
     const now = Date.now()
     const recent = await ctx.db.query("verificationChallenges").withIndex("by_created", (q) => q.gte("createdAt", now - 60 * 60 * 1000)).take(MAX_CHALLENGES_PER_HOUR_GLOBAL + 1)
@@ -51,6 +55,7 @@ export const startVerification = mutation({
 export const getChallengeStatus = query({
   args: { challengeId: v.id("verificationChallenges"), pollSecret: v.string() },
   handler: async (ctx, args) => {
+    assertRaporEnabled(envValues.RAPOR_ENABLED)
     const challenge = await ctx.db.get("verificationChallenges", args.challengeId)
     if (!challenge || await hashToken(args.pollSecret) !== challenge.pollSecretHash) return null
     const status: ChallengeStatus = challenge.expiresAt <= Date.now() && challenge.status === "awaiting_message" ? "expired" : challenge.status
@@ -84,6 +89,7 @@ const confirmInContext = async (ctx: MutationCtx, challenge: VerificationChallen
   if (existing) await ctx.db.patch("tenantIdentities", existing._id, { verifiedVia: channel, lastVerifiedAt: Date.now(), noticeAcceptedAt: Date.now(), noticeVersion: IDENTITY_NOTICE_VERSION, status: "active" })
   const tenants = await ctx.db.query("tenants").withIndex("by_tenant_phone_normalized", (q) => q.eq("tenantPhoneNormalized", phone)).take(100)
   for (const tenant of tenants) {
+    if (!isTenantDataVerified(tenant)) continue
     const prior = await ctx.db.query("tenancyIdentityLinks").withIndex("by_identity", (q) => q.eq("identityId", identityId)).take(100)
     if (!prior.some((link) => link.tenancyId === tenant._id)) await ctx.db.insert("tenancyIdentityLinks", { identityId, tenancyId: tenant._id, status: "pending", createdAt: Date.now() })
   }
@@ -97,6 +103,7 @@ const confirmInContext = async (ctx: MutationCtx, challenge: VerificationChallen
 export const receiveVerificationCode = internalMutation({
   args: { channel: v.union(v.literal("whatsapp"), v.literal("telegram")), rawText: v.string(), senderKey: v.string(), senderPhone: v.optional(v.string()), contactPhone: v.optional(v.string()), contactUserId: v.optional(v.string()), fromUserId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    assertRaporEnabled(envValues.RAPOR_ENABLED)
     const now = Date.now()
     const senderKeyDigest = await senderHash(args.senderKey)
 
@@ -158,6 +165,7 @@ export const receiveVerificationCode = internalMutation({
 export const confirmVerification = internalMutation({
   args: { channel: v.union(v.literal("whatsapp"), v.literal("telegram")), senderKey: v.string(), decision: v.union(v.literal("confirm"), v.literal("cancel")) },
   handler: async (ctx, args) => {
+    assertRaporEnabled(envValues.RAPOR_ENABLED)
     const digest = await senderHash(args.senderKey)
     const challenge = (await ctx.db.query("verificationChallenges").withIndex("by_created", (q) => q.gte("createdAt", Date.now() - CONFIRM_TTL_MIN * 60 * 1000)).take(300)).find((item) => item.status === "awaiting_confirmation" && item.senderKey === digest)
     return confirmInContext(ctx, challenge, args.channel, args.senderKey, args.decision)
@@ -167,6 +175,7 @@ export const confirmVerification = internalMutation({
 export const claimVerifiedSession = mutation({
   args: { challengeId: v.id("verificationChallenges"), pollSecret: v.string() },
   handler: async (ctx, args) => {
+    assertRaporEnabled(envValues.RAPOR_ENABLED)
     const challenge = await ctx.db.get("verificationChallenges", args.challengeId)
     if (!challenge || challenge.status !== "verified" || challenge.claimedAt || await hashToken(args.pollSecret) !== challenge.pollSecretHash || !challenge.identityId) throw new Error(GENERIC_STATUS)
     const token = generateToken()

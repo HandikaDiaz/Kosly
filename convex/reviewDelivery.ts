@@ -5,6 +5,7 @@ import { v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
 import { internal } from "./_generated/api"
 import { buildReviewInvitationMessage, buildReviewUrl, type ReviewInvitationReason } from "./lib/reviewDelivery"
+import { getConvexBaseUrl } from "./lib/siteUrl"
 
 const botEnv = env as typeof env & Record<string, string | undefined>
 
@@ -24,7 +25,7 @@ export const sendReviewInvitation = internalAction({
     try {
       const target = await ctx.runQuery(internal.reviews.getReviewDeliveryTarget, { tenancyId: args.tenancyId })
       if (!target) throw new Error("Kanal WhatsApp penyewa tidak tersedia.")
-      const url = buildReviewUrl(botEnv.APP_BASE_URL, created.token)
+      const url = buildReviewUrl(getConvexBaseUrl(botEnv.APP_BASE_URL), created.token)
       const message = buildReviewInvitationMessage({ propertyName: target.propertyName, reason: args.reason as ReviewInvitationReason, url })
       const result = await ctx.runAction(internal.whatsappDelivery.sendWhatsAppNotification, { toPhoneE164: target.phone, kind: "tenant_review_invite", params: { kos: target.propertyName }, fallbackText: message, idempotencyKey: `review:${created.invitationId}`, buttonParam: created.token })
       if (result.ok) {

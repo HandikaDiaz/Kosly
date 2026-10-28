@@ -33,6 +33,7 @@ export function PropertySummaryPage() {
   const property = useQuery(api.properties.getMine, { propertyId: id })
   const rooms = useQuery(api.rooms.listForProperty, { propertyId: id })
   const badges = useQuery(api.dashboard.getPropertyTabBadges, { propertyId: id })
+  const trustChecklist = useQuery(api.dashboard.getPropertyTrustChecklist, { propertyId: id })
   const [copied, setCopied] = useState(false)
 
   const publicUrl =
@@ -42,7 +43,7 @@ export function PropertySummaryPage() {
 
   const actions = useMemo(() => (badges ? computeActionItems(badges) : []), [badges])
 
-  if (property === undefined || rooms === undefined || badges === undefined) {
+  if (property === undefined || rooms === undefined || badges === undefined || trustChecklist === undefined) {
     return (
       <PageLoader
         variant="inline"
@@ -193,6 +194,19 @@ export function PropertySummaryPage() {
       </div>
 
       {/* ── Action Center Section (Perlu Tindakan) ── */}
+      <section className="rounded-2xl border border-[var(--line)] bg-[#fffefa] p-4 sm:p-6 shadow-sm">
+        <h2 className="text-base font-bold text-[var(--ink)] sm:text-lg">Tingkatkan kepercayaan calon penyewa</h2>
+        <p className="mt-1 text-xs text-[var(--ink-muted)]">Lengkapi informasi yang membantu calon penyewa menilai halaman publik secara mandiri.</p>
+        {trustChecklist.suspended ? <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Halaman publik sedang ditinjau.</p> : null}
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">{[
+          [trustChecklist.identityVerified, "Verifikasi identitas pemilik", "Tambahkan verifikasi identitas melalui proses admin.", propertyTabUrl(propertyId, "summary")],
+          [trustChecklist.locationVerified, "Verifikasi lokasi", "Tambahkan sinyal lokasi yang dihitung dari koordinat.", propertyTabUrl(propertyId, "location")],
+          [trustChecklist.infoComplete, "Lengkapi info singkat", "Berikan area dan deskripsi yang jelas.", propertyTabUrl(propertyId, "public")],
+          [trustChecklist.reviewsUnreplied === 0, "Balas ulasan penyewa", "Tanggapi ulasan yang sudah masuk.", propertyTabUrl(propertyId, "reviews")],
+          [trustChecklist.publicActive, "Aktifkan halaman publik", "Publikasikan halaman agar dapat ditemukan calon penyewa.", propertyTabUrl(propertyId, "public")],
+        ].map(([done, title, description, href]) => <Link href={String(href)} key={String(title)} className="rounded-xl border border-[var(--line)] p-3"><p className="text-sm font-semibold">{done ? "✓ " : "○ "}{title}</p><p className="mt-1 text-xs text-[var(--ink-muted)]">{done ? "Sudah tercatat." : description}</p></Link>)}</div>
+      </section>
+
       <section className="rounded-2xl border border-[var(--line)] bg-[#fffefa] p-4 sm:p-6 shadow-sm">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] pb-3.5">
           <div className="flex items-center gap-2">

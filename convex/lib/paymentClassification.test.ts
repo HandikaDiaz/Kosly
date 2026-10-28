@@ -21,6 +21,10 @@ describe("payment classification", () => {
     expect(RENT_PAYMENT_TYPES).toEqual(["full"])
   })
 
+  test("excludes owner-import payments from rent eligibility", () => {
+    expect(isRentPayment({ status: "confirmed", paymentType: "full", purpose: "sewa_bulanan", origin: "owner_import" })).toBe(false)
+  })
+
   test("DP alone cannot make a 30-day stay review-eligible", () => {
     const hasRentPayment = isRentPayment({ status: "confirmed", paymentType: "dp", purpose: "dp" })
     expect(isTenancyEligible({ stayDays: 30, hasConfirmedPayment: hasRentPayment }).eligible).toBe(false)

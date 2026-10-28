@@ -6,6 +6,7 @@ import { internal } from "./_generated/api"
 import { normalizePublicSlug } from "./lib/publicProperty"
 import { requirePropertyOwner } from "./lib/auth"
 import { isRentPayment } from "./lib/paymentClassification"
+import { isTenantDataVerified } from "./lib/tenantImport"
 import {
   BURST_REVIEWS,
   BURST_WINDOW_DAYS,
@@ -48,6 +49,7 @@ export const createReviewInvitation = internalMutation({
     const now = Date.now()
     const tenant = await ctx.db.get("tenants", args.tenancyId)
     if (!tenant) throw new Error("Tenancy tidak ditemukan.")
+    if (!isTenantDataVerified(tenant)) throw new Error("Data tenant belum dikonfirmasi oleh tenant.")
     const property = await ctx.db.get("properties", tenant.propertyId)
     if (!property) throw new Error("Properti tidak ditemukan.")
     const stayDays = computeStayDays(tenant.startedAt, tenant.move_out_date ?? now)
@@ -142,6 +144,7 @@ export const submitReview = mutation({
     if (!invitation || invitation.usedAt || invitation.revokedAt || invitation.expiresAt <= Date.now()) throw new Error(INVALID_TOKEN)
     const tenant = await ctx.db.get("tenants", invitation.tenancyId)
     if (!tenant) throw new Error(INVALID_TOKEN)
+    if (!isTenantDataVerified(tenant)) throw new Error(INVALID_TOKEN)
     const hasConfirmedPayment = await getTenantPaymentState(ctx, tenant._id)
     const stayDays = computeStayDays(tenant.startedAt, tenant.move_out_date ?? Date.now())
     if (!isTenancyEligible({ stayDays, hasConfirmedPayment }).eligible) throw new Error(INVALID_TOKEN)
@@ -245,6 +248,7 @@ export const scheduleActiveReviewInvitations = internalMutation({
     const scheduledTenancyIds = new Set<Id<"tenants">>()
     for (const tenant of tenants) {
       if (scheduled >= 50) break
+      if (!isTenantDataVerified(tenant)) continue
       const stayDays = computeStayDays(tenant.startedAt, now)
       const payments = await ctx.db.query("payments").withIndex("by_tenant_and_paid_at", (q) => q.eq("tenantId", tenant._id)).take(100)
       const hasConfirmedPayment = payments.some(isRentPayment)

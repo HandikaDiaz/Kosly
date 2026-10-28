@@ -1,4 +1,4 @@
-import { internalMutation } from "../_generated/server"
+import { env, internalMutation } from "../_generated/server"
 import { internal } from "../_generated/api"
 import type { MutationCtx } from "../_generated/server"
 import { v } from "convex/values"
@@ -18,6 +18,7 @@ import { parseRoomWizardInput } from "./roomWizard"
 import { finalizeAddRoomInContext, type RoomWizardData } from "./roomFlow"
 import { propertyTabUrl } from "../lib/propertyTabs"
 import { buildChatIdMessage, buildHelpMessage, buildUnknownCommandMessage, buildWelcomeMessage, commandForChannel } from "./help"
+import { isRaporEnabled } from "../lib/raporGate"
 
 const channelValidator = v.union(v.literal("telegram"), v.literal("whatsapp"))
 const decisionValidator = v.union(v.literal("approve"), v.literal("reject"))
@@ -43,6 +44,8 @@ const dateText = (value?: number) => value ? new Date(value).toLocaleDateString(
 const roomFeatureGateText = "Fitur khusus Growth dan Pro\n\nTambah dan edit kamar lewat bot tersedia untuk tier Growth dan Pro."
 const roomStatusMap = { kosong: "available", tersedia: "available", available: "available", terisi: "occupied", occupied: "occupied", dipesan: "booked", booked: "booked" } as const
 const roomStatusLabel = { available: "Tersedia", occupied: "Terisi", booked: "Dipesan" } as const
+const privacyReply = (baseUrl: string | undefined, reviewed: string | undefined) => reviewed === "true" && baseUrl ? `Kebijakan Privasi: ${baseUrl.replace(/\/+$/, "")}/kebijakan-privasi\nHak Data: ${baseUrl.replace(/\/+$/, "")}/hak-data` : "Informasi privasi sedang disiapkan."
+const propertyReportReply = (baseUrl: string | undefined, value: string) => baseUrl && value.trim() ? `Laporkan kos melalui formulir ini: ${baseUrl.replace(/\/+$/, "")}/kos/${encodeURIComponent(value.trim())}/lapor` : "Kos tidak ditemukan."
 
 const getOwnerSubscriptionTier = async (ctx: MutationCtx, ownerId: Id<"owners">) => {
   const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).unique()
@@ -89,10 +92,13 @@ export const processEvent = internalMutation({
     const link = (await ctx.db.query("bot_links").withIndex("by_channel_and_chat_id", (q) => q.eq("channel", args.channel).eq("chatId", chatId)).take(10)).find((item) => item.status === "active")
     if (!link) {
       const unlinkedCommand = parseBotCommand(args.text ?? "")
+      if (unlinkedCommand.kind === "privacy") return response(args.channel, chatId, privacyReply((env as typeof env & Record<string, string | undefined>).APP_BASE_URL, (env as typeof env & Record<string, string | undefined>).NEXT_PUBLIC_LEGAL_REVIEWED))
+      if (unlinkedCommand.kind === "report_property") return response(args.channel, chatId, propertyReportReply((env as typeof env & Record<string, string | undefined>).APP_BASE_URL, unlinkedCommand.value))
       if (args.senderKey && args.text) {
         const applicationResult = await ctx.runMutation(internal.applicationFlow.handle, { channel: args.channel, senderKey: args.senderKey, chatId, text: args.text, senderPhone: args.senderPhone, contactPhone: args.contactPhone, contactUserId: args.contactUserId, fromUserId: args.fromUserId })
         if (applicationResult.handled) return response(args.channel, chatId, applicationResult.text)
       }
+      if ((unlinkedCommand.kind === "share" || unlinkedCommand.kind === "revoke_share") && args.senderKey && !isRaporEnabled((env as typeof env & Record<string, string | undefined>).RAPOR_ENABLED)) return response(args.channel, chatId, "Fitur ini belum dibuka.")
       if ((unlinkedCommand.kind === "share" || unlinkedCommand.kind === "revoke_share") && args.senderKey) {
         const result = unlinkedCommand.kind === "share"
           ? await ctx.runMutation(internal.raporShares.botCreateShare, { channel: args.channel, senderKey: args.senderKey })
@@ -166,6 +172,9 @@ export const processEvent = internalMutation({
           ? { kind: args.callbackAction, reference: args.callbackReference, reason: "Ditolak melalui bot Telegram." }
           : parseBotCommand(args.text ?? "")
 
+    if (parsed.kind === "privacy") return response(args.channel, chatId, privacyReply((env as typeof env & Record<string, string | undefined>).APP_BASE_URL, (env as typeof env & Record<string, string | undefined>).NEXT_PUBLIC_LEGAL_REVIEWED))
+    if (parsed.kind === "report_property") return response(args.channel, chatId, propertyReportReply((env as typeof env & Record<string, string | undefined>).APP_BASE_URL, parsed.value))
+
     if (parsed.kind === "application_decision") {
       try {
         const result = await ctx.runMutation(internal.applications.ownerDecisionByCode, { ownerId: link.ownerId, code: parsed.code, action: parsed.decision })
@@ -175,6 +184,7 @@ export const processEvent = internalMutation({
       }
     }
 
+    if ((parsed.kind === "share" || parsed.kind === "revoke_share") && args.senderKey && !isRaporEnabled((env as typeof env & Record<string, string | undefined>).RAPOR_ENABLED)) return response(args.channel, chatId, "Fitur ini belum dibuka.")
     if ((parsed.kind === "share" || parsed.kind === "revoke_share") && args.senderKey) {
       const result = parsed.kind === "share"
         ? await ctx.runMutation(internal.raporShares.botCreateShare, { channel: args.channel, senderKey: args.senderKey })

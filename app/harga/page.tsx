@@ -1,8 +1,15 @@
 import Link from "next/link"
+import type { Metadata } from "next"
 import { ArrowLeft } from "lucide-react"
 import { TierComparisonTable } from "@/components/kosly/tier-comparison-table"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import "@/app/landing.css"
+
+export const metadata: Metadata = {
+  title: "Harga",
+  description: "Bandingkan paket BotKos untuk pencatatan kamar, penyewa, pembayaran, dan pengingat.",
+  alternates: { canonical: "/harga" },
+}
 
 export default function PricingPage() {
   return (

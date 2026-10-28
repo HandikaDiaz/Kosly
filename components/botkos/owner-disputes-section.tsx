@@ -4,8 +4,11 @@ import { useState } from "react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { isRaporEnabled } from "@/lib/raporGate"
 
-export const OwnerDisputesSection = ({ propertyId }: { propertyId: Id<"properties"> }) => {
+export const OwnerDisputesSection = ({ propertyId }: { propertyId: Id<"properties"> }) => isRaporEnabled() ? <EnabledOwnerDisputesSection propertyId={propertyId} /> : null
+
+const EnabledOwnerDisputesSection = ({ propertyId }: { propertyId: Id<"properties"> }) => {
   const rows = useQuery(api.tenantRapor.ownerListDisputes, { propertyId })
   const respond = useMutation(api.tenantRapor.ownerRespondToDispute)
   const [note, setNote] = useState<Record<string, string>>({})

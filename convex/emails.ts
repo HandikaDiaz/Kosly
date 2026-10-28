@@ -1,10 +1,11 @@
 import { env, internalAction } from "./_generated/server"
 import { v } from "convex/values"
+import { getConvexBaseUrl } from "./lib/siteUrl"
 
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br />")
 
 const getBannerUrl = () => {
-  const siteUrl = env.SITE_URL?.replace(/\/$/, "")
+  const siteUrl = env.SITE_URL ? getConvexBaseUrl(env.SITE_URL) : null
   return siteUrl ? `${siteUrl}/banner.jpg` : null
 }
 

@@ -89,7 +89,7 @@ export const completeOnboarding = mutation({
     propertyName: v.string(),
     address: v.string(),
     slug: v.string(),
-    propertyPhotoStorageIds: v.array(v.id("_storage")),
+    propertyPhotoStorageIds: v.optional(v.array(v.id("_storage"))),
     facilities: v.optional(
       v.array(
         v.object({
@@ -167,11 +167,10 @@ export const completeOnboarding = mutation({
 
     if (!ownerName || !propertyName || !address || !slug)
       throw new Error("Lengkapi data pemilik, properti, dan link properti.")
-    if (args.propertyPhotoStorageIds.length < 3)
-      throw new Error("Minimal 3 foto kos wajib diunggah.")
-    if (new Set(args.propertyPhotoStorageIds).size < 3)
-      throw new Error("Minimal 3 foto kos yang berbeda wajib diunggah.")
-    for (const storageId of args.propertyPhotoStorageIds) {
+    const photoIds = args.propertyPhotoStorageIds ?? []
+    if (new Set(photoIds).size !== photoIds.length)
+      throw new Error("Foto kos tidak boleh duplikat.")
+    for (const storageId of photoIds) {
       const file = await ctx.db.system.get("_storage", storageId)
       if (!file || (file.contentType && !file.contentType.startsWith("image/")))
         throw new Error("Semua foto kos harus berupa gambar yang valid.")
@@ -207,7 +206,7 @@ export const completeOnboarding = mutation({
       isActive: true,
       propertyVerificationStatus: "not_submitted",
     })
-    for (const [sortOrder, storageId] of args.propertyPhotoStorageIds.entries())
+    for (const [sortOrder, storageId] of photoIds.entries())
       await ctx.db.insert("property_photos", {
         propertyId,
         storageId,

@@ -95,6 +95,9 @@ export default defineSchema({
       )
     ),
     locationVerifiedAt: v.optional(v.number()),
+    publicSuspended: v.optional(v.boolean()),
+    publicSuspensionReason: v.optional(v.string()),
+    publicSuspendedAt: v.optional(v.number()),
   })
     .index("by_owner", ["ownerId"])
     .index("by_slug", ["slug"])
@@ -104,6 +107,11 @@ export default defineSchema({
     .index("by_owner_and_locked", ["ownerId", "lockedByTier"])
     .index("by_public_grid_cell", ["publicGridCell", "isPublished"])
     .index("by_public_area_key", ["publicAreaKey", "isPublished"]),
+  slugRedirects: defineTable({
+    oldSlug: v.string(),
+    propertyId: v.id("properties"),
+    createdAt: v.number(),
+  }).index("by_old_slug", ["oldSlug"]),
   subscriptions: defineTable({
     ownerId: v.id("owners"),
     tier: v.union(
@@ -174,7 +182,21 @@ export default defineSchema({
     reviewedByOwnerId: v.optional(v.id("owners")),
     reviewedAt: v.optional(v.number()),
     resolutionNote: v.optional(v.string()),
-  }).index("by_status", ["status"]),
+    reportType: v.optional(v.union(v.literal("owner_report"), v.literal("property_report"))),
+    reason: v.optional(v.string()),
+    note: v.optional(v.string()),
+    createdAt: v.optional(v.number()),
+    flaggedForAdmin: v.optional(v.boolean()),
+    adminPriorityAt: v.optional(v.number()),
+  }).index("by_status", ["status"]).index("by_property_and_created", ["propertyId", "createdAt"]).index("by_type_and_created", ["reportType", "createdAt"]),
+  ownerPublicStats: defineTable({
+    ownerId: v.id("owners"),
+    joinedMonth: v.string(),
+    tenancyCount: v.number(),
+    responseBucket: v.optional(v.union(v.literal("kurang_dari_1_jam"), v.literal("beberapa_jam"), v.literal("dalam_sehari"), v.literal("lebih_dari_sehari"))),
+    responseSampleCount: v.number(),
+    updatedAt: v.number(),
+  }).index("by_owner", ["ownerId"]),
   support_tickets: defineTable({
     ownerId: v.optional(v.id("owners")),
     name: v.string(),
@@ -213,6 +235,7 @@ export default defineSchema({
   rooms: defineTable({
     propertyId: v.id("properties"),
     roomNumber: v.string(),
+    isActive: v.optional(v.boolean()),
     status: v.union(
       v.literal("available"),
       v.literal("booked"),
@@ -282,6 +305,9 @@ export default defineSchema({
     name: v.string(),
     phone: v.string(),
     tenantPhoneNormalized: v.optional(v.string()),
+    dataOrigin: v.optional(v.union(v.literal("registration"), v.literal("owner_import"))),
+    importedByOwnerAt: v.optional(v.number()),
+    tenantConfirmedAt: v.optional(v.number()),
     startedAt: v.number(),
     dueDay: v.number(),
     status: v.union(
@@ -370,6 +396,7 @@ export default defineSchema({
     reviewerOwnerId: v.optional(v.id("owners")),
     reviewedAt: v.optional(v.number()),
     rejectionReason: v.optional(v.string()),
+    origin: v.optional(v.union(v.literal("registration"), v.literal("owner_import"))),
   })
     .index("by_property_and_status", ["propertyId", "status"])
     .index("by_tenant_and_paid_at", ["tenantId", "paidAt"])
@@ -729,7 +756,11 @@ export default defineSchema({
     ownerReminderSentAt: v.optional(v.number()),
     holdReminderSentAt: v.optional(v.number()),
     anonymizedAt: v.optional(v.number()),
-  }).index("by_code", ["code"]).index("by_booking", ["bookingId"]).index("by_property_and_status", ["propertyId", "status"]).index("by_room_and_status", ["roomId", "status"]).index("by_sender_and_status", ["senderKeyHash", "status"]).index("by_status_and_hold_expires", ["status", "holdExpiresAt"]).index("by_status_and_created", ["status", "createdAt"]),
+  }).index("by_code", ["code"]).index("by_booking", ["bookingId"]).index("by_property_and_status", ["propertyId", "status"]).index("by_property_and_created", ["propertyId", "createdAt"]).index("by_room_and_status", ["roomId", "status"]).index("by_sender_and_status", ["senderKeyHash", "status"]).index("by_status_and_hold_expires", ["status", "holdExpiresAt"]).index("by_status_and_created", ["status", "createdAt"]),
+  linkLookupCounters: defineTable({
+    windowStart: v.number(),
+    count: v.number(),
+  }).index("by_window_start", ["windowStart"]),
   botConversations: defineTable({
     channel: v.union(v.literal("telegram"), v.literal("whatsapp")),
     senderKeyHash: v.string(),

@@ -201,7 +201,7 @@ export default function PublicRentPaymentPage() {
             {/* 2. Jaminan Keamanan */}
             <section className="rounded-2xl border border-[var(--line)] bg-[#FFFFFF] p-6 sm:p-7 shadow-xs space-y-4">
               <h2 className="text-xl font-bold tracking-tight text-[var(--ink)]">
-                Jaminan Transaksi Aman
+                Informasi Transaksi
               </h2>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="rounded-xl border border-[var(--line)]/60 bg-[#FCFBF9] p-4 space-y-2">

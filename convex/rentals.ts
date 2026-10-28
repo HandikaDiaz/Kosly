@@ -2,9 +2,9 @@ import { mutation, query } from "./_generated/server"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
 import { requireOwner } from "./lib/auth"
+import { dueDateForPeriod, periodOf, periodOffset } from "../lib/rent-date"
 
 const normalizeSlug = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
-const periodOf = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
 
 export const listMine = query({
   args: { now: v.number() },
@@ -18,13 +18,10 @@ export const listMine = query({
           ctx.db.get("rooms", tenant.roomId),
           ctx.db.query("rent_charges").withIndex("by_tenant_and_period", (q) => q.eq("tenantId", tenant._id)).take(24),
         ])
-        const currentPeriod = periodOf(new Date(args.now))
+        const currentPeriod = periodOf(args.now)
         const currentCharge = charges.find((charge) => charge.period === currentPeriod)
         const unpaidCharge = charges.filter((charge) => charge.status === "unpaid").sort((a, b) => a.dueDate - b.dueDate)[0]
-        const nextMonth = new Date(args.now)
-        nextMonth.setMonth(nextMonth.getMonth() + 1, 1)
-        const nextMonthLastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate()
-        const nextPeriodDueDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), Math.min(tenant.dueDay, nextMonthLastDay), 23, 59, 59, 999).getTime()
+        const nextPeriodDueDate = dueDateForPeriod(periodOffset(currentPeriod, 1), tenant.dueDay)
         const nextDueDate = unpaidCharge?.dueDate ?? (currentCharge?.status === "paid" ? nextPeriodDueDate : currentCharge?.dueDate ?? nextPeriodDueDate)
         return { tenant, property, room, currentCharge: currentCharge ?? null, nextDueDate, unpaidCount: charges.filter((charge) => charge.status === "unpaid").length }
       }))
@@ -53,7 +50,7 @@ export const getTenantForPayment = query({
     const depositAmount = room.depositFee ?? 0
     const initialTotal = room.monthlyRent + depositAmount
     const isSettlement = Boolean(settlementBooking)
-    return { tenantId: tenant._id, name: tenant.name, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent, depositAmount, initialTotal, dpPaid: settlementBooking?.depositAmount ?? 0, bookingId: settlementBooking?._id, isSettlement, isFirstPayment: !hasInitialPayment && !isSettlement, amountDue: isSettlement ? Math.max(initialTotal - (settlementBooking?.depositAmount ?? 0), 0) : hasInitialPayment ? room.monthlyRent : initialTotal, dueDate: settlementBooking?.settlement_deadline ?? unpaidCharge?.dueDate ?? Date.now() + 30 * 24 * 60 * 60 * 1000, period: unpaidCharge?.period ?? periodOf(new Date(Date.now())) }
+    return { tenantId: tenant._id, name: tenant.name, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent, depositAmount, initialTotal, dpPaid: settlementBooking?.depositAmount ?? 0, bookingId: settlementBooking?._id, isSettlement, isFirstPayment: !hasInitialPayment && !isSettlement, amountDue: isSettlement ? Math.max(initialTotal - (settlementBooking?.depositAmount ?? 0), 0) : hasInitialPayment ? room.monthlyRent : initialTotal, dueDate: settlementBooking?.settlement_deadline ?? unpaidCharge?.dueDate ?? Date.now() + 30 * 24 * 60 * 60 * 1000, period: unpaidCharge?.period ?? periodOf(Date.now()) }
   },
 })
 
@@ -74,7 +71,7 @@ export const submitRentPayment = mutation({
     if (!Number.isFinite(args.amount) || args.amount <= 0) throw new Error("Nominal pembayaran belum valid.")
     const payments = await ctx.db.query("payments").withIndex("by_tenant_and_paid_at", (q) => q.eq("tenantId", tenant._id)).take(100)
     const hasInitialPayment = payments.some((payment) => payment.status === "confirmed" && (payment.purpose === "pelunasan" || payment.paymentType === "full"))
-    const paymentId = await ctx.db.insert("payments", { propertyId: property._id, tenantId: tenant._id, roomId: tenant.roomId, amount: args.amount, paymentType: "full", purpose: booking ? "pelunasan" : hasInitialPayment ? "sewa_bulanan" : "pelunasan", bookingId: booking?._id, paidAt: Date.now(), dueDate: args.dueDate, billingPeriod: args.billingPeriod, status: "pending_review", proofStorageId: args.proofStorageId })
+    const paymentId = await ctx.db.insert("payments", { propertyId: property._id, tenantId: tenant._id, roomId: tenant.roomId, amount: args.amount, paymentType: "full", purpose: booking ? "pelunasan" : hasInitialPayment ? "sewa_bulanan" : "pelunasan", bookingId: booking?._id, paidAt: Date.now(), dueDate: args.dueDate, billingPeriod: args.billingPeriod, status: "pending_review", proofStorageId: args.proofStorageId, origin: "registration" })
     await ctx.db.insert("notification_log", { ownerId: property.ownerId, propertyId: property._id, tenantId: tenant._id, type: "payment_uploaded", channel: "log_only", occurredOn: new Date().toISOString().slice(0, 10), status: "logged", payload: JSON.stringify({ paymentId, tenantName: tenant.name }) })
     await ctx.scheduler.runAfter(0, internal.bots.delivery.sendPaymentUploaded, { paymentId })
     await ctx.scheduler.runAfter(0, internal.bots.delivery.sendTenantPaymentPendingNotice, { paymentId })

@@ -8,9 +8,11 @@ import { PageLoader } from "@/components/botkos/page-loader"
 
 export default function AdminReportsPage() {
   const reports = useQuery(api.reports.listOpen)
+  const propertyReports = useQuery(api.reports.listPropertyReports, {})
   const updateStatus = useMutation(api.reports.updateStatus)
+  const setSuspension = useMutation(api.reports.adminSetPropertySuspension)
   const [error, setError] = useState<string | null>(null)
-  if (!reports) {
+  if (!reports || !propertyReports) {
     return (
       <PageLoader
         variant="inline"
@@ -24,6 +26,11 @@ export default function AdminReportsPage() {
     setError(null)
     try { await updateStatus({ reportId, status }) } catch (cause) { setError(cause instanceof Error ? cause.message : "Status gagal diubah.") }
   }
+  const suspend = async (propertyId: typeof propertyReports.reports[number]["propertyId"], suspended: boolean) => {
+    if (!propertyId) return
+    setError(null)
+    try { await setSuspension({ propertyId, suspended }) } catch (cause) { setError(cause instanceof Error ? cause.message : "Status publik gagal diubah.") }
+  }
 
   return (
     <div>
@@ -33,6 +40,10 @@ export default function AdminReportsPage() {
       <section className="mt-9">
         <div className="flex items-end justify-between border-b border-[var(--line)] pb-4"><div><p className="text-sm text-[var(--ink-muted)]">Daftar tindak lanjut</p><h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-[var(--ink)]">Laporan masuk</h2></div><span className="font-mono text-sm text-[var(--warn)]">{reports.length} item</span></div>
         <div className="mt-5 space-y-3">{reports.length ? reports.map((report) => <article key={report._id} className="border border-[var(--line)] bg-white p-5 shadow-sm"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm leading-6 text-[var(--ink)]">{report.description}</p><p className="mt-3 font-mono text-xs text-[var(--ink-muted)]">Dibuat {new Date(report._creationTime).toLocaleDateString("id-ID")}</p></div><span className="status-pill status-overdue shrink-0">Terbuka</span></div><div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => void update(report._id, "reviewed")} className="button-secondary">Tandai reviewed</button><button type="button" onClick={() => void update(report._id, "resolved")} className="button-primary">Selesaikan</button></div></article>) : <EmptyState title="Tidak ada laporan terbuka" description="Semua laporan sudah ditindaklanjuti. Tidak ada pekerjaan baru untuk admin." />}</div>
+      </section>
+      <section className="mt-12">
+        <div className="flex items-end justify-between border-b border-[var(--line)] pb-4"><div><p className="text-sm text-[var(--ink-muted)]">Sinyal anonim</p><h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-[var(--ink)]">Laporan properti publik</h2></div><span className="font-mono text-sm text-[var(--warn)]">{propertyReports.counts.total} terbuka · {propertyReports.counts.priority} prioritas</span></div>
+        <div className="mt-5 space-y-3">{propertyReports.reports.length ? propertyReports.reports.map((report) => <article key={report.id} className="border border-[var(--line)] bg-white p-5 shadow-sm"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="font-semibold text-[var(--ink)]">{report.propertyName}</p><p className="mt-1 text-sm text-[var(--ink-muted)]">{report.reason}{report.note ? ` · ${report.note}` : ""}</p><p className="mt-2 font-mono text-xs text-[var(--ink-muted)]">{new Date(report.createdAt).toLocaleString("id-ID")}</p></div>{report.flaggedForAdmin ? <span className="status-pill status-overdue">Prioritas</span> : null}</div><div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => void suspend(report.propertyId, true)} className="button-secondary">Tangguhkan publik</button>{report.suspended ? <button type="button" onClick={() => void suspend(report.propertyId, false)} className="button-primary">Pulihkan publik</button> : null}</div></article>) : <EmptyState title="Tidak ada laporan properti" description="Belum ada laporan properti publik yang terbuka." />}</div>
       </section>
     </div>
   )

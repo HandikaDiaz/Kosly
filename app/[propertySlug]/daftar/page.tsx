@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useParams, useSearchParams } from "next/navigation"
-import { useQuery } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -66,10 +66,20 @@ export default function PublicRegistrationPage() {
   const params = useParams<{ propertySlug: string }>()
   const searchParams = useSearchParams()
   const applicationCode = searchParams.get("pj") ?? undefined
-  const property = useQuery(api.properties.getPublicBySlug, { slug: params.propertySlug })
+  const property = useQuery(api.properties.getPublicBySlug, { slug: params.propertySlug, ...(applicationCode ? { applicationCode } : {}) })
+  const recordHintLookup = useMutation(api.publicRegistration.recordRegistrationHintLookup)
+  const [hintLookupAllowed, setHintLookupAllowed] = useState(!applicationCode)
+  const registrationHint = useQuery(api.publicRegistration.getRegistrationHint, hintLookupAllowed && applicationCode ? { registrationSlug: params.propertySlug, applicationCode } : "skip")
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; caption?: string } | null>(null)
   const [selectedRoomId, setSelectedRoomId] = useState<string>("")
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!applicationCode) return
+    let active = true
+    void recordHintLookup().then((allowed) => { if (active) setHintLookupAllowed(allowed) }).catch(() => { if (active) setHintLookupAllowed(false) })
+    return () => { active = false }
+  }, [applicationCode, recordHintLookup])
 
   // Auto select first room
   useEffect(() => {
@@ -77,6 +87,10 @@ export default function PublicRegistrationPage() {
       setSelectedRoomId(property.rooms[0]._id)
     }
   }, [property?.rooms, selectedRoomId])
+
+  useEffect(() => {
+    if (registrationHint?.valid) setSelectedRoomId(registrationHint.roomId)
+  }, [registrationHint])
 
   const propertyGender = useMemo(() => {
     if (!property?.rooms.length) return null
@@ -631,7 +645,7 @@ export default function PublicRegistrationPage() {
             {/* 3. Ketentuan & Keamanan Pemesanan */}
             <section className="rounded-2xl border border-[var(--line)] bg-[#FFFFFF] p-6 sm:p-7 shadow-xs space-y-4">
               <h2 className="text-xl font-bold tracking-tight text-[var(--ink)]">
-                Jaminan Transaksi Aman
+                Informasi Transaksi
               </h2>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="rounded-xl border border-[var(--line)]/60 bg-[#FCFBF9] p-4 space-y-2">
@@ -701,14 +715,23 @@ export default function PublicRegistrationPage() {
             {!property.ownerIdentityVerified ? (
               <IdentityVerificationNotice action="pendaftaran" />
             ) : property.rooms.length > 0 ? (
-              <RegistrationForm
-                propertyName={property.name}
-                slug={property.slug}
-                rooms={property.rooms}
-                selectedRoomId={selectedRoomId}
-                onSelectRoom={(roomId) => setSelectedRoomId(roomId)}
-                applicationCode={applicationCode}
-              />
+              <>
+                {registrationHint?.valid ? <div className="border border-[var(--wood)] bg-[#fff8e8] p-4 text-sm leading-6 text-[var(--ink)]">
+                  Melanjutkan pengajuan <strong>{applicationCode}</strong> untuk
+                  <strong> Kamar {registrationHint.roomLabel}</strong> di
+                  <strong> {registrationHint.kosName}</strong>.
+                  <p className="mt-2 text-xs text-[var(--ink-muted)]">Transfer hanya ke pemilik kos yang sudah kamu hubungi. Pastikan nama rekening sesuai. BotKos tidak memproses pembayaran dan tidak pernah meminta transfer ke rekening BotKos.</p>
+                </div> : null}
+                <RegistrationForm
+                  propertyName={property.name}
+                  slug={property.slug}
+                  rooms={property.rooms}
+                  selectedRoomId={selectedRoomId}
+                  onSelectRoom={(roomId) => setSelectedRoomId(roomId)}
+                  applicationCode={applicationCode}
+                  lockedRoomId={registrationHint?.valid ? registrationHint.roomId : undefined}
+                />
+              </>
             ) : (
               <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[#FFFFFF] p-8 text-center text-sm text-[var(--ink-muted)]">
                 Belum ada kamar yang tersedia saat ini.

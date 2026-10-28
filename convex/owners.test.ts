@@ -5,7 +5,7 @@ import schema from "./schema"
 
 const modules = import.meta.glob("./**/*.ts")
 
-test("onboarding rejects fewer than three property photos", async () => {
+test("onboarding rejects duplicate property photos", async () => {
   const t = convexTest(schema, modules)
   const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "photo@example.com" }))
   const owner = t.withIdentity({ tokenIdentifier: "photo-owner", subject: userId, email: "photo@example.com" })
@@ -19,7 +19,7 @@ test("onboarding rejects fewer than three property photos", async () => {
     slug: "kos-test",
     rooms: [],
     propertyPhotoStorageIds: [photoId, photoId],
-  })).rejects.toThrow("Minimal 3 foto kos wajib diunggah.")
+  })).rejects.toThrow("Foto kos tidak boleh duplikat.")
 })
 
 test("login ulang dengan token berbeda tetap memakai owner yang sama berdasarkan email", async () => {
@@ -35,7 +35,7 @@ test("login ulang dengan token berbeda tetap memakai owner yang sama berdasarkan
   expect(owners).toHaveLength(1)
 })
 
-test("onboarding stores three valid property photos", async () => {
+test("onboarding stores valid property photos", async () => {
   const t = convexTest(schema, modules)
   const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "photo-2@example.com" }))
   const owner = t.withIdentity({ tokenIdentifier: "photo-owner-2", subject: userId, email: "photo-2@example.com" })

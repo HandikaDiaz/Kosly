@@ -2,7 +2,14 @@ import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   async headers() {
-    return [{ source: "/ulasan/:path*", headers: [{ key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] }, { source: "/penghuni/:path*", headers: [{ key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] }, { source: "/rapor/:path*", headers: [{ key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] }]
+    const secureHeaders = [{ key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }]
+    return [
+      { source: "/ulasan/:path*", headers: secureHeaders },
+      { source: "/penghuni/:path*", headers: secureHeaders },
+      { source: "/rapor/:path*", headers: secureHeaders },
+      { source: "/api/penghuni/:path*", headers: secureHeaders },
+      { source: "/api/rapor/:path*", headers: secureHeaders },
+    ]
   },
   images: {
     remotePatterns: [

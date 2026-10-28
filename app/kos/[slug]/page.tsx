@@ -21,10 +21,11 @@ import {
   Sparkles,
   Wifi,
 } from "lucide-react"
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import type { Metadata } from "next"
 import { api } from "@/convex/_generated/api"
-import { buildFaqItems, buildInfoFacts, buildLodgingJsonLd, buildMetaDescription, buildRuleLines, buildTitle } from "@/convex/lib/kosInfoRules"
+import { buildFaqItems, buildInfoFacts, buildLodgingJsonLd, buildMetaDescription, buildRuleLines, buildTitle, serializeJsonLd } from "@/convex/lib/kosInfoRules"
+import { getSiteUrl } from "@/lib/siteUrl"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import {
   VerificationBadgeSlot,
@@ -50,12 +51,13 @@ type PublicKosPageProps = {
 export async function generateMetadata({ params }: PublicKosPageProps): Promise<Metadata> {
   const { slug } = await params
   const property = await fetchQuery(api.properties.getPublishedKosBySlug, { slug })
-  if (!property) return { title: "Kos tidak ditemukan | BotKos" }
+  if (!property) return { title: "Kos tidak ditemukan | BotKos", robots: { index: false, follow: false } }
   const view = { ...property, publicKosType: property.kosType as "putra" | "putri" | "campur" | undefined, publicRules: property.rules as Parameters<typeof buildRuleLines>[0] }
   const title = buildTitle(view)
   const description = buildMetaDescription(view)
-  const canonical = `/kos/${property.publicSlug}`
-  return { title, description, alternates: { canonical }, openGraph: { title, description, url: canonical, type: "website" }, twitter: { card: "summary", title, description } }
+  const canonical = `${getSiteUrl()}/kos/${property.publicSlug}`
+  const image = property.photos?.[0]?.url
+  return { title, description, alternates: { canonical }, openGraph: { title, description, url: canonical, type: "website", ...(image ? { images: [image] } : {}) }, twitter: { card: "summary", title, description, ...(image ? { images: [image] } : {}) } }
 }
 
 const facilityIcons = [Wifi, Car, Bath, BedDouble, Sparkles, ShieldCheck]
@@ -66,7 +68,11 @@ export default async function PublicKosPage({ params }: PublicKosPageProps) {
     slug,
   })
 
-  if (!property) notFound()
+  if (!property) {
+    const redirect = await fetchQuery(api.properties.resolvePublishedSlug, { slug })
+    if (redirect) permanentRedirect(`/kos/${redirect.slug}`)
+    notFound()
+  }
 
   const initialReviews = await fetchQuery(api.reviews.listPublishedReviews, {
     slug,
@@ -108,7 +114,7 @@ export default async function PublicKosPage({ params }: PublicKosPageProps) {
   const availableRoomsCount = rooms.filter((r) => r.isAvailable).length
   const infoFacts = buildInfoFacts({ ...property, publicKosType: property.kosType as "putra" | "putri" | "campur" | undefined, publicRules: property.rules as Parameters<typeof buildRuleLines>[0], publicLandmarks: property.landmarks })
   const faqItems = buildFaqItems({ ...property, publicKosType: property.kosType as "putra" | "putri" | "campur" | undefined, publicRules: property.rules as Parameters<typeof buildRuleLines>[0], publicLandmarks: property.landmarks })
-  const jsonLd = { ...buildLodgingJsonLd({ ...property, publicRules: property.rules as Parameters<typeof buildRuleLines>[0], facilities: property.facilities }), url: `/kos/${property.publicSlug}` }
+  const jsonLd = { ...buildLodgingJsonLd({ ...property, publicAddress: property.address, publicShowFullAddress: property.publicShowFullAddress, publicRules: property.rules as Parameters<typeof buildRuleLines>[0], facilities: property.facilities }), url: `${getSiteUrl()}/kos/${property.publicSlug}` }
 
   return (
     <div className="min-h-svh bg-[var(--background)] text-[var(--ink)] pb-28 sm:pb-16 flex flex-col">
@@ -212,9 +218,22 @@ export default async function PublicKosPage({ params }: PublicKosPageProps) {
                   <span>Tanya Telegram</span>
                 </a>
               )}
+              <p className="text-[11px] leading-5 text-[var(--warn)]">Jangan transfer DP sebelum kamu memastikan kos dan pemiliknya. BotKos tidak memproses pembayaran dan tidak pernah meminta transfer ke rekening BotKos.</p>
             </div>
           </div>
         </div>
+
+        <section aria-labelledby="tentang-pemilik" className="mt-8 rounded-3xl border border-[var(--line)] bg-[#FFFFFF] p-6 shadow-sm sm:p-8">
+          <h2 id="tentang-pemilik" className="text-xl font-bold tracking-tight">Tentang pemilik</h2>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {property.ownerTrust.identityVerified && <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">Identitas pemilik ditinjau BotKos{property.ownerTrust.identityVerifiedMonth ? ` (${new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(new Date(`${property.ownerTrust.identityVerifiedMonth}-01`))})` : ""}</span>}
+            {property.ownerTrust.propertyDocsReviewed && <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800">Dokumen properti ditinjau</span>}
+          </div>
+          <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-xs text-[var(--ink-muted)]">Bergabung di BotKos sejak</dt><dd className="font-semibold">{new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(new Date(`${property.ownerTrust.joinedMonth}-01`))}</dd></div>{property.ownerTrust.tenancyDisplay ? <div><dt className="text-xs text-[var(--ink-muted)]">Catatan masa tinggal</dt><dd className="font-semibold">{property.ownerTrust.tenancyDisplay} masa tinggal tercatat</dd></div> : null}{property.ownerTrust.responseBucketLabel ? <div><dt className="text-xs text-[var(--ink-muted)]">Respons pengajuan</dt><dd className="font-semibold">Biasanya menanggapi pengajuan: {property.ownerTrust.responseBucketLabel}</dd></div> : null}</dl>
+          <details className="mt-5 rounded-xl border border-[var(--line)] p-4"><summary className="cursor-pointer text-sm font-semibold">Apa yang kami periksa dan tidak</summary><div className="mt-3 grid gap-4 text-xs leading-5 text-[var(--ink-muted)] sm:grid-cols-2"><div><p className="font-semibold text-[var(--ink)]">DIPERIKSA</p><ul className="mt-1 list-disc pl-4"><li>Lokasi, bila status lokasi terverifikasi.</li>{property.ownerTrust.identityVerified ? <li>Identitas pemilik.</li> : null}<li>Ulasan hanya dari penghuni yang tercatat tinggal.</li></ul></div><div><p className="font-semibold text-[var(--ink)]">TIDAK DIPERIKSA</p><ul className="mt-1 list-disc pl-4"><li>Kondisi nyata kos dan kesesuaian foto, harga, atau aturan.</li><li>Kepemilikan properti, kecuali chip dokumen properti tampil.</li><li>Pembayaran apa pun.</li></ul></div></div></details>
+          {property.reviewCount === 0 ? <p className="mt-5 text-sm text-[var(--ink-muted)]">Kos baru di BotKos, belum ada ulasan.</p> : null}
+          <Link href={`/kos/${property.publicSlug}/lapor`} className="mt-5 inline-block text-sm font-semibold text-[var(--wood)] underline">Laporkan kos ini</Link>
+        </section>
 
         <section aria-labelledby="info-singkat" className="mt-8 rounded-3xl border border-[var(--line)] bg-[#FFFFFF] p-6 shadow-sm sm:p-8">
           <h2 id="info-singkat" className="text-xl font-bold tracking-tight">Info singkat</h2>
@@ -226,7 +245,7 @@ export default async function PublicKosPage({ params }: PublicKosPageProps) {
 
         {related.length && property.publicAreaLabel ? <section aria-labelledby="kos-lain" className="mt-8 rounded-3xl border border-[var(--line)] bg-[#FFFFFF] p-6 shadow-sm sm:p-8"><h2 id="kos-lain" className="text-xl font-bold tracking-tight">Kos lain di {property.publicAreaLabel}</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{related.map((item) => <Link key={item.slug} href={`/kos/${item.slug}`} className="rounded-xl border border-[var(--line)] p-4 hover:border-[var(--wood)]"><p className="font-semibold">{item.name}</p>{item.hargaMulai !== undefined ? <p className="mt-1 text-sm text-[var(--wood)]">Mulai {formatRupiah(item.hargaMulai)}/bulan</p> : null}{item.isLocationVerified ? <p className="mt-2 text-xs text-emerald-700">Lokasi terverifikasi</p> : null}</Link>)}</div></section> : null}
 
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
 
         {/* ── Photo Gallery Section ── */}
         <div className="mt-8">
@@ -258,7 +277,7 @@ export default async function PublicKosPage({ params }: PublicKosPageProps) {
                   Fasilitas Umum & Sekitar
                 </h2>
                 <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {property.facilities.map((facility, index) => {
+                    {property.facilities.map((facility: (typeof property.facilities)[number], index: number) => {
                     const Icon = facilityIcons[index % facilityIcons.length]
                     return (
                       <li
@@ -498,7 +517,7 @@ export default async function PublicKosPage({ params }: PublicKosPageProps) {
                     Tempat Terdekat &amp; Jarak Akses
                   </h3>
                   <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-                    {property.landmarks.map((landmark, idx) => (
+                    {property.landmarks.map((landmark: NonNullable<typeof property.landmarks>[number], idx: number) => (
                       <div
                         key={`${landmark.name}-${idx}`}
                         className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--background)] px-3.5 py-2.5 text-xs"
@@ -639,7 +658,7 @@ export default async function PublicKosPage({ params }: PublicKosPageProps) {
 
       {/* ── Cohesive Footer ── */}
       <footer className="mt-auto border-t border-[var(--line)] bg-[#FFFFFF] px-4 py-6 text-center text-xs text-[var(--ink-muted)]">
-        <p>BotKos — Sistem Manajemen Kos & Komunitas Terpercaya</p>
+                <p>BotKos — Pencatatan kos dan penyewa yang rapi</p>
       </footer>
     </div>
   )

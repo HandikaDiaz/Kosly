@@ -62,8 +62,8 @@ export const sendTenantPaymentPendingNotice = internalAction({
         ? await sendWhatsAppImage(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, phoneNumber, review.proofUrl, text)
         : await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, phoneNumber, text)
       return { delivered: result.messages?.length ? 1 : 0 }
-    } catch (error) {
-      console.error("Gagal mengirim konfirmasi penerimaan pembayaran ke tenant:", error)
+    } catch {
+      console.error("Gagal mengirim konfirmasi penerimaan pembayaran ke tenant")
       return { delivered: 0 }
     }
   },
@@ -95,8 +95,8 @@ export const sendPaymentDecisionNotice = internalAction({
           await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, text)
           delivered += 1
         }
-      } catch (error) {
-        console.error("Gagal mengirim sinkronisasi keputusan pembayaran:", error)
+      } catch {
+        console.error("Gagal mengirim sinkronisasi keputusan pembayaran")
       }
     }
     const tenantPhone = review.tenantPhone.replace(/\D/g, "")
@@ -107,8 +107,8 @@ export const sendPaymentDecisionNotice = internalAction({
       try {
         const result = await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, tenantPhone, tenantText)
         if (result.messages?.length) delivered += 1
-      } catch (error) {
-        console.error("Gagal mengirim hasil verifikasi pembayaran ke tenant:", error)
+      } catch {
+        console.error("Gagal mengirim hasil verifikasi pembayaran ke tenant")
       }
     }
     return { delivered }
@@ -131,8 +131,8 @@ export const sendReminderNotice = internalAction({
           await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, args.text)
           delivered += 1
         }
-      } catch (err) {
-        console.error("Gagal kirim notifikasi reminder:", err)
+      } catch {
+        console.error("Gagal kirim notifikasi reminder")
       }
     }
     return { delivered }
@@ -155,8 +155,8 @@ export const sendSupportTicketReplyNotice = internalAction({
           await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, `🔑 *Admin BotKos membalas tiket Anda*\n\nSubjek: ${args.subject}\n\n${args.message}`)
           delivered += 1
         }
-      } catch (error) {
-        console.error("Gagal mengirim notifikasi balasan tiket:", error)
+      } catch {
+        console.error("Gagal mengirim notifikasi balasan tiket")
       }
     }
     return { delivered }
@@ -245,8 +245,8 @@ export const sendAdminQueueNotice = internalAction({
           await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, link.chatId, args.text)
           delivered += 1
         }
-      } catch (error) {
-        console.error("Gagal mengirim antrean admin:", error)
+      } catch {
+        console.error("Gagal mengirim antrean admin")
       }
     }
     return { delivered }

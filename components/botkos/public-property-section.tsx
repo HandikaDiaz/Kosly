@@ -3,6 +3,7 @@
 import { Copy, Eye, EyeOff, Save } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery } from "convex/react"
+import { getSiteUrl } from "@/lib/siteUrl"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { LANDMARK_DISTANCE_MAX_M, LANDMARK_DISTANCE_MIN_M, MAX_LANDMARKS, type PublicRules } from "@/convex/lib/kosInfoRules"
@@ -66,11 +67,7 @@ export function PublicPropertySection({
         .length,
     [photos, selectedPhotoIds]
   )
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (typeof window !== "undefined"
-      ? window.location.origin
-      : "https://domain-anda.com")
+  const baseUrl = getSiteUrl()
   const previewSlug = slug || "slug-kos-anda"
   const previewUrl = `${baseUrl.replace(/\/$/, "")}/kos/${previewSlug}`
 

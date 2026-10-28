@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { buildFaqItems, buildLodgingJsonLd, buildMetaDescription, buildRuleLines, buildTitle, cleanLandmarkName, formatLandmarkDistance, validateLandmark } from "./kosInfoRules"
+import { buildFaqItems, buildLodgingJsonLd, buildMetaDescription, buildRuleLines, buildTitle, cleanLandmarkName, formatLandmarkDistance, serializeJsonLd, validateLandmark } from "./kosInfoRules"
 
 describe("kos info rules", () => {
   test("cleans and rejects unsafe landmarks", () => {
@@ -21,5 +21,18 @@ describe("kos info rules", () => {
     expect(jsonLd).toMatchObject({ petsAllowed: true, amenityFeature: [{ name: "WiFi" }] })
     expect(jsonLd).not.toHaveProperty("aggregateRating")
     expect(jsonLd).not.toHaveProperty("review")
+  })
+
+  test("keeps JSON-LD fields conditional and escapes script delimiters", () => {
+    const jsonLd = buildLodgingJsonLd({ name: "Kos </script>", publicAreaLabel: "Dago", publicShowPrice: false, publicShowFullAddress: false, publicAddress: "Jalan Rahasia" })
+    expect(jsonLd).not.toHaveProperty("address")
+    expect(jsonLd).not.toHaveProperty("priceRange")
+    expect(jsonLd).not.toHaveProperty("offers")
+    expect(jsonLd).not.toHaveProperty("geo")
+    expect(jsonLd).not.toHaveProperty("aggregateRating")
+    expect(jsonLd).not.toHaveProperty("review")
+    expect(jsonLd).not.toHaveProperty("FAQPage")
+    expect(serializeJsonLd(jsonLd)).not.toContain("</script>")
+    expect(serializeJsonLd(jsonLd)).toContain("\\u003C/script>")
   })
 })

@@ -85,7 +85,7 @@ export const sendApplicationOwnerNotice = internalAction({
       try {
         if (link.channel === "telegram" && botEnv.TELEGRAM_BOT_TOKEN) await sendTelegramText(botEnv.TELEGRAM_BOT_TOKEN, link.chatId, args.text, { parseMode: "HTML" })
         if (link.channel === "whatsapp") await ctx.runAction(internal.whatsappDelivery.sendWhatsAppNotification, { toPhoneE164: link.chatId, kind: args.kind, params: args.params, fallbackText: args.text, idempotencyKey: `application:${args.applicationId}:${args.kind}` })
-      } catch (error) { console.error("Gagal mengirim notifikasi pengajuan ke pemilik", error) }
+      } catch { console.error("Gagal mengirim notifikasi pengajuan ke pemilik") }
     }
     return null
   },
@@ -98,6 +98,7 @@ export const sendApplicationTenantNotice = internalAction({
     text: v.string(),
     kind: v.optional(v.union(v.literal("tenant_application_accepted"), v.literal("tenant_application_update"), v.literal("tenant_hold_reminder"))),
     params: v.optional(v.record(v.string(), v.string())),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const route = resolveTenantReplyRoute(args.application)
@@ -110,7 +111,7 @@ export const sendApplicationTenantNotice = internalAction({
         if (!botEnv.TELEGRAM_BOT_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN belum dikonfigurasi.")
         await sendTelegramText(botEnv.TELEGRAM_BOT_TOKEN, route.address, markdownToTelegramHtml(args.text), { parseMode: "HTML" })
       } else {
-        const result = await ctx.runAction(internal.whatsappDelivery.sendWhatsAppNotification, { toPhoneE164: route.address, kind: notificationKind, params: notificationParams, fallbackText: args.text, idempotencyKey: `application:${args.applicationId}:${notificationKind}` })
+        const result = await ctx.runAction(internal.whatsappDelivery.sendWhatsAppNotification, { toPhoneE164: route.address, kind: notificationKind, params: notificationParams, fallbackText: args.text, idempotencyKey: args.idempotencyKey ?? `application:${args.applicationId}:${notificationKind}` })
         if (!result.ok) throw new Error(result.errorCode ?? "Pengiriman gagal.")
       }
       return { delivered: true, skipped: false }

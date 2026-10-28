@@ -12,9 +12,19 @@ type MultiImageUploadFieldProps = {
   minFiles?: number
   maxSizeMB?: number
   error?: string | null
+  required?: boolean
 }
 
-export function MultiImageUploadField({ label, hint, files, onChange, minFiles = 3, maxSizeMB = 5, error }: MultiImageUploadFieldProps) {
+export function MultiImageUploadField({
+  label,
+  hint,
+  files,
+  onChange,
+  minFiles = 3,
+  maxSizeMB = 5,
+  error,
+  required = true,
+}: MultiImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [internalError, setInternalError] = useState<string | null>(null)
   const previewUrls = files.map((file) => ({ file, url: URL.createObjectURL(file) }))
@@ -35,20 +45,67 @@ export function MultiImageUploadField({ label, hint, files, onChange, minFiles =
     if (inputRef.current) inputRef.current.value = ""
   }
 
-  return <div className="space-y-2">
-    <FieldLabel label={label} hint={hint} required />
-    <input ref={inputRef} type="file" accept="image/*" multiple className="sr-only" onChange={(event) => selectFiles(event.target.files)} />
-    <div className="grid gap-3 sm:grid-cols-3">
-      {previewUrls.map(({ file, url }, index) => <div key={`${file.name}-${file.lastModified}`} className="relative border border-[var(--line)] bg-[#fffefa] p-2">
-        <img src={url} alt={`Pratinjau foto kos ${index + 1}`} className="h-28 w-full object-cover" />
-        <p className="mt-1 truncate text-xs text-[var(--ink-muted)]">{file.name}</p>
-        <div className="mt-1 flex gap-2 text-xs"><button type="button" onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-1 text-[var(--wood)]"><RefreshCw size={12} />Ganti</button><button type="button" onClick={() => onChange(files.filter((_, itemIndex) => itemIndex !== index))} className="inline-flex items-center gap-1 text-[var(--warn)]"><X size={12} />Hapus</button></div>
-      </div>)}
+  return (
+    <div className="space-y-2">
+      <FieldLabel label={label} hint={hint} required={required} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="sr-only"
+        onChange={(event) => selectFiles(event.target.files)}
+      />
+      {previewUrls.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {previewUrls.map(({ file, url }, index) => (
+            <div key={`${file.name}-${file.lastModified}-${index}`} className="relative rounded-xl border border-[var(--line)] bg-[#fffefa] p-2">
+              <img src={url} alt={`Pratinjau foto kos ${index + 1}`} className="h-28 w-full rounded-lg object-cover" />
+              <p className="mt-1.5 truncate text-xs font-medium text-[var(--ink-muted)]">{file.name}</p>
+              <div className="mt-1 flex gap-3 text-xs">
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="inline-flex items-center gap-1 font-semibold text-[var(--wood)] hover:underline"
+                >
+                  <RefreshCw size={12} />
+                  Ganti
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChange(files.filter((_, itemIndex) => itemIndex !== index))}
+                  className="inline-flex items-center gap-1 font-semibold text-[var(--warn)] hover:underline"
+                >
+                  <X size={12} />
+                  Hapus
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--line)] bg-[#fffdfa] p-5 text-center transition-colors hover:border-[var(--wood)] hover:bg-[#fff9ed]"
+      >
+        <Upload size={18} className="text-[var(--wood)]" />
+        <span className="text-sm font-semibold text-[var(--ink)]">Pilih Foto Kos</span>
+        <span className="text-xs text-[var(--ink-muted)]">
+          {minFiles > 0 ? `Minimal ${minFiles} foto · ` : "Opsional · "}JPG, PNG, atau WebP · Maksimal {maxSizeMB} MB per foto
+        </span>
+      </button>
+      {minFiles > 0 && (
+        <p className={`text-xs ${files.length >= minFiles ? "text-emerald-700" : "text-[var(--ink-muted)]"}`}>
+          {files.length}/{minFiles} foto minimum
+        </p>
+      )}
+      {displayError && (
+        <p role="alert" className="flex items-center gap-1.5 text-xs text-[var(--warn)]">
+          <AlertCircle size={13} />
+          {displayError}
+        </p>
+      )}
     </div>
-    <button type="button" onClick={() => inputRef.current?.click()} className="flex w-full cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed border-[var(--line)] p-6 text-center hover:border-[var(--wood)]">
-      <Upload size={18} className="text-[var(--wood)]" /><span className="text-sm font-medium text-[var(--ink)]">Pilih foto kos</span><span className="text-xs text-[var(--ink-muted)]">Minimal {minFiles} foto · JPG, PNG, atau WebP · Maksimal {maxSizeMB} MB per foto</span>
-    </button>
-    <p className={`text-xs ${files.length >= minFiles ? "text-emerald-700" : "text-[var(--ink-muted)]"}`}>{files.length}/{minFiles} foto minimum</p>
-    {displayError && <p role="alert" className="flex items-center gap-1.5 text-xs text-[var(--warn)]"><AlertCircle size={13} />{displayError}</p>}
-  </div>
+  )
 }

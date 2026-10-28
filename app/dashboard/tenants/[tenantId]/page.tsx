@@ -20,12 +20,14 @@ export default function TenantDetailPage() {
   const setLifecycleStatus = useMutation(api.tenants.setLifecycleStatus)
   const handleOverdueFlag = useMutation(api.tenants.handleOverdueFlag)
   const setDepositRefundStatus = useMutation(api.tenants.setDepositRefundStatus)
+  const updateDueDay = useMutation(api.tenants.updateTenantDueDay)
 
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [moveOutInput, setMoveOutInput] = useState<string>("")
   const [showMoveOutForm, setShowMoveOutForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [dueDayInput, setDueDayInput] = useState<string | null>(null)
 
   if (!tenant || !payments) {
     return (
@@ -104,6 +106,7 @@ export default function TenantDetailPage() {
   const flaggedFormatted = tenant.flagged_overdue_at ? new Date(tenant.flagged_overdue_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : null
   const lifecycleStatus = tenant.lifecycle_status ?? "active"
   const depositRefundStatus = tenant.deposit_refund_status ?? "pending"
+  const currentDueDay = dueDayInput ?? String(tenant.dueDay)
 
   const saveDepositRefundStatus = async (status: "refunded" | "forfeited") => {
     setError(null)
@@ -138,6 +141,11 @@ export default function TenantDetailPage() {
             </span>
           </div>
         </header>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs">
+          <span className="status-pill status-neutral">{tenant.dataOrigin === "owner_import" ? "Owner import" : "Registrasi"}</span>
+          {tenant.dataOrigin === "owner_import" ? <span className={`status-pill ${tenant.tenantConfirmedAt ? "status-paid" : "status-warning"}`}>{tenant.tenantConfirmedAt ? "Tenant terkonfirmasi" : "Menunggu konfirmasi tenant"}</span> : null}
+          {tenant.payment_type === "bulanan" && tenant.status === "active" ? <label className="status-pill status-neutral">Jatuh tempo <select value={currentDueDay} onChange={async (event) => { const value = Number(event.target.value); setDueDayInput(String(value)); try { await updateDueDay({ tenantId, dueDay: value }); setMessage("Tanggal jatuh tempo diperbarui.") } catch (reason) { setError(reason instanceof Error ? reason.message : "Tanggal jatuh tempo gagal diperbarui.") } }} className="ml-1 bg-transparent font-semibold"><option value="1">1</option>{Array.from({ length: 30 }, (_, index) => <option key={index + 2} value={index + 2}>{index + 2}</option>)}</select></label> : null}
+        </div>
 
         {/* ── Overdue Flag Alert ── */}
         {tenant.flagged_overdue_at && lifecycleStatus !== "moved_out" && (
