@@ -730,6 +730,9 @@ export default function PublicRegistrationPage() {
                   onSelectRoom={(roomId) => setSelectedRoomId(roomId)}
                   applicationCode={applicationCode}
                   lockedRoomId={registrationHint?.valid ? registrationHint.roomId : undefined}
+                  bankName={property.bankName}
+                  bankAccountNumber={property.bankAccountNumber}
+                  bankAccountHolder={property.bankAccountHolder}
                 />
               </>
             ) : (

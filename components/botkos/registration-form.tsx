@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUpRight, CheckCircle2, Info, Lock, ShieldCheck } from "lucide-react"
+import { ArrowUpRight, Check, CheckCircle2, Copy, CreditCard, Info, Lock, ShieldCheck } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
@@ -17,6 +17,9 @@ type RegistrationFormProps = {
   onSelectRoom?: (roomId: string) => void
   applicationCode?: string
   lockedRoomId?: string
+  bankName?: string
+  bankAccountNumber?: string
+  bankAccountHolder?: string
 }
 
 export function RegistrationForm({
@@ -27,8 +30,13 @@ export function RegistrationForm({
   onSelectRoom,
   applicationCode,
   lockedRoomId,
+  bankName,
+  bankAccountNumber,
+  bankAccountHolder,
 }: RegistrationFormProps) {
   const [submitted, setSubmitted] = useState(false)
+  const [copiedAccount, setCopiedAccount] = useState(false)
+  const [copiedAmount, setCopiedAmount] = useState(false)
   const [internalSelectedRoomId, setInternalSelectedRoomId] = useState<string>(
     rooms.length > 0 ? rooms[0]._id : ""
   )
@@ -43,6 +51,22 @@ export function RegistrationForm({
   const handleSelectRoom = (id: string) => {
     setInternalSelectedRoomId(id)
     onSelectRoom?.(id)
+  }
+
+  const handleCopyAccount = () => {
+    if (bankAccountNumber) {
+      void navigator.clipboard.writeText(bankAccountNumber)
+      setCopiedAccount(true)
+      setTimeout(() => setCopiedAccount(false), 2000)
+    }
+  }
+
+  const handleCopyAmount = () => {
+    if (amount) {
+      void navigator.clipboard.writeText(amount)
+      setCopiedAmount(true)
+      setTimeout(() => setCopiedAmount(false), 2000)
+    }
   }
 
   const generateUploadUrl = useMutation(api.publicRegistration.generateUploadUrl)
@@ -391,6 +415,101 @@ export function RegistrationForm({
           />
         </div>
       )}
+
+      {/* ── Rekening Pembayaran Transfer ── */}
+      <div className="rounded-2xl border border-[var(--wood)]/40 bg-[#fffdf8] p-4.5 shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--wood)]/10 text-[var(--wood)]">
+            <CreditCard size={15} />
+          </span>
+          <h3 className="text-sm font-bold text-[var(--ink)]">
+            Rekening Tujuan Transfer
+          </h3>
+        </div>
+
+        {bankAccountNumber ? (
+          <div className="mt-3.5 space-y-3">
+            <div className="rounded-xl border border-[var(--line)] bg-white p-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[var(--ink-muted)]">Bank / Metode</span>
+                <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-bold text-[var(--ink)] uppercase">
+                  {bankName || "Transfer Bank"}
+                </span>
+              </div>
+
+              <div className="mt-2.5 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[11px] text-[var(--ink-muted)]">Nomor Rekening</p>
+                  <p className="font-mono text-base font-bold tracking-wider text-[var(--ink)]">
+                    {bankAccountNumber}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyAccount}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[#fffdfa] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] transition-colors hover:border-[var(--wood)] hover:bg-[#fff7ea]"
+                >
+                  {copiedAccount ? (
+                    <>
+                      <Check size={13} className="text-emerald-600" />
+                      <span className="text-emerald-700">Tersalin</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={13} className="text-[var(--ink-muted)]" />
+                      <span>Salin No. Rek</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {bankAccountHolder && (
+                <div className="mt-2 border-t border-[var(--line)]/60 pt-2 text-xs text-[var(--ink-muted)]">
+                  Atas Nama: <strong className="text-[var(--ink)]">{bankAccountHolder}</strong>
+                </div>
+              )}
+            </div>
+
+            {amount ? (
+              <div className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-white p-3.5">
+                <div>
+                  <p className="text-[11px] text-[var(--ink-muted)]">Nominal yang Ditransfer</p>
+                  <p className="font-mono text-base font-bold text-[var(--wood)]">
+                    Rp {Number(amount).toLocaleString("id-ID")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyAmount}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[#fffdfa] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] transition-colors hover:border-[var(--wood)] hover:bg-[#fff7ea]"
+                >
+                  {copiedAmount ? (
+                    <>
+                      <Check size={13} className="text-emerald-600" />
+                      <span className="text-emerald-700">Tersalin</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={13} className="text-[var(--ink-muted)]" />
+                      <span>Salin Nominal</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : null}
+
+            <p className="text-[11px] leading-relaxed text-[var(--ink-muted)]">
+              💡 <em>Silakan transfer sesuai nominal ke rekening di atas, kemudian unggah bukti transfer di bawah ini.</em>
+            </p>
+          </div>
+        ) : (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900">
+            <p>
+              Nomor rekening kos belum diatur di sistem oleh pemilik. Silakan konfirmasi nomor rekening pembayaran kepada pemilik kos sebelum mengunggah bukti transfer.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* ── 7. Bukti Pembayaran (ImageUploadField with Preview) ── */}
       <div>

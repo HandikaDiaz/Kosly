@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUpRight, CheckCircle2, Search } from "lucide-react"
+import { ArrowUpRight, Check, CheckCircle2, Copy, CreditCard, Search } from "lucide-react"
 import { FormEvent, useState } from "react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
@@ -21,6 +21,8 @@ export function RentPaymentForm({
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [copiedAccount, setCopiedAccount] = useState(false)
+  const [copiedAmount, setCopiedAmount] = useState(false)
 
   const tenant = useQuery(
     api.rentals.getTenantForPayment,
@@ -34,6 +36,22 @@ export function RentPaymentForm({
     setError(null)
     setSubmitted(false)
     setLookupPhone(phone.trim())
+  }
+
+  const handleCopyAccount = () => {
+    if (tenant?.bankAccountNumber) {
+      void navigator.clipboard.writeText(tenant.bankAccountNumber)
+      setCopiedAccount(true)
+      setTimeout(() => setCopiedAccount(false), 2000)
+    }
+  }
+
+  const handleCopyAmount = () => {
+    if (tenant?.amountDue) {
+      void navigator.clipboard.writeText(String(tenant.amountDue))
+      setCopiedAmount(true)
+      setTimeout(() => setCopiedAmount(false), 2000)
+    }
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -98,11 +116,20 @@ export function RentPaymentForm({
         <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
           Bukti Pembayaran Terkirim
         </h2>
-        <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">
-          Pemilik <strong className="text-[var(--ink)]">{propertyName}</strong>{" "}
-          akan memeriksa bukti transfer Anda. Status sewa kamar akan otomatis
-          diperbarui setelah diverifikasi.
+        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ink-muted)]">
+          Terima kasih. Bukti pembayaran Anda untuk <strong>{propertyName}</strong>{" "}
+          telah kami teruskan ke pemilik kos untuk diverifikasi.
         </p>
+        <button
+          type="button"
+          onClick={() => {
+            setSubmitted(false)
+            setProofFile(null)
+          }}
+          className="button-secondary mt-6"
+        >
+          Kirim Bukti Lain
+        </button>
       </div>
     )
   }
@@ -169,6 +196,99 @@ export function RentPaymentForm({
               Periode: {tenant.period} · Jatuh tempo:{" "}
               {new Date(tenant.dueDate).toLocaleDateString("id-ID")}
             </p>
+          </div>
+
+          {/* Rekening Tujuan Pembayaran Card */}
+          <div className="rounded-2xl border border-[var(--wood)]/40 bg-[#fffdf8] p-5 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--wood)]/10 text-[var(--wood)]">
+                <CreditCard size={15} />
+              </span>
+              <h3 className="text-sm font-bold text-[var(--ink)]">
+                Rekening Tujuan Pembayaran
+              </h3>
+            </div>
+
+            {tenant.bankAccountNumber ? (
+              <div className="mt-4 space-y-3">
+                <div className="rounded-xl border border-[var(--line)] bg-white p-3.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[var(--ink-muted)]">Bank / Metode</span>
+                    <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-bold text-[var(--ink)] uppercase">
+                      {tenant.bankName || "Transfer Bank"}
+                    </span>
+                  </div>
+
+                  <div className="mt-2.5 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-[11px] text-[var(--ink-muted)]">Nomor Rekening</p>
+                      <p className="font-mono text-base font-bold tracking-wider text-[var(--ink)]">
+                        {tenant.bankAccountNumber}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyAccount}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[#fffdfa] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] transition-colors hover:border-[var(--wood)] hover:bg-[#fff7ea]"
+                    >
+                      {copiedAccount ? (
+                        <>
+                          <Check size={13} className="text-emerald-600" />
+                          <span className="text-emerald-700">Tersalin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={13} className="text-[var(--ink-muted)]" />
+                          <span>Salin No. Rek</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {tenant.bankAccountHolder && (
+                    <div className="mt-2 border-t border-[var(--line)]/60 pt-2 text-xs text-[var(--ink-muted)]">
+                      Atas Nama: <strong className="text-[var(--ink)]">{tenant.bankAccountHolder}</strong>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-white p-3.5">
+                  <div>
+                    <p className="text-[11px] text-[var(--ink-muted)]">Nominal yang Harus Ditransfer</p>
+                    <p className="font-mono text-base font-bold text-[var(--wood)]">
+                      Rp {tenant.amountDue.toLocaleString("id-ID")}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyAmount}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[#fffdfa] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] transition-colors hover:border-[var(--wood)] hover:bg-[#fff7ea]"
+                  >
+                    {copiedAmount ? (
+                      <>
+                        <Check size={13} className="text-emerald-600" />
+                        <span className="text-emerald-700">Tersalin</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={13} className="text-[var(--ink-muted)]" />
+                        <span>Salin Nominal</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <p className="text-[11px] leading-relaxed text-[var(--ink-muted)]">
+                  💡 <em>Silakan transfer sesuai nominal ke rekening di atas, lalu unggah foto resi / tangkapan layar bukti transfer pada formulir di bawah.</em>
+                </p>
+              </div>
+            ) : (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900">
+                <p>
+                  Nomor rekening kos belum diatur di sistem oleh pemilik. Silakan hubungi pemilik kos untuk konfirmasi nomor rekening pembayaran sebelum mengunggah bukti transfer.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 1. Nominal pembayaran */}

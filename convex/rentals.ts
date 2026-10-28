@@ -50,7 +50,7 @@ export const getTenantForPayment = query({
     const depositAmount = room.depositFee ?? 0
     const initialTotal = room.monthlyRent + depositAmount
     const isSettlement = Boolean(settlementBooking)
-    return { tenantId: tenant._id, name: tenant.name, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent, depositAmount, initialTotal, dpPaid: settlementBooking?.depositAmount ?? 0, bookingId: settlementBooking?._id, isSettlement, isFirstPayment: !hasInitialPayment && !isSettlement, amountDue: isSettlement ? Math.max(initialTotal - (settlementBooking?.depositAmount ?? 0), 0) : hasInitialPayment ? room.monthlyRent : initialTotal, dueDate: settlementBooking?.settlement_deadline ?? unpaidCharge?.dueDate ?? Date.now() + 30 * 24 * 60 * 60 * 1000, period: unpaidCharge?.period ?? periodOf(Date.now()) }
+    return { tenantId: tenant._id, name: tenant.name, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent, depositAmount, initialTotal, dpPaid: settlementBooking?.depositAmount ?? 0, bookingId: settlementBooking?._id, isSettlement, isFirstPayment: !hasInitialPayment && !isSettlement, amountDue: isSettlement ? Math.max(initialTotal - (settlementBooking?.depositAmount ?? 0), 0) : hasInitialPayment ? room.monthlyRent : initialTotal, dueDate: settlementBooking?.settlement_deadline ?? unpaidCharge?.dueDate ?? Date.now() + 30 * 24 * 60 * 60 * 1000, period: unpaidCharge?.period ?? periodOf(Date.now()), bankName: property.bankName, bankAccountNumber: property.bankAccountNumber, bankAccountHolder: property.bankAccountHolder }
   },
 })
 

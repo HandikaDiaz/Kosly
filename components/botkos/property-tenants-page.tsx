@@ -6,19 +6,26 @@ import { useParams } from "next/navigation"
 import {
   AlertCircle,
   ArrowRight,
+  Check,
+  CheckCircle2,
   ChevronDown,
+  Copy,
+  CreditCard,
   DoorOpen,
   ExternalLink,
   FileText,
+  Loader2,
   MessageCircle,
   Phone,
   Plus,
+  Send,
   ShieldAlert,
   UserCheck,
   UserPlus,
   Users,
+  X,
 } from "lucide-react"
-import { useQuery } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { RentalApplicationsSection } from "./rental-applications-section"
@@ -34,9 +41,21 @@ export function PropertyTenantsPage() {
   const rooms = useQuery(api.rooms.listForProperty, { propertyId: id })
   const occupiedWithoutTenant = useQuery(api.tenants.getOccupiedRoomsWithoutTenant, { propertyId: id })
   const badges = useQuery(api.dashboard.getPropertyTabBadges, { propertyId: id })
+  const updateBankDetails = useMutation(api.properties.updateBankDetails)
 
   const [showRoomPicker, setShowRoomPicker] = useState(false)
   const [showApplications, setShowApplications] = useState(false)
+
+  // Bank Account Modal States
+  const [showBankModal, setShowBankModal] = useState(false)
+  const [bankName, setBankName] = useState("")
+  const [bankAccountNumber, setBankAccountNumber] = useState("")
+  const [bankAccountHolder, setBankAccountHolder] = useState("")
+  const [savingBank, setSavingBank] = useState(false)
+  const [bankSuccess, setBankSuccess] = useState(false)
+
+  // Copy template state
+  const [copiedTenantId, setCopiedTenantId] = useState<string | null>(null)
 
   if (
     property === undefined ||
@@ -57,8 +76,6 @@ export function PropertyTenantsPage() {
   if (!property) return null
 
   // Rooms that can have a new tenant added:
-  // 1. Available rooms
-  // 2. Occupied rooms that don't have an active tenant record yet
   const activeTenantRoomIds = new Set(
     tenants.filter((t) => t.status === "active").map((t) => t.roomId)
   )
@@ -67,11 +84,57 @@ export function PropertyTenantsPage() {
   )
 
   const activeTenants = tenants.filter((t) => t.status === "active")
-  const inactiveTenants = tenants.filter((t) => t.status !== "active")
+
+  // Generate WhatsApp Invoice Template
+  const getTenantInvoiceText = (tenant: typeof activeTenants[0]) => {
+    const rent = tenant.roomRent ? tenant.roomRent.toLocaleString("id-ID") : "-"
+    const bankInfo = property.bankAccountNumber
+      ? `Bank: ${property.bankName || "Transfer Bank"}\nNo. Rekening: ${property.bankAccountNumber}\nAtas Nama: ${property.bankAccountHolder || "-"}`
+      : "Silakan konfirmasi ke pemilik kos untuk nomor rekening pembayaran."
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://www.botkos.online"
+    const payUrl = `${origin}/${property.slug}/bayar`
+
+    return (
+      `Halo Kak ${tenant.name}, berikut info tagihan sewa Kamar ${tenant.roomNumber} di ${property.name}:\n\n` +
+      `💰 *Nominal Sewa:* Rp ${rent}\n` +
+      `📅 *Jatuh Tempo:* Setiap tanggal ${tenant.dueDay}\n\n` +
+      `🏦 *Rekening Pembayaran:*\n${bankInfo}\n\n` +
+      `📎 *Konfirmasi & Upload Bukti Pembayaran:*\n${payUrl}\n\n` +
+      `Terima kasih! 🙏`
+    )
+  }
+
+  const handleCopyInvoice = (tenant: typeof activeTenants[0]) => {
+    const text = getTenantInvoiceText(tenant)
+    void navigator.clipboard.writeText(text)
+    setCopiedTenantId(tenant._id)
+    setTimeout(() => setCopiedTenantId(null), 2500)
+  }
+
+  const handleSaveBank = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingBank(true)
+    setBankSuccess(false)
+    try {
+      await updateBankDetails({
+        propertyId: id,
+        bankName: bankName.trim(),
+        bankAccountNumber: bankAccountNumber.trim(),
+        bankAccountHolder: bankAccountHolder.trim(),
+      })
+      setBankSuccess(true)
+      setTimeout(() => {
+        setBankSuccess(false)
+        setShowBankModal(false)
+      }, 1200)
+    } finally {
+      setSavingBank(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
-      {/* ── Top Header with Action Button ── */}
+      {/* ── Top Header with Action Buttons ── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-[var(--ink)] sm:text-2xl">
@@ -82,90 +145,142 @@ export function PropertyTenantsPage() {
           </p>
         </div>
 
-        {/* Primary CTA: Add Tenant */}
-        <div className="relative">
+        {/* Action Buttons: Bank Account & Add Tenant */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Bank Account Settings Button */}
           <button
             type="button"
-            onClick={() => setShowRoomPicker((prev) => !prev)}
-            className="button-primary inline-flex min-h-11 w-full items-center justify-center gap-2 px-5 text-sm font-semibold sm:w-auto"
+            onClick={() => {
+              setBankName(property.bankName || "BCA")
+              setBankAccountNumber(property.bankAccountNumber || "")
+              setBankAccountHolder(property.bankAccountHolder || "")
+              setShowBankModal(true)
+            }}
+            className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all ${
+              property.bankAccountNumber
+                ? "border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
+                : "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+            }`}
           >
-            <UserPlus size={16} />
-            <span>+ Tambah Penghuni</span>
-            <ChevronDown size={14} className={`transition-transform ${showRoomPicker ? "rotate-180" : ""}`} />
+            <CreditCard size={15} className={property.bankAccountNumber ? "text-emerald-700" : "text-amber-700"} />
+            <span>
+              {property.bankAccountNumber
+                ? `Rekening: ${property.bankName || "Bank"} ${property.bankAccountNumber}`
+                : "Atur Rekening Kos"}
+            </span>
           </button>
 
-          {/* Room Selector Dropdown */}
-          {showRoomPicker && (
-            <>
-              <div
-                className="fixed inset-0 z-30"
-                onClick={() => setShowRoomPicker(false)}
-              />
-              <div className="absolute right-0 top-full z-40 mt-2 w-full min-w-[280px] sm:w-80 rounded-2xl border border-[var(--line)] bg-[#fffefa] p-3 shadow-xl">
-                <div className="px-2 py-1.5 border-b border-[var(--line)]">
-                  <p className="text-xs font-bold text-[var(--ink)]">Pilih Kamar yang Diisi:</p>
-                  <p className="text-[11px] text-[var(--ink-muted)]">Pilih nomor kamar untuk memasukkan data penyewa</p>
-                </div>
+          {/* Primary CTA: Add Tenant */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowRoomPicker((prev) => !prev)}
+              className="button-primary inline-flex min-h-11 items-center justify-center gap-2 px-5 text-sm font-semibold"
+            >
+              <UserPlus size={16} />
+              <span>+ Tambah Penghuni</span>
+              <ChevronDown size={14} className={`transition-transform ${showRoomPicker ? "rotate-180" : ""}`} />
+            </button>
 
-                <div className="mt-2 max-h-60 overflow-y-auto space-y-1">
-                  {roomsReadyForTenant.length > 0 ? (
-                    roomsReadyForTenant.map((room) => {
-                      const isOccupiedWithoutData = occupiedWithoutTenant.some(
-                        (o) => o.roomId === room._id
-                      )
-                      return (
-                        <Link
-                          key={room._id}
-                          href={`/dashboard/properties/${id}/kamar/${room._id}/isi-penyewa`}
-                          onClick={() => setShowRoomPicker(false)}
-                          className="flex items-center justify-between gap-2 rounded-xl p-2.5 text-xs transition hover:bg-[var(--background)]"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--wood)]/10 text-[var(--wood)] font-bold text-xs">
-                              {room.roomNumber}
-                            </span>
-                            <div>
-                              <p className="font-semibold text-[var(--ink)]">Kamar {room.roomNumber}</p>
-                              <p className="text-[10px] text-[var(--ink-muted)]">
-                                Rp {(room.monthlyRent / 1000).toLocaleString("id-ID")}/bln
-                              </p>
-                            </div>
-                          </div>
+            {/* Room Selector Dropdown */}
+            {showRoomPicker && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setShowRoomPicker(false)}
+                />
+                <div className="absolute right-0 top-full z-40 mt-2 w-full min-w-[280px] sm:w-80 rounded-2xl border border-[var(--line)] bg-[#fffefa] p-3 shadow-xl">
+                  <div className="px-2 py-1.5 border-b border-[var(--line)]">
+                    <p className="text-xs font-bold text-[var(--ink)]">Pilih Kamar yang Diisi:</p>
+                    <p className="text-[11px] text-[var(--ink-muted)]">Pilih nomor kamar untuk memasukkan data penyewa</p>
+                  </div>
 
-                          <span
-                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                              isOccupiedWithoutData
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-emerald-100 text-emerald-800"
-                            }`}
+                  <div className="mt-2 max-h-60 overflow-y-auto space-y-1">
+                    {roomsReadyForTenant.length > 0 ? (
+                      roomsReadyForTenant.map((room) => {
+                        const isOccupiedWithoutData = occupiedWithoutTenant.some(
+                          (o) => o.roomId === room._id
+                        )
+                        return (
+                          <Link
+                            key={room._id}
+                            href={`/dashboard/properties/${id}/kamar/${room._id}/isi-penyewa`}
+                            onClick={() => setShowRoomPicker(false)}
+                            className="flex items-center justify-between rounded-xl p-2.5 text-xs transition hover:bg-[var(--secondary)]"
                           >
-                            {isOccupiedWithoutData ? "Perlu Data" : "Kosong"}
-                          </span>
+                            <div className="flex items-center gap-2">
+                              <DoorOpen size={15} className="text-[var(--wood)]" />
+                              <span className="font-semibold text-[var(--ink)]">Kamar {room.roomNumber}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {isOccupiedWithoutData ? (
+                                <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                  Sudah Dihuni
+                                </span>
+                              ) : (
+                                <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                  Kosong
+                                </span>
+                              )}
+                              <ArrowRight size={13} className="text-[var(--ink-muted)]" />
+                            </div>
+                          </Link>
+                        )
+                      })
+                    ) : (
+                      <div className="p-3 text-center">
+                        <p className="text-xs font-semibold text-[var(--ink)]">Semua Kamar Sudah Terisi</p>
+                        <p className="text-[11px] text-[var(--ink-muted)] mt-1">
+                          Tambahkan kamar baru di tab Kamar jika kos memiliki penambahan unit.
+                        </p>
+                        <Link
+                          href={`/dashboard/properties/${id}/kamar`}
+                          onClick={() => setShowRoomPicker(false)}
+                          className="mt-2 inline-block text-xs font-semibold text-[var(--wood)] underline"
+                        >
+                          Buka Tab Kamar
                         </Link>
-                      )
-                    })
-                  ) : (
-                    <div className="p-4 text-center">
-                      <DoorOpen size={24} className="mx-auto text-[var(--ink-muted)] opacity-50 mb-1" />
-                      <p className="text-xs font-semibold text-[var(--ink)]">Semua Kamar Sudah Terisi</p>
-                      <p className="text-[11px] text-[var(--ink-muted)] mt-1">
-                        Tambahkan kamar baru di tab Kamar jika kos memiliki penambahan unit.
-                      </p>
-                      <Link
-                        href={`/dashboard/properties/${id}/kamar`}
-                        onClick={() => setShowRoomPicker(false)}
-                        className="mt-2 inline-block text-xs font-semibold text-[var(--wood)] underline"
-                      >
-                        Buka Tab Kamar
-                      </Link>
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* ── Alert: Bank Account Missing Notice ── */}
+      {!property.bankAccountNumber && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-800">
+              <CreditCard size={18} />
+            </span>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-amber-900">
+                Nomor Rekening Kos Belum Diatur
+              </h3>
+              <p className="mt-0.5 text-xs text-amber-800">
+                Atur rekening bank tujuan transfer agar penyewa mengetahui rekening Anda saat membuka link pembayaran dan template pesan tagihan otomatis terisi.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setBankName("BCA")
+                  setBankAccountNumber("")
+                  setBankAccountHolder("")
+                  setShowBankModal(true)
+                }}
+                className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl border border-amber-400 bg-white px-3 py-1.5 text-xs font-bold text-amber-900 shadow-xs transition hover:bg-amber-100"
+              >
+                <span>+ Atur Rekening Sekarang</span>
+                <ArrowRight size={12} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Alert: Occupied Rooms Missing Tenant Data ── */}
       {occupiedWithoutTenant.length > 0 && (
@@ -203,7 +318,7 @@ export function PropertyTenantsPage() {
         <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
           {activeTenants.map((tenant) => {
             const waNumber = tenant.phone ? tenant.phone.replace(/\D/g, "") : null
-            const waLink = waNumber ? `https://wa.me/${waNumber}` : null
+            const isCopied = copiedTenantId === tenant._id
 
             return (
               <article
@@ -229,7 +344,7 @@ export function PropertyTenantsPage() {
                       {tenant.name}
                     </h3>
 
-                    {/* Phone Number with WhatsApp quick action */}
+                    {/* Phone Number */}
                     <div className="mt-1.5 flex items-center gap-2 text-xs text-[var(--ink-muted)]">
                       <Phone size={13} className="shrink-0 text-[var(--wood)]" />
                       {tenant.phone ? (
@@ -239,41 +354,64 @@ export function PropertyTenantsPage() {
                       )}
                     </div>
 
-                    {/* Rent Due Date */}
+                    {/* Rent Due Date & Amount */}
                     <div className="mt-2.5 rounded-xl bg-stone-50 border border-stone-200/60 p-2.5 text-xs">
                       <div className="flex justify-between items-center text-[var(--ink-muted)]">
                         <span>Jatuh Tempo:</span>
                         <strong className="text-[var(--ink)]">Setiap Tgl {tenant.dueDay}</strong>
                       </div>
                       <div className="mt-1 flex justify-between items-center text-[var(--ink-muted)]">
-                        <span>Siklus Sewa:</span>
-                        <span className="capitalize">{tenant.payment_type ?? "bulanan"}</span>
+                        <span>Harga Sewa:</span>
+                        <strong className="font-mono text-[var(--wood)]">
+                          Rp {tenant.roomRent ? tenant.roomRent.toLocaleString("id-ID") : "-"}
+                        </strong>
                       </div>
+                    </div>
+
+                    {/* Quick WhatsApp Template Actions */}
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyInvoice(tenant)}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-[var(--line)] bg-white px-2.5 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--wood)] hover:bg-[#fff9ed]"
+                        title="Salin template tagihan WhatsApp"
+                      >
+                        {isCopied ? (
+                          <>
+                            <Check size={13} className="text-emerald-600" />
+                            <span className="text-emerald-700 font-bold">Tagihan Tersalin!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={13} className="text-[var(--ink-muted)]" />
+                            <span>Salin Tagihan</span>
+                          </>
+                        )}
+                      </button>
+
+                      {waNumber ? (
+                        <a
+                          href={`https://wa.me/${waNumber}?text=${encodeURIComponent(getTenantInvoiceText(tenant))}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 shadow-xs"
+                          title="Buka chat WhatsApp dengan template tagihan"
+                        >
+                          <MessageCircle size={14} />
+                          <span>Kirim WA</span>
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                 </div>
 
                 {/* Bottom Card Actions */}
-                <div className="mt-4 pt-3 border-t border-[var(--line)] flex items-center justify-between gap-2">
-                  {waLink ? (
-                    <a
-                      href={waLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline"
-                    >
-                      <MessageCircle size={13} />
-                      <span>Chat WA</span>
-                    </a>
-                  ) : (
-                    <span />
-                  )}
-
+                <div className="mt-4 pt-3 border-t border-[var(--line)] flex items-center justify-end">
                   <Link
                     href={`/dashboard/tenants/${tenant._id}`}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--wood)] hover:underline"
                   >
-                    <span>Detail & Tagihan</span>
+                    <span>Detail & Riwayat Tagihan</span>
                     <ArrowRight size={13} />
                   </Link>
                 </div>
@@ -360,7 +498,114 @@ export function PropertyTenantsPage() {
           </div>
         )}
       </section>
+
+      {/* ── Modal: Atur Rekening Kos ── */}
+      {showBankModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+          <div className="relative w-full max-w-md rounded-3xl border border-[var(--line)] bg-[#FFFFFF] p-6 shadow-2xl sm:p-7">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--wood)]/10 text-[var(--wood)]">
+                  <CreditCard size={18} />
+                </span>
+                <h3 className="text-base font-bold text-[var(--ink)]">
+                  Pengaturan Rekening Pembayaran
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBankModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--ink-muted)] hover:bg-stone-100"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => void handleSaveBank(e)} className="mt-5 space-y-4">
+              <p className="text-xs leading-5 text-[var(--ink-muted)]">
+                Rekening ini akan ditampilkan ke penyewa pada halaman pembayaran sewa dan otomatis disertakan pada pesan tagihan WhatsApp.
+              </p>
+
+              <div>
+                <label htmlFor="bankName" className="block text-xs font-bold uppercase text-[var(--ink-muted)]">
+                  Nama Bank / E-Wallet <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="bankName"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  required
+                  placeholder="Contoh: BCA / Mandiri / BRI / SeaBank"
+                  className="field-input mt-1.5 w-full"
+                  disabled={savingBank}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="bankAccountNumber" className="block text-xs font-bold uppercase text-[var(--ink-muted)]">
+                  Nomor Rekening <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="bankAccountNumber"
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  required
+                  placeholder="Contoh: 1234567890"
+                  className="field-input mt-1.5 w-full font-mono font-semibold"
+                  disabled={savingBank}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="bankAccountHolder" className="block text-xs font-bold uppercase text-[var(--ink-muted)]">
+                  Nama Pemilik Rekening (Atas Nama) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="bankAccountHolder"
+                  value={bankAccountHolder}
+                  onChange={(e) => setBankAccountHolder(e.target.value)}
+                  required
+                  placeholder="Contoh: Handika Diaz"
+                  className="field-input mt-1.5 w-full"
+                  disabled={savingBank}
+                />
+              </div>
+
+              {bankSuccess && (
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+                  <CheckCircle2 size={16} className="text-emerald-600" />
+                  <span>Rekening pembayaran berhasil disimpan!</span>
+                </div>
+              )}
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBankModal(false)}
+                  disabled={savingBank}
+                  className="button-secondary flex-1 justify-center py-2.5 text-xs font-semibold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingBank}
+                  className="button-primary flex-1 justify-center py-2.5 text-xs font-semibold disabled:opacity-60"
+                >
+                  {savingBank ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin text-[var(--wood)]" />
+                      <span>Menyimpan…</span>
+                    </>
+                  ) : (
+                    <span>Simpan Rekening</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-

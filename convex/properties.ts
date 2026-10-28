@@ -165,6 +165,24 @@ export const update = mutation({
   },
 })
 
+export const updateBankDetails = mutation({
+  args: {
+    propertyId: v.id("properties"),
+    bankName: v.string(),
+    bankAccountNumber: v.string(),
+    bankAccountHolder: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requirePropertyOwner(ctx, args.propertyId)
+    await ctx.db.patch("properties", args.propertyId, {
+      bankName: args.bankName.trim() || undefined,
+      bankAccountNumber: args.bankAccountNumber.trim() || undefined,
+      bankAccountHolder: args.bankAccountHolder.trim() || undefined,
+    })
+    return { success: true }
+  },
+})
+
 const publicProfileFields = {
   publicDescription: v.optional(v.string()),
   publicAreaLabel: v.optional(v.string()),
@@ -818,6 +836,9 @@ export const getPublicBySlug = query({
       publicShowFullAddress: property.publicShowFullAddress === true,
       isVerified: property.propertyVerificationStatus === "verified",
       ownerIdentityVerified: owner?.identityVerificationStatus === "verified",
+      bankName: property.bankName,
+      bankAccountNumber: property.bankAccountNumber,
+      bankAccountHolder: property.bankAccountHolder,
       photos: await Promise.all(
         propertyPhotos
           .sort((a, b) => a.sortOrder - b.sortOrder)
