@@ -74,7 +74,7 @@ export const processEvent = internalMutation({
     if (args.senderKey && /^\/?cari(?:\s|$)/i.test(incomingText)) return { status: "search" as const, kind: "cari" as const, channel: args.channel, chatId, senderKey: args.senderKey, text: incomingText, location: args.location }
     if (args.senderKey && /^\/?detail(?:\s|$)/i.test(incomingText)) return { status: "search" as const, kind: "detail" as const, channel: args.channel, chatId, senderKey: args.senderKey, text: incomingText, arg: incomingText.replace(/^\/?detail\s*/i, "") }
     if (args.location) return response(args.channel, chatId, "Mau cari kos di dekat sini? Ketik /cari.")
-    if (args.senderKey && args.text !== undefined) {
+    if (args.senderKey && args.text !== undefined && isRaporEnabled((env as typeof env & Record<string, string | undefined>).RAPOR_ENABLED)) {
       const identityResult: { handled: boolean; text?: string; requestContact?: boolean; requestConfirm?: boolean; clearKeyboard?: boolean } = await ctx.runMutation(internal.tenantIdentity.receiveVerificationCode, { channel: args.channel, rawText: args.text, senderKey: args.senderKey, senderPhone: args.senderPhone, contactPhone: args.contactPhone, contactUserId: args.contactUserId, fromUserId: args.fromUserId })
       if (identityResult.handled) {
         let replyMarkup: Parameters<typeof response>[3] = undefined
@@ -174,7 +174,7 @@ export const processEvent = internalMutation({
         }
       }
 
-      if (args.channel === "whatsapp" && args.text?.trim()) return response(args.channel, chatId, buildWelcomeMessage("whatsapp"))
+      if (args.text?.trim()) return response(args.channel, chatId, buildWelcomeMessage(args.channel))
       return { status: "invalid" as const }
     }
     const isFirstWhatsAppMessage = args.channel === "whatsapp" && !link.lastSeenAt

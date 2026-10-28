@@ -5,7 +5,7 @@ import { v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
 import { generateToken, hashToken } from "./lib/reviewRules"
 import { CHALLENGE_TTL_MIN, CONFIRM_TTL_MIN, IDENTITY_NOTICE_VERSION, MAX_CHALLENGES_PER_HOUR_GLOBAL, MAX_FAILED_CODE_ATTEMPTS_PER_SENDER_PER_HOUR, SESSION_TTL_DAYS, generateVerificationCode, normalizeIndonesianPhone, parseVerificationCode, transitionChallenge, type ChallengeStatus } from "./lib/tenantIdentity"
-import { assertRaporEnabled } from "./lib/raporGate"
+import { assertRaporEnabled, isRaporEnabled } from "./lib/raporGate"
 import { isTenantDataVerified } from "./lib/tenantImport"
 
 const GENERIC_STATUS = "Kode tidak valid atau sudah tidak berlaku."
@@ -103,7 +103,9 @@ const confirmInContext = async (ctx: MutationCtx, challenge: VerificationChallen
 export const receiveVerificationCode = internalMutation({
   args: { channel: v.union(v.literal("whatsapp"), v.literal("telegram")), rawText: v.string(), senderKey: v.string(), senderPhone: v.optional(v.string()), contactPhone: v.optional(v.string()), contactUserId: v.optional(v.string()), fromUserId: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    assertRaporEnabled(envValues.RAPOR_ENABLED)
+    if (!isRaporEnabled(envValues.RAPOR_ENABLED)) {
+      return { handled: false }
+    }
     const now = Date.now()
     const senderKeyDigest = await senderHash(args.senderKey)
 

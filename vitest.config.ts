@@ -4,5 +4,8 @@ export default defineConfig({
   test: {
     environment: "edge-runtime",
     include: ["convex/**/*.test.ts"],
+    env: {
+      RAPOR_ENABLED: "true",
+    },
   },
 })
