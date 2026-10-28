@@ -14,6 +14,7 @@ import {
   MapPin,
   ShieldCheck,
   Star,
+  Users,
 } from "lucide-react"
 import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
@@ -30,9 +31,9 @@ type TabDefinition = {
 const tabs: TabDefinition[] = [
   { tab: "summary", label: "Ringkasan", icon: LayoutDashboard },
   { tab: "rooms", label: "Kamar", icon: DoorOpen },
+  { tab: "tenants", label: "Penghuni", icon: Users },
   { tab: "public", label: "Publik", icon: Globe },
   { tab: "location", label: "Lokasi", icon: MapPin },
-  { tab: "applications", label: "Pengajuan", icon: FileText },
   { tab: "reviews", label: "Ulasan", icon: Star },
 ]
 
@@ -96,13 +97,15 @@ export function PropertyTabs({ children }: { children: React.ReactNode }) {
       const subpath =
         tab === "rooms"
           ? "kamar"
-          : tab === "public"
-            ? "halaman-publik"
-            : tab === "location"
-              ? "verifikasi"
-              : tab === "applications"
-                ? "pengajuan"
-                : "ulasan"
+          : tab === "tenants"
+            ? "penghuni"
+            : tab === "public"
+              ? "halaman-publik"
+              : tab === "location"
+                ? "verifikasi"
+                : tab === "applications"
+                  ? "pengajuan"
+                  : "ulasan"
       return pathname.includes(`/properties/${params.propertyId}/${subpath}`)
     })?.tab ?? "summary"
 
@@ -189,8 +192,8 @@ export function PropertyTabs({ children }: { children: React.ReactNode }) {
             {tabs.map(({ tab, label, icon: Icon }) => {
               const active = activeTab === tab
               const count =
-                tab === "applications"
-                  ? badges.applicationsOpen
+                tab === "tenants"
+                  ? badges.applicationsOpen + (badges.disputesOpen ?? 0) + (badges.occupiedWithoutTenant ?? 0)
                   : tab === "reviews"
                     ? badges.reviewsUnreplied
                     : 0

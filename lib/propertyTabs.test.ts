@@ -4,6 +4,7 @@ import { computeActionItems, formatBadge, propertyTabUrl } from "./propertyTabs"
 describe("property tabs", () => {
   test("builds safe tab URLs", () => {
     expect(propertyTabUrl("abc/def", "summary")).toBe("/dashboard/properties/abc%2Fdef")
+    expect(propertyTabUrl("p1", "tenants")).toBe("/dashboard/properties/p1/penghuni")
     expect(propertyTabUrl("p1", "reviews", "https://app.test/")).toBe("https://app.test/dashboard/properties/p1/ulasan")
   })
   test("sorts action items and only asks for location after publish", () => {

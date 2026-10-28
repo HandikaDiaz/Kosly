@@ -4,7 +4,7 @@ import type { Id } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { requireOwner } from "./lib/auth"
 
-const tabBadges = v.object({ applicationsOpen: v.number(), reviewsUnreplied: v.number(), disputesOpen: v.number(), locationVerified: v.boolean(), isPublished: v.boolean(), photoCountPublic: v.number() })
+const tabBadges = v.object({ applicationsOpen: v.number(), occupiedWithoutTenant: v.number(), tenantsActive: v.number(), reviewsUnreplied: v.number(), disputesOpen: v.number(), locationVerified: v.boolean(), isPublished: v.boolean(), photoCountPublic: v.number() })
 
 const countDisputes = async (ctx: QueryCtx, propertyId: Id<"properties">) => {
   const tenants = await ctx.db.query("tenants").withIndex("by_property", (q) => q.eq("propertyId", propertyId)).take(100)
@@ -27,7 +27,23 @@ export const getPropertyTabBadges = query({
       ctx.db.query("reviews").withIndex("by_property_and_status", (q) => q.eq("propertyId", args.propertyId).eq("status", "published")).take(100),
       countDisputes(ctx, args.propertyId),
     ])
-    return { applicationsOpen: submitted.length + accepted.length + registration.length + dpConfirmed.length, reviewsUnreplied: reviews.filter((review) => !review.ownerReply).length, disputesOpen: disputes, locationVerified: property.locationVerificationStatus === "verified", isPublished: property.isPublished === true, photoCountPublic: property.publicPhotoIds?.length ?? 0 }
+    const rooms = await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", args.propertyId)).take(500)
+    const occupiedWithoutTenant = (await Promise.all(rooms.filter((room) => room.status === "occupied").map(async (room) => (await ctx.db.query("tenants").withIndex("by_room", (q) => q.eq("roomId", room._id)).take(100)).some((tenant) => tenant.status === "active") ? 0 : 1))).reduce<number>((sum, value) => sum + value, 0)
+    const propertyTenants = await ctx.db.query("tenants").withIndex("by_property", (q) => q.eq("propertyId", args.propertyId)).take(500)
+    const tenantsActive = propertyTenants.filter((tenant) => tenant.status === "active").length
+    return { applicationsOpen: submitted.length + accepted.length + registration.length + dpConfirmed.length, occupiedWithoutTenant, tenantsActive, reviewsUnreplied: reviews.filter((review) => !review.ownerReply).length, disputesOpen: disputes, locationVerified: property.locationVerificationStatus === "verified", isPublished: property.isPublished === true, photoCountPublic: property.publicPhotoIds?.length ?? 0 }
+  },
+})
+
+export const getPropertyTrustChecklist = query({
+  args: { propertyId: v.id("properties") },
+  returns: v.object({ identityVerified: v.boolean(), locationVerified: v.boolean(), infoComplete: v.boolean(), reviewsUnreplied: v.number(), publicActive: v.boolean(), suspended: v.boolean() }),
+  handler: async (ctx, args) => {
+    const owner = await requireOwner(ctx)
+    const property = await ctx.db.get("properties", args.propertyId)
+    if (!property || property.ownerId !== owner._id) throw new Error("Properti tidak ditemukan.")
+    const reviews = await ctx.db.query("reviews").withIndex("by_property_and_status", (q) => q.eq("propertyId", args.propertyId).eq("status", "published")).take(100)
+    return { identityVerified: owner.identityVerificationStatus === "verified", locationVerified: property.locationVerificationStatus === "verified", infoComplete: Boolean(property.publicDescription?.trim() && property.publicAreaLabel?.trim()), reviewsUnreplied: reviews.filter((review) => !review.ownerReply).length, publicActive: property.isPublished === true, suspended: property.publicSuspended === true }
   },
 })
 

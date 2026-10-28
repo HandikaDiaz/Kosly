@@ -7,6 +7,7 @@ import {
   Phone,
   Search,
   SlidersHorizontal,
+  UserPlus,
   Users,
 } from "lucide-react"
 import { useQuery } from "convex/react"
@@ -79,6 +80,20 @@ export default function TenantsPage() {
               Kelola daftar penyewa kos, kontak, status masa sewa, dan properti yang ditempati.
             </p>
           </div>
+
+          {properties.length > 0 && (
+            <Link
+              href={
+                properties.length === 1
+                  ? `/dashboard/properties/${properties[0]._id}/penghuni`
+                  : "/dashboard/properties"
+              }
+              className="button-primary inline-flex min-h-11 items-center justify-center gap-2 px-5 text-sm font-semibold"
+            >
+              <UserPlus size={16} />
+              <span>+ Tambah Penghuni</span>
+            </Link>
+          )}
         </div>
 
         {/* ── Search & Filter Section ── */}
@@ -229,4 +244,3 @@ export default function TenantsPage() {
     </div>
   )
 }
-

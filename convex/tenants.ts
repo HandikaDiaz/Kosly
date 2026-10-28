@@ -2,14 +2,35 @@ import { internalMutation, mutation, query } from "./_generated/server"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
 import { requirePropertyOwner, requireOwner } from "./lib/auth"
-import { dueDateForPeriod, periodOf } from "../lib/rent-date"
+import { dueDateForPeriod, jakartaDateKey, periodOf, periodOffset } from "../lib/rent-date"
 import { REVIEW_INVITE_DELAY_AFTER_MOVEOUT_HOURS } from "./lib/reviewRules"
+import { getRoomHoldBlockers } from "./lib/roomHolds"
+import { normalizeIndonesianPhone } from "./lib/tenantIdentity"
+import { importedStartedAt, previewImport, validateImportInput } from "./lib/tenantImport"
 
 export const listForProperty = query({
   args: { propertyId: v.id("properties") },
   handler: async (ctx, args) => {
     await requirePropertyOwner(ctx, args.propertyId)
     return await ctx.db.query("tenants").withIndex("by_property", (q) => q.eq("propertyId", args.propertyId)).take(100)
+  },
+})
+
+export const listForPropertyWithDetails = query({
+  args: { propertyId: v.id("properties") },
+  handler: async (ctx, args) => {
+    await requirePropertyOwner(ctx, args.propertyId)
+    const tenants = await ctx.db.query("tenants").withIndex("by_property", (q) => q.eq("propertyId", args.propertyId)).take(100)
+    return await Promise.all(
+      tenants.map(async (tenant) => {
+        const room = await ctx.db.get("rooms", tenant.roomId)
+        return {
+          ...tenant,
+          roomNumber: room?.roomNumber ?? "-",
+          roomRent: room?.monthlyRent ?? 0,
+        }
+      })
+    )
   },
 })
 
@@ -22,8 +43,7 @@ export const getMine = query({
     const room = await ctx.db.get("rooms", tenant.roomId)
     const charges = await ctx.db.query("rent_charges").withIndex("by_tenant_and_period", (q) => q.eq("tenantId", tenant._id)).collect()
     const now = Date.now()
-    const today = new Date(now)
-    const currentPeriod = periodOf(today)
+    const currentPeriod = periodOf(now)
     const currentCharge = charges.find((c) => c.period === currentPeriod)
     const isCurrentPeriodPaid = currentCharge?.status === "paid"
     const unpaidCharges = charges.filter((c) => c.status === "unpaid")
@@ -33,9 +53,7 @@ export const getMine = query({
       unpaidCharges.sort((a, b) => a.dueDate - b.dueDate)
       realDueDate = unpaidCharges[0].dueDate
     } else {
-      const targetDate = new Date(today)
-      if (isCurrentPeriodPaid) targetDate.setMonth(targetDate.getMonth() + 1)
-      realDueDate = dueDateForPeriod(periodOf(targetDate), tenant.dueDay)
+      realDueDate = dueDateForPeriod(isCurrentPeriodPaid ? periodOffset(currentPeriod, 1) : currentPeriod, tenant.dueDay)
     }
 
     return {
@@ -150,8 +168,7 @@ export const processLifecycle = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now()
-    const today = new Date(now)
-    const todayDate = today.toISOString().slice(0, 10)
+    const todayDate = jakartaDateKey(now)
     let movedOut = 0
     let flagged = 0
 
@@ -202,11 +219,11 @@ export const processLifecycle = internalMutation({
       if (tenant.lifecycle_status === "akan_pindah") continue
       // Skip already flagged today
       if (tenant.flagged_overdue_at) {
-        const flaggedDate = new Date(tenant.flagged_overdue_at).toISOString().slice(0, 10)
+        const flaggedDate = jakartaDateKey(tenant.flagged_overdue_at)
         if (flaggedDate === todayDate) continue
       }
 
-      const period = periodOf(today)
+      const period = periodOf(now)
       const charge = await ctx.db.query("rent_charges").withIndex("by_tenant_and_period", (q) => q.eq("tenantId", tenant._id).eq("period", period)).unique()
 
       // Check if due_date passed more than 5 days ago AND no confirmed payment this period
@@ -258,5 +275,119 @@ export const listMine = query({
     const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", owner._id)).take(50)
     const tenants = (await Promise.all(properties.map((property) => ctx.db.query("tenants").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(100)))).flat()
     return await Promise.all(tenants.map(async (tenant) => ({ tenant, property: properties.find((property) => property._id === tenant.propertyId) ?? null, room: await ctx.db.get("rooms", tenant.roomId) })))
+  },
+})
+
+export const getOccupiedRoomsWithoutTenant = query({
+  args: { propertyId: v.id("properties") },
+  handler: async (ctx, args) => {
+    await requirePropertyOwner(ctx, args.propertyId)
+    const rooms = await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", args.propertyId)).take(500)
+    const result = []
+    for (const room of rooms.filter((item) => item.status === "occupied")) {
+      const tenants = await ctx.db.query("tenants").withIndex("by_room", (q) => q.eq("roomId", room._id)).take(100)
+      if (!tenants.some((tenant) => tenant.status === "active")) result.push({ roomId: room._id, roomNumber: room.roomNumber, monthlyRent: room.monthlyRent })
+    }
+    return result
+  },
+})
+
+export const importExistingTenant = mutation({
+  args: {
+    propertyId: v.id("properties"),
+    roomId: v.id("rooms"),
+    name: v.string(),
+    phone: v.optional(v.string()),
+    startedAt: v.number(),
+    nextDueDate: v.number(),
+    monthlyRent: v.optional(v.number()),
+    paidStatus: v.union(v.literal("unpaid_current"), v.literal("paid_current"), v.literal("paid_ahead")),
+    paidThroughPeriod: v.optional(v.string()),
+    lastPaymentAt: v.optional(v.number()),
+    lastPaymentAmount: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { owner } = await requirePropertyOwner(ctx, args.propertyId)
+    const property = await ctx.db.get("properties", args.propertyId)
+    const room = await ctx.db.get("rooms", args.roomId)
+    if (!property || !room || room.propertyId !== property._id) throw new Error("Data properti atau kamar tidak valid.")
+    const monthlyRent = args.monthlyRent ?? room.monthlyRent
+    const input = { ...args, monthlyRent, phone: args.phone || undefined }
+    const validation = validateImportInput(input, Date.now())
+    if (!validation.ok) throw new Error(validation.error)
+    const preview = previewImport(validation.value, Date.now())
+    if (!preview.ok) throw new Error(preview.error)
+    const existingTenants = await ctx.db.query("tenants").withIndex("by_room", (q) => q.eq("roomId", room._id)).take(100)
+    if (existingTenants.some((tenant) => tenant.status === "active")) throw new Error("Kamar ini sudah memiliki tenant aktif.")
+    if (room.status !== "occupied") {
+      if (room.status !== "available") throw new Error("Kamar tidak dapat diisi karena statusnya sedang diblokir.")
+      if ((await getRoomHoldBlockers(ctx, room._id, Date.now())).length > 0) throw new Error("Kamar memiliki booking atau aplikasi yang masih aktif.")
+    }
+    const normalizedPhone = validation.value.phone ? normalizeIndonesianPhone(validation.value.phone) : null
+    if (validation.value.phone && !normalizedPhone) throw new Error("Nomor HP tidak valid.")
+    const now = Date.now()
+    const tenantId = await ctx.db.insert("tenants", {
+      propertyId: property._id,
+      roomId: room._id,
+      name: validation.value.name,
+      phone: normalizedPhone ?? "",
+      ...(normalizedPhone ? { tenantPhoneNormalized: normalizedPhone } : {}),
+      startedAt: importedStartedAt(validation.value.startedAt),
+      dueDay: preview.dueDay,
+      status: "active",
+      payment_type: "bulanan",
+      lifecycle_status: "active",
+      dataOrigin: "owner_import",
+      importedByOwnerAt: now,
+    })
+    let paymentId
+    if (preview.payment) {
+      paymentId = await ctx.db.insert("payments", {
+        propertyId: property._id,
+        tenantId,
+        roomId: room._id,
+        amount: preview.payment.amount,
+        paymentType: "full",
+        purpose: "sewa_bulanan",
+        paidAt: preview.payment.paidAt,
+        dueDate: preview.periods[0]?.dueDate ?? preview.nextDueDate,
+        billingPeriod: preview.payment.billingPeriod,
+        status: "confirmed",
+        reviewerOwnerId: owner._id,
+        reviewedAt: now,
+        origin: "owner_import",
+      })
+    }
+    for (const period of preview.periods) {
+      await ctx.db.insert("rent_charges", {
+        propertyId: property._id,
+        tenantId,
+        roomId: room._id,
+        period: period.period,
+        amount: period.amount,
+        dueDate: period.dueDate,
+        status: period.status,
+        ...(paymentId ? { paymentId, paidAt: preview.payment?.paidAt } : {}),
+        createdAt: now,
+      })
+    }
+    if (room.status !== "occupied") await ctx.db.patch("rooms", room._id, { status: "occupied" })
+    return { tenantId, nextDueDate: preview.nextDueDate, dueDay: preview.dueDay }
+  },
+})
+
+export const updateTenantDueDay = mutation({
+  args: { tenantId: v.id("tenants"), dueDay: v.number() },
+  handler: async (ctx, args) => {
+    const tenant = await ctx.db.get("tenants", args.tenantId)
+    if (!tenant) throw new Error("Tenant tidak ditemukan.")
+    await requirePropertyOwner(ctx, tenant.propertyId)
+    if (!Number.isInteger(args.dueDay) || args.dueDay < 1 || args.dueDay > 31) throw new Error("Tanggal jatuh tempo harus 1-31.")
+    if (tenant.status !== "active" || tenant.payment_type !== "bulanan") throw new Error("Tanggal jatuh tempo hanya dapat diubah untuk tenant bulanan yang aktif.")
+    const period = periodOf(Date.now())
+    const charge = await ctx.db.query("rent_charges").withIndex("by_tenant_and_period", (q) => q.eq("tenantId", tenant._id).eq("period", period)).unique()
+    await ctx.db.patch("tenants", tenant._id, { dueDay: args.dueDay })
+    if (charge?.status === "unpaid") await ctx.db.patch("rent_charges", charge._id, { dueDate: dueDateForPeriod(period, args.dueDay) })
+    return { dueDay: args.dueDay, period, chargeUpdated: charge?.status === "unpaid" }
   },
 })
