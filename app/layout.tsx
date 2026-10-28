@@ -2,25 +2,34 @@ import type { Metadata } from "next"
 import "./globals.css"
 import { ConvexProvider } from "@/components/convex-provider"
 import { SessionRouteGuard } from "@/components/botkos/session-route-guard"
+import { getSiteUrl } from "@/lib/siteUrl"
 
 export const metadata: Metadata = {
-  title: "BotKos | Platform Manajemen Kos Modern & Otomatisasi Bot",
+  metadataBase: new URL(getSiteUrl()),
+  title: { default: "BotKos | Pencatatan Kos dan Penyewa", template: "%s | BotKos" },
   description:
-    "Kelola properti, penyewa, pembayaran, dan notifikasi bot otomatis secara efisien dengan BotKos.",
-  metadataBase: new URL("https://botkos.id"),
+    "BotKos membantu pemilik kos mencatat kamar, penyewa, pembayaran, dan pengingat melalui dashboard serta bot.",
   icons: {
-    icon: "/BotKos-Logo.png",
-    shortcut: "/BotKos-Logo.png",
-    apple: "/BotKos-Logo.png",
+    icon: [
+      { url: "/botkos-logo.png", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    shortcut: "/botkos-logo.png",
+    apple: "/botkos-logo.png",
   },
   openGraph: {
-    title: "BotKos | Platform Manajemen Kos Modern",
+    title: "BotKos | Pencatatan Kos dan Penyewa",
     description:
-      "Kelola properti, penyewa, pembayaran, dan notifikasi bot otomatis secara efisien dengan BotKos.",
-    url: "https://botkos.id",
+      "BotKos membantu pemilik kos mencatat kamar, penyewa, pembayaran, dan pengingat melalui dashboard serta bot.",
+    url: getSiteUrl(),
     siteName: "BotKos",
     locale: "id_ID",
     type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "BotKos | Pencatatan Kos dan Penyewa",
+    description: "Pencatatan kos, penyewa, pembayaran, dan pengingat dalam satu tempat.",
   },
 }
 
