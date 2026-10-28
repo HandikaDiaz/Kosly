@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import "./globals.css"
 import { ConvexProvider } from "@/components/convex-provider"
 import { SessionRouteGuard } from "@/components/botkos/session-route-guard"
+import { PostHogProvider } from "@/components/posthog-provider"
 import { getSiteUrl } from "@/lib/siteUrl"
 
 export const metadata: Metadata = {
@@ -41,9 +42,11 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <body>
-        <ConvexProvider>
-          <SessionRouteGuard>{children}</SessionRouteGuard>
-        </ConvexProvider>
+        <PostHogProvider>
+          <ConvexProvider>
+            <SessionRouteGuard>{children}</SessionRouteGuard>
+          </ConvexProvider>
+        </PostHogProvider>
       </body>
     </html>
   )
