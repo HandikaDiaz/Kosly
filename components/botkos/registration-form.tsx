@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUpRight, Check, CheckCircle2, Copy, CreditCard, Info, Lock, ShieldCheck } from "lucide-react"
+import { ArrowUpRight, Check, CheckCircle2, Copy, CreditCard, Info, Lock, MessageCircle, ShieldCheck } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
@@ -154,20 +154,52 @@ export function RegistrationForm({
 
   // ── Success State Display ─────────────────────────────────────────────────
   if (submitted) {
+    const botNumber = process.env.NEXT_PUBLIC_BOT_WHATSAPP_NUMBER || "6289674745742"
+    const waText = `Halo BotKos, saya sudah mendaftar dan mengunggah bukti pembayaran:\n• Kos: ${propertyName}\n• Kamar: ${selectedRoom?.roomNumber || ""}\n• Nominal: Rp ${Number(amount).toLocaleString("id-ID")}`
+    const waUrl = `https://wa.me/${botNumber}?text=${encodeURIComponent(waText)}`
+
     return (
-      <div className="border border-[var(--line)] bg-[#FFFFFF] p-8 text-center sm:p-10 rounded-2xl shadow-sm">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--wood)]/10 text-[var(--wood)]">
+      <div className="border border-[var(--line)] bg-[#FFFFFF] p-8 text-center sm:p-10 rounded-3xl shadow-sm">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
           <CheckCircle2 size={32} />
         </div>
-        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
-          Pendaftaran Berhasil Dikirim
+        <h2 className="mt-5 text-2xl font-bold tracking-tight text-[var(--ink)]">
+          Pendaftaran Berhasil Dikirim!
         </h2>
         <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">
           Bukti pembayaran dan data Anda telah kami teruskan ke pemilik{" "}
           <strong className="text-[var(--ink)]">{propertyName}</strong>.
           Pemilik akan mengonfirmasi pembayaran Anda secara manual.
         </p>
-        <div className="mt-6 border border-[var(--line)] bg-[var(--background)] p-4 text-xs text-[var(--ink-muted)] rounded-lg">
+
+        {/* WhatsApp Card Confirmation */}
+        <div className="mx-auto mt-6 max-w-md rounded-2xl border border-emerald-300 bg-emerald-50/80 p-5 text-left shadow-xs">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+              <MessageCircle size={20} />
+            </span>
+            <div>
+              <h3 className="text-sm font-bold text-emerald-950">
+                Terima Tanda Terima Otomatis di WhatsApp
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed text-emerald-800">
+                Kirim pesan konfirmasi ke WhatsApp BotKos. Bot kami akan membalas dan mengirimkan salinan bukti transfer Anda sebagai bukti sah pendaftaran.
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99]"
+          >
+            <MessageCircle size={18} />
+            <span>Konfirmasi ke WhatsApp Bot</span>
+          </a>
+        </div>
+
+        <div className="mt-6 border border-[var(--line)] bg-[var(--background)] p-4 text-xs text-[var(--ink-muted)] rounded-xl">
           Simpan tangkapan layar ini sebagai tanda pendaftaran sementara.
         </div>
       </div>

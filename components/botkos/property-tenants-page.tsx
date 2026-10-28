@@ -156,11 +156,10 @@ export function PropertyTenantsPage() {
               setBankAccountHolder(property.bankAccountHolder || "")
               setShowBankModal(true)
             }}
-            className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all ${
-              property.bankAccountNumber
+            className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all ${property.bankAccountNumber
                 ? "border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
                 : "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
-            }`}
+              }`}
           >
             <CreditCard size={15} className={property.bankAccountNumber ? "text-emerald-700" : "text-amber-700"} />
             <span>
@@ -483,9 +482,8 @@ export function PropertyTenantsPage() {
           >
             <ChevronDown
               size={18}
-              className={`transition-transform duration-200 ${
-                showApplications ? "rotate-180" : ""
-              }`}
+              className={`transition-transform duration-200 ${showApplications ? "rotate-180" : ""
+                }`}
             />
           </button>
         </div>

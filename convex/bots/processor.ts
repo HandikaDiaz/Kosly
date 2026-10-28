@@ -38,6 +38,7 @@ type ProcessResult =
   | { status: "photo"; channel: "telegram" | "whatsapp"; chatId: string; ownerId: Id<"owners">; sessionId: Id<"bot_sessions">; photoFileId?: string; photoMediaId?: string }
   | { status: "room_photo"; channel: "telegram" | "whatsapp"; chatId: string; ownerId: Id<"owners">; stateId: Id<"bot_conversation_state">; photoFileId?: string; photoMediaId?: string }
   | { status: "search"; kind: "cari" | "detail" | "deep_link"; channel: "telegram" | "whatsapp"; chatId: string; senderKey: string; text: string; arg?: string; location?: { latitude: number; longitude: number } }
+  | { status: "tenant_payment_receipt"; channel: "whatsapp"; chatId: string; text: string; imageUrl?: string }
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 const displayValue = (channel: "telegram" | "whatsapp", value: string) => channel === "telegram" ? escapeHtml(value) : value
 const dateText = (value?: number) => value ? new Date(value).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "belum ditentukan"
@@ -109,6 +110,70 @@ export const processEvent = internalMutation({
         return response(args.channel, chatId, buildChatIdMessage(chatId))
       }
       if (args.channel === "telegram" && unlinkedCommand.kind === "help") return response(args.channel, chatId, buildHelpMessage("telegram", chatId))
+      if (args.channel === "whatsapp") {
+        const senderDigits = (args.senderPhone ?? chatId).replace(/\D/g, "")
+        const refMatch = incomingText.match(/#([a-zA-Z0-9_-]+)/)
+        let paymentToConfirm = null
+
+        if (refMatch) {
+          try {
+            paymentToConfirm = await ctx.db.get("payments", refMatch[1] as Id<"payments">)
+          } catch {
+            // Not a valid payment ID format
+          }
+        }
+
+        if (!paymentToConfirm && senderDigits.length >= 8) {
+          const tenantsWithPhone = await ctx.db.query("tenants").take(200)
+          const matchedTenant = tenantsWithPhone.find((t) => {
+            const tPhone = t.phone.replace(/\D/g, "")
+            return tPhone && (senderDigits.endsWith(tPhone) || tPhone.endsWith(senderDigits))
+          })
+          if (matchedTenant) {
+            const recent = await ctx.db
+              .query("payments")
+              .withIndex("by_tenant_and_paid_at", (q) => q.eq("tenantId", matchedTenant._id))
+              .order("desc")
+              .take(1)
+            if (recent[0] && recent[0].status === "pending_review") {
+              paymentToConfirm = recent[0]
+            }
+          }
+        }
+
+        if (paymentToConfirm) {
+          const property = await ctx.db.get("properties", paymentToConfirm.propertyId)
+          const room = await ctx.db.get("rooms", paymentToConfirm.roomId)
+          const tenant = await ctx.db.get("tenants", paymentToConfirm.tenantId)
+          const proofUrl = paymentToConfirm.proofStorageId
+            ? await ctx.storage.getUrl(paymentToConfirm.proofStorageId)
+            : undefined
+
+          const amountFormatted = `Rp ${paymentToConfirm.amount.toLocaleString("id-ID")}`
+          const tenantName = tenant?.name || "Kak"
+          const propertyName = property?.name || "Kos"
+          const roomNumber = room?.roomNumber || "-"
+
+          const replyText =
+            `Halo *${tenantName}*! 👋\n\n` +
+            `Bukti transfer pembayaran Anda untuk *${propertyName}* (Kamar ${roomNumber}) sebesar *${amountFormatted}* telah berhasil diterima di sistem BotKos.\n\n` +
+            `📋 *Rincian Pembayaran:*\n` +
+            `• Properti: ${propertyName}\n` +
+            `• Kamar: ${roomNumber}\n` +
+            `• Nominal: ${amountFormatted}\n` +
+            `• Status: ⏳ *Menunggu Verifikasi Pemilik*\n\n` +
+            `Di atas adalah salinan bukti transfer Anda. Kami akan mengirimkan notifikasi lagi di WhatsApp ini setelah pemilik kos mengonfirmasi pembayaran Anda. Terima kasih! 🙏`
+
+          return {
+            status: "tenant_payment_receipt" as const,
+            channel: "whatsapp" as const,
+            chatId,
+            text: replyText,
+            imageUrl: proofUrl ?? undefined,
+          }
+        }
+      }
+
       if (args.channel === "whatsapp" && args.text?.trim()) return response(args.channel, chatId, buildWelcomeMessage("whatsapp"))
       return { status: "invalid" as const }
     }

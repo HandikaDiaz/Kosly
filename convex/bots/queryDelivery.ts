@@ -5,7 +5,7 @@ import { v } from "convex/values"
 import { env } from "../_generated/server"
 import { internal } from "../_generated/api"
 import { sendTelegramText } from "./telegram"
-import { sendWhatsAppText } from "./whatsapp"
+import { sendWhatsAppImage, sendWhatsAppText } from "./whatsapp"
 import type { TelegramReplyMarkup } from "./telegram"
 import { resolveTenantReplyRoute } from "../lib/applicationReply"
 
@@ -72,6 +72,41 @@ export const sendTextResponse = internalAction({
     } else {
       if (!botEnv.WHATSAPP_ACCESS_TOKEN || !botEnv.WHATSAPP_PHONE_NUMBER_ID) throw new Error("Kredensial WhatsApp belum dikonfigurasi.")
       await sendWhatsAppText(botEnv.WHATSAPP_ACCESS_TOKEN, botEnv.WHATSAPP_PHONE_NUMBER_ID, args.chatId, args.text)
+    }
+    return null
+  },
+})
+
+export const sendImageResponse = internalAction({
+  args: {
+    channel: v.union(v.literal("telegram"), v.literal("whatsapp")),
+    chatId: v.string(),
+    text: v.string(),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (_ctx, args) => {
+    if (args.channel === "whatsapp") {
+      if (!botEnv.WHATSAPP_ACCESS_TOKEN || !botEnv.WHATSAPP_PHONE_NUMBER_ID) return null
+      if (args.imageUrl) {
+        try {
+          await sendWhatsAppImage(
+            botEnv.WHATSAPP_ACCESS_TOKEN,
+            botEnv.WHATSAPP_PHONE_NUMBER_ID,
+            args.chatId,
+            args.imageUrl,
+            args.text
+          )
+          return null
+        } catch (e) {
+          console.warn("sendWhatsAppImage failed, fallback to sendWhatsAppText:", e)
+        }
+      }
+      await sendWhatsAppText(
+        botEnv.WHATSAPP_ACCESS_TOKEN,
+        botEnv.WHATSAPP_PHONE_NUMBER_ID,
+        args.chatId,
+        args.text
+      )
     }
     return null
   },

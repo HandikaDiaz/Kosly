@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUpRight, Check, CheckCircle2, Copy, CreditCard, Search } from "lucide-react"
+import { ArrowUpRight, Check, CheckCircle2, Copy, CreditCard, MessageCircle, Search } from "lucide-react"
 import { FormEvent, useState } from "react"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
@@ -23,6 +23,8 @@ export function RentPaymentForm({
   const [loading, setLoading] = useState(false)
   const [copiedAccount, setCopiedAccount] = useState(false)
   const [copiedAmount, setCopiedAmount] = useState(false)
+  const [submittedPaymentId, setSubmittedPaymentId] = useState<string | null>(null)
+  const [submittedAmount, setSubmittedAmount] = useState<number | null>(null)
 
   const tenant = useQuery(
     api.rentals.getTenantForPayment,
@@ -87,7 +89,7 @@ export function RentPaymentForm({
 
       const uploaded = (await uploadResponse.json()) as { storageId: string }
 
-      await submitRentPayment({
+      const res = await submitRentPayment({
         slug,
         tenantId: tenant.tenantId as Id<"tenants">,
         bookingId: tenant.bookingId as Id<"bookings"> | undefined,
@@ -97,6 +99,8 @@ export function RentPaymentForm({
         proofStorageId: uploaded.storageId as Id<"_storage">,
       })
 
+      setSubmittedPaymentId(res.paymentId)
+      setSubmittedAmount(numAmount)
       setSubmitted(true)
     } catch (reason) {
       setError(
@@ -108,28 +112,62 @@ export function RentPaymentForm({
   }
 
   if (submitted) {
+    const botNumber = process.env.NEXT_PUBLIC_BOT_WHATSAPP_NUMBER || "6289674745742"
+    const waText = `Halo BotKos, saya sudah kirim bukti pembayaran sewa:\nNama: ${tenant?.name || ""}\nKamar: ${tenant?.roomNumber || ""}\nKos: ${propertyName}\nRef: #${submittedPaymentId || ""}`
+    const waUrl = `https://wa.me/${botNumber}?text=${encodeURIComponent(waText)}`
+
     return (
-      <div className="border border-[var(--line)] bg-[#fffefa] p-8 text-center sm:p-10">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--wood)]/10 text-[var(--wood)]">
+      <div className="rounded-3xl border border-[var(--line)] bg-[#fffefa] p-8 text-center sm:p-10 shadow-sm">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
           <CheckCircle2 size={32} />
         </div>
-        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
-          Bukti Pembayaran Terkirim
+        <h2 className="mt-5 text-2xl font-bold tracking-tight text-[var(--ink)]">
+          Bukti Pembayaran Terkirim!
         </h2>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ink-muted)]">
-          Terima kasih. Bukti pembayaran Anda untuk <strong>{propertyName}</strong>{" "}
-          telah kami teruskan ke pemilik kos untuk diverifikasi.
+          Terima kasih. Bukti transfer sewa Anda untuk <strong>{propertyName}</strong>{" "}
+          (Kamar {tenant?.roomNumber}) telah berhasil diunggah dan sedang ditinjau pemilik kos.
         </p>
-        <button
-          type="button"
-          onClick={() => {
-            setSubmitted(false)
-            setProofFile(null)
-          }}
-          className="button-secondary mt-6"
-        >
-          Kirim Bukti Lain
-        </button>
+
+        {/* WhatsApp Card Confirmation */}
+        <div className="mx-auto mt-6 max-w-md rounded-2xl border border-emerald-300 bg-emerald-50/80 p-5 text-left shadow-xs">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+              <MessageCircle size={20} />
+            </span>
+            <div>
+              <h3 className="text-sm font-bold text-emerald-950">
+                Terima Tanda Terima Otomatis di WhatsApp
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed text-emerald-800">
+                Kirim pesan konfirmasi ke WhatsApp BotKos. Bot kami akan langsung membalas chat Anda beserta <strong>gambar bukti transfer</strong> sebagai salinan resmi pembayaran Anda.
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99]"
+          >
+            <MessageCircle size={18} />
+            <span>Konfirmasi ke WhatsApp Bot</span>
+          </a>
+        </div>
+
+        <div className="mt-6 flex justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setSubmitted(false)
+              setProofFile(null)
+            }}
+            className="button-secondary text-xs"
+          >
+            Kirim Bukti Lain
+          </button>
+        </div>
       </div>
     )
   }
