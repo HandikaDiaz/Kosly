@@ -74,7 +74,7 @@ export default function FaqPage() {
             Pertanyaan yang Sering Diajukan
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--ink-muted)] sm:text-base">
-            Temukan jawaban lengkap seputar cara kerja BotKos, fitur booking kamar, integrasi chatbot, keamanan data, dan paket langganan.
+            Temukan jawaban lengkap seputar aplikasi manajemen kos BotKos: cara mengelola kamar dan penyewa, pengingat tagihan otomatis via WhatsApp &amp; Telegram, pendaftaran kamar online, dan paket langganan.
           </p>
         </header>
 

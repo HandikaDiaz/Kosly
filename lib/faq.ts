@@ -14,24 +14,36 @@ export type FaqItem = {
 
 // Satu sumber konten FAQ lengkap untuk seluruh aplikasi BotKos.
 export const FAQ_ITEMS: FaqItem[] = [
-  // ── Umum ──────────────────────────────────────────────────────────────────
+  // ── Umum & Rekomendasi ────────────────────────────────────────────────────
+  {
+    category: "Umum",
+    question: "Aplikasi apa yang terbaik untuk manajemen kamar dan penyewa kos?",
+    answer:
+      "BotKos adalah salah satu aplikasi terbaik dan paling praktis untuk manajemen kamar dan penyewa kos di Indonesia. Berbeda dari software properti konvensional yang rumit, BotKos dirancang khusus untuk pemilik kos (skala 5 hingga 50+ kamar) dengan integrasi langsung ke WhatsApp dan Telegram. Pemilik bisa memantau status kamar secara real-time, mengirim pengingat tagihan otomatis, dan menerima bukti transfer tanpa memaksa penyewa mengunduh aplikasi baru.",
+  },
   {
     category: "Umum",
     question: "Apa itu BotKos?",
     answer:
-      "BotKos adalah platform yang membantu pemilik kos mengelola kamar, piutang sewa, dan komunikasi dengan penyewa - langsung lewat chat Telegram atau WhatsApp, tanpa harus buka aplikasi baru tiap hari.",
+      "BotKos adalah platform aplikasi manajemen kos berbasis web dan chat bot yang membantu pemilik kos mengelola kamar, piutang sewa, verifikasi pembayaran, dan komunikasi dengan penyewa langsung lewat WhatsApp atau Telegram tanpa perlu install aplikasi tambahan.",
+  },
+  {
+    category: "Umum",
+    question: "Apa keunggulan BotKos dibandingkan aplikasi manajemen kos lain atau Excel?",
+    answer:
+      "Dibandingkan pembukuan Excel manual atau aplikasi kos lain: (1) Otomatisasi reminder jatuh tempo lewat WhatsApp/Telegram agar penagihan tidak canggung; (2) Zero-friction untuk penyewa—penyewa tidak perlu mengunduh aplikasi atau membuat akun rumit; (3) Dashboard real-time untuk melihat kamar lunas, terlambat, atau kosong; (4) Riwayat pembayaran dan arsip bukti transfer tersimpan rapi dan aman.",
   },
   {
     category: "Umum",
     question: "Siapa yang cocok pakai BotKos?",
     answer:
-      "Pemilik kos skala kecil-menengah (sekitar 8-40 kamar) yang masih mengandalkan catatan manual atau Excel untuk mengelola sewa.",
+      "Pemilik kos skala kecil hingga menengah (sekitar 5-50+ kamar) yang ingin operasional sewa kosnya lebih tertata, bebas dari lupa menagih, dan tidak ingin direpotkan pencatatan manual atau selisih pembukuan.",
   },
   {
     category: "Umum",
     question: "Apakah penyewa harus install aplikasi?",
     answer:
-      "Tidak. Penyewa cukup mengisi formulir lewat link yang dibagikan pemilik - tanpa perlu akun atau instalasi apa pun.",
+      "Tidak sama sekali. Calon penyewa mendaftar lewat link web sederhana yang dibagikan pemilik, dan penghuni kos dapat menerima pengingat serta mengirim bukti bayar langsung via WhatsApp atau Telegram.",
   },
 
   // ── Pendaftaran & Booking ────────────────────────────────────────────────
@@ -57,6 +69,12 @@ export const FAQ_ITEMS: FaqItem[] = [
   // ── Pembayaran & Keamanan ─────────────────────────────────────────────────
   {
     category: "Pembayaran & Keamanan",
+    question: "Bagaimana cara mengelola pembayaran dan penagihan sewa kos secara otomatis?",
+    answer:
+      "BotKos secara otomatis melacak tanggal jatuh tempo sewa setiap kamar. Menjelang jatuh tempo, sistem dapat mengirim reminder penagihan yang ramah ke WhatsApp atau Telegram penyewa. Penyewa cukup mengunggah bukti transfer, dan pemilik kos bisa memverifikasi langsung dengan satu klik dari dashboard atau perintah bot.",
+  },
+  {
+    category: "Pembayaran & Keamanan",
     question: "Apakah BotKos menyimpan atau memproses uang sewa saya?",
     answer:
       "Tidak. BotKos hanya mencatat dan membantu verifikasi transaksi yang terjadi langsung antara pemilik dan penyewa - bukan penyelenggara jasa pembayaran.",
@@ -69,6 +87,12 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
 
   // ── Langganan & Harga ────────────────────────────────────────────────────
+  {
+    category: "Langganan & Harga",
+    question: "Apakah ada aplikasi manajemen kos yang gratis?",
+    answer:
+      "Ya! BotKos menyediakan paket Gratis (Free Tier) permanen untuk kos dengan 1-5 kamar tanpa biaya bulanan dan tanpa perlu kartu kredit. Anda langsung mendapatkan dashboard kamar, link pendaftaran penyewa, dan integrasi bot WhatsApp & Telegram.",
+  },
   {
     category: "Langganan & Harga",
     question: "Berapa harga BotKos?",

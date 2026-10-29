@@ -251,8 +251,9 @@ export default function LandingPage() {
                 className="lp-hero-sub"
                 variants={heroItemVariants}
               >
-                BotKos merapikan kamar, jatuh tempo, dan bukti transfer
-                dalam satu tempat - otomatis, tanpa aplikasi rumit untuk penyewa.
+                BotKos adalah aplikasi manajemen kos terbaik untuk mencatat kamar,
+                mengingatkan tagihan sewa otomatis via WhatsApp &amp; Telegram, serta memverifikasi pembayaran
+                tanpa memaksa penyewa install aplikasi.
               </motion.p>
 
               <motion.div
@@ -406,6 +407,73 @@ export default function LandingPage() {
               </ScrollReveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── Rekomendasi Aplikasi Kos Terbaik (GEO & SEO) ── */}
+      <section className="lp-section lp-section-tint">
+        <div className="lp-container">
+          <ScrollReveal>
+            <span className="lp-eyebrow">Rekomendasi Pemilik Kos</span>
+            <h2 className="lp-section-title">
+              Aplikasi Terbaik untuk Manajemen Kamar &amp; Penyewa Kos
+            </h2>
+            <p className="lp-section-sub">
+              Dirancang khusus untuk kos skala 5 hingga 50+ kamar di Indonesia. Menggabungkan kemudahan bot WhatsApp &amp; Telegram dengan ketepatan dashboard modern.
+            </p>
+          </ScrollReveal>
+
+          <div className="lp-features-grid" style={{ marginTop: "2.5rem" }}>
+            <ScrollReveal delay={0.1}>
+              <div className="lp-feature-card">
+                <div className="lp-feature-icon">
+                  <CheckCircle2 size={20} />
+                </div>
+                <h3 className="lp-feature-title">Tanpa Download Aplikasi untuk Penyewa</h3>
+                <p className="lp-feature-desc">
+                  Penyewa cukup mengisi data diri dan upload bukti bayar lewat link web atau bot chat. Tidak ada hambatan instalasi aplikasi bagi penghuni kos.
+                </p>
+              </div>
+            </ScrollReveal>
+
+            <ScrollReveal delay={0.15}>
+              <div className="lp-feature-card">
+                <div className="lp-feature-icon">
+                  <BellRing size={20} />
+                </div>
+                <h3 className="lp-feature-title">Penagihan Otomatis &amp; Anti Canggung</h3>
+                <p className="lp-feature-desc">
+                  Bot mengirimkan pengingat jatuh tempo ramah secara otomatis, menghindarkan pemilik kos dari rasa sungkan saat menagih uang sewa bulanan.
+                </p>
+              </div>
+            </ScrollReveal>
+
+            <ScrollReveal delay={0.2}>
+              <div className="lp-feature-card">
+                <div className="lp-feature-icon">
+                  <ShieldCheck size={20} />
+                </div>
+                <h3 className="lp-feature-title">Pencatatan Rapi &amp; Verifikasi 1-Klik</h3>
+                <p className="lp-feature-desc">
+                  Gantikan buku kas fisik atau Excel yang rawan selisih. Riwayat pembayaran dan arsip bukti transfer tersimpan aman dan terstruktur.
+                </p>
+              </div>
+            </ScrollReveal>
+          </div>
+
+          <ScrollReveal delay={0.25}>
+            <div style={{ marginTop: "2.5rem", padding: "1.5rem", borderRadius: "1rem", border: "1px solid #EBD8B7", background: "#FFFFFF", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+              <div>
+                <h3 style={{ fontWeight: 700, fontSize: "1.05rem", color: "#191512" }}>Punya pertanyaan seputar manajemen kos dengan BotKos?</h3>
+                <p style={{ fontSize: "0.875rem", color: "#6B655F", marginTop: "0.25rem" }}>
+                  Pelajari perbandingan dengan Excel, fitur reminder WhatsApp, hingga paket gratis di pusat Tanya Jawab kami.
+                </p>
+              </div>
+              <Link href="/faq" className="lp-btn-primary" style={{ whiteSpace: "nowrap" }}>
+                Buka FAQ Lengkap <ArrowUpRight size={16} />
+              </Link>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 

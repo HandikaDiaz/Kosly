@@ -118,6 +118,10 @@ export default async function PublicKosPage({ params }: PublicKosPageProps) {
 
   return (
     <div className="min-h-svh bg-[var(--background)] text-[var(--ink)] pb-28 sm:pb-16 flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+      />
       {/* ── Top Navigation Bar ── */}
       <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[#FFFFFF]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">

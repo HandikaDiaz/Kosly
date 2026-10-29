@@ -6,9 +6,23 @@ import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import "@/app/landing.css"
 
 export const metadata: Metadata = {
-  title: "Harga",
-  description: "Bandingkan paket BotKos untuk pencatatan kamar, penyewa, pembayaran, dan pengingat.",
+  title: "Harga & Paket Langganan Aplikasi Manajemen Kos",
+  description:
+    "Mulai gratis selamanya untuk 1-5 kamar. Bandingkan paket langganan BotKos untuk kelola kamar kos, penagihan sewa otomatis WhatsApp, dan pembukuan kos.",
+  keywords: [
+    "harga aplikasi kos",
+    "biaya aplikasi manajemen kos",
+    "aplikasi kos gratis",
+    "software kos murah",
+    "harga botkos",
+  ],
   alternates: { canonical: "/harga" },
+  openGraph: {
+    title: "Harga & Paket Langganan Aplikasi Manajemen Kos | BotKos",
+    description:
+      "Mulai gratis selamanya untuk 1-5 kamar. Pilihan paket transparan untuk kebutuhan operasional kos Anda.",
+    url: "/harga",
+  },
 }
 
 export default function PricingPage() {
