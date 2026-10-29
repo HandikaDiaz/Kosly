@@ -556,12 +556,12 @@ export default function LandingPage() {
       <footer className="lp-container">
         <div className="lp-footer">
           <div className="lp-footer-left">
-            © 2026 BotKos · botkos.id · Operasional kos otomatis tanpa istilah rumit
+            © 2026 BotKos · botkos.online · Operasional kos otomatis tanpa istilah rumit
           </div>
           <div className="lp-footer-links">
             <a href="/faq" className="lp-footer-link">FAQ</a>
-            <a href="/privacy" className="lp-footer-link">Kebijakan Privasi</a>
-            <a href="/terms" className="lp-footer-link">Syarat Layanan</a>
+            <a href="/kebijakan-privasi" className="lp-footer-link">Kebijakan Privasi</a>
+            <a href="/syarat-ketentuan" className="lp-footer-link">Syarat Layanan</a>
             <a href="/bantuan" className="lp-footer-link">Bantuan</a>
           </div>
           <div className="lp-footer-right">Dibuat untuk pemilik kos Indonesia</div>

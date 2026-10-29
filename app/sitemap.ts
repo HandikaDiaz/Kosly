@@ -33,17 +33,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 1,
     },
+    {
+      url: `${baseUrl}/faq`,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/harga`,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/kebijakan-privasi`,
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/syarat-ketentuan`,
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
   ]
-
-  if (getLegalMode() === "reviewed") {
-    entries.push(
-      ...legalPages.map((page) => ({
-        url: `${baseUrl}${legalUrl(page)}`,
-        changeFrequency: "monthly" as const,
-        priority: 0.3,
-      }))
-    )
-  }
 
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
   if (!convexUrl) {

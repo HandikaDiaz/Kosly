@@ -195,12 +195,12 @@ export default function FaqPage() {
 
         {/* ── Footer Navigation ── */}
         <div className="relative z-10 mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--line)] pt-6 text-xs text-[var(--ink-muted)]">
-          <p>© 2026 BotKos · botkos.id</p>
+          <p>© 2026 BotKos · botkos.online</p>
           <div className="flex items-center gap-4">
-            <Link href="/privacy" className="hover:text-[var(--ink)] underline">
+            <Link href="/kebijakan-privasi" className="hover:text-[var(--ink)] underline">
               Kebijakan Privasi
             </Link>
-            <Link href="/terms" className="hover:text-[var(--ink)] underline">
+            <Link href="/syarat-ketentuan" className="hover:text-[var(--ink)] underline">
               Syarat Layanan
             </Link>
             <Link href="/harga" className="hover:text-[var(--ink)] underline">
