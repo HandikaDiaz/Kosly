@@ -1,6 +1,14 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: "/botkos-logo.png",
+        destination: "/BotKos-Logo.png",
+      },
+    ]
+  },
   async headers() {
     const secureHeaders = [{ key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }]
     return [
