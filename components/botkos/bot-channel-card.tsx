@@ -7,32 +7,46 @@ import { api } from "@/convex/_generated/api"
 
 type Channel = "telegram" | "whatsapp"
 
+const TELEGRAM_BOT_USERNAME =
+  process.env.NEXT_PUBLIC_BOT_TELEGRAM_USERNAME || "kosly_admin_bot"
+const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT_USERNAME}`
+
+const WHATSAPP_BOT_NUMBER = (
+  process.env.NEXT_PUBLIC_BOT_WHATSAPP_NUMBER ||
+  process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER ||
+  "6289674745742"
+).replace(/\D/g, "")
+const WHATSAPP_BOT_URL = `https://wa.me/${WHATSAPP_BOT_NUMBER}?text=${encodeURIComponent(
+  "Halo BotKos, saya ingin menghubungkan WhatsApp saya."
+)}`
+
 // ─── step data ───────────────────────────────────────────────────────────────
 
 const TELEGRAM_STEPS = [
   {
-    label: "Buka Telegram & cari bot ID",
+    label: "Buka chat dengan @kosly_admin_bot di Telegram",
     description: (
       <>
-        Buka aplikasi Telegram, lalu cari{" "}
+        Buka aplikasi Telegram dan mulai chat dengan bot resmi BotKos:{" "}
         <a
-          href="https://t.me/userinfobot"
+          href={TELEGRAM_BOT_URL}
           target="_blank"
           rel="noreferrer"
-          className="bot-card-link"
+          className="bot-card-link font-semibold text-[var(--gold-dark)]"
         >
-          @userinfobot <ExternalLink size={11} className="inline" />
-        </a>{" "}
-        atau bot Telegram resmi BotKos.
+          @{TELEGRAM_BOT_USERNAME} <ExternalLink size={11} className="inline" />
+        </a>.
       </>
     ),
   },
   {
-    label: "Dapatkan Chat ID Anda",
+    label: "Mulai percakapan & dapatkan Chat ID Anda",
     description: (
       <>
-        Kirim pesan apa saja ke <code className="bot-card-code">@userinfobot</code>. Bot
-        akan membalas dengan rincian akun Anda, termasuk baris <strong>Id</strong> (contoh:{" "}
+        Klik tombol <strong>Start</strong> atau kirim pesan{" "}
+        <code className="bot-card-code">/start</code> atau{" "}
+        <code className="bot-card-code">/chatid</code> ke bot. Bot akan membalas
+        dengan nomor <strong>Chat ID</strong> akun Anda (contoh:{" "}
         <code className="bot-card-code">123456789</code>).
       </>
     ),
@@ -49,14 +63,26 @@ const TELEGRAM_STEPS = [
 
 const WHATSAPP_STEPS = [
   {
-    label: "Siapkan nomor WhatsApp aktif",
-    description: "Gunakan nomor WhatsApp aktif Anda (pemilik kos) yang akan menerima laporan pembayaran penyewa.",
+    label: "Mulai chat dengan WhatsApp Bot (6289674745742)",
+    description: (
+      <>
+        Mulai percakapan WhatsApp ke nomor bot{" "}
+        <a
+          href={WHATSAPP_BOT_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="bot-card-link font-semibold text-[var(--gold-dark)]"
+        >
+          +{WHATSAPP_BOT_NUMBER} <ExternalLink size={11} className="inline" />
+        </a>. Kirim pesan pertama (misal: <em>Halo</em>) untuk memulai percakapan.
+      </>
+    ),
   },
   {
     label: "Format nomor ke kode negara",
     description: (
       <>
-        Ubah awalan <code className="bot-card-code">08</code> menjadi kode negara{" "}
+        Ubah awalan <code className="bot-card-code">08</code> nomor Anda menjadi kode negara{" "}
         <code className="bot-card-code">62</code> tanpa tanda <code className="bot-card-code">+</code> atau spasi. Contoh:{" "}
         <code className="bot-card-code">081234567890</code> &rarr;{" "}
         <code className="bot-card-code">6281234567890</code>.
@@ -68,8 +94,8 @@ const WHATSAPP_STEPS = [
     description: "Ketik nomor WhatsApp yang sudah diformat ke kolom di bawah, lalu klik Hubungkan WhatsApp.",
   },
   {
-    label: "Sapa bot BotKos di WhatsApp",
-    description: "Buka nomor WhatsApp bot BotKos dan kirim pesan pertama (misal: Halo) agar bot mendapatkan izin mengirimkan notifikasi otomatis ke nomor Anda.",
+    label: "Selesai & Siap Terima Notifikasi",
+    description: "Setelah terhubung, bot BotKos akan otomatis mengirimkan notifikasi tagihan dan bukti bayar penyewa ke nomor WhatsApp Anda.",
   },
 ]
 
@@ -149,10 +175,6 @@ export function BotChannelCard({ channel }: { channel: Channel }) {
   }
 
   const steps = isTelegram ? TELEGRAM_STEPS : WHATSAPP_STEPS
-  const whatsappBotNumber = process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER?.replace(/\D/g, "")
-  const whatsappChatUrl = whatsappBotNumber
-    ? `https://wa.me/${whatsappBotNumber}?text=${encodeURIComponent("Halo BotKos, saya ingin menghubungkan WhatsApp saya.")}`
-    : undefined
 
   return (
     <div className="bot-card">
@@ -190,16 +212,37 @@ export function BotChannelCard({ channel }: { channel: Channel }) {
           </div>
           <p className="mt-3 text-xs">Ketik {isTelegram ? <code className="bot-card-code">/help</code> : <code className="bot-card-code">help</code>} di chat untuk daftar lengkap.</p>
         </details>
-        {!isTelegram && (
+        {isTelegram ? (
           <div className="mt-4">
-            {whatsappChatUrl ? (
-              <a href={whatsappChatUrl} target="_blank" rel="noreferrer" className="bot-card-link inline-flex items-center gap-1">
-                Chat BotKos di WhatsApp <ExternalLink size={11} />
-              </a>
-            ) : (
-              <p className="text-xs text-[var(--ink-muted)]">Tautan chat WhatsApp akan tampil setelah nomor bot dikonfigurasi.</p>
-            )}
-            <p className="mt-1 text-xs text-[var(--ink-muted)]">Pesan awal yang direkomendasikan: “Halo BotKos, saya ingin menghubungkan WhatsApp saya.”</p>
+            <a
+              href={TELEGRAM_BOT_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="button-secondary inline-flex items-center gap-1.5 text-xs font-semibold"
+            >
+              <Send size={13} className="text-sky-600" />
+              <span>Chat @{TELEGRAM_BOT_USERNAME} di Telegram</span>
+              <ExternalLink size={11} />
+            </a>
+            <p className="mt-1.5 text-xs text-[var(--ink-muted)]">
+              Kirim <code className="bot-card-code">/start</code> atau <code className="bot-card-code">/chatid</code> untuk mendapatkan Chat ID Anda.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <a
+              href={WHATSAPP_BOT_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="button-secondary inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 border-emerald-300 hover:bg-emerald-50"
+            >
+              <MessageCircle size={14} className="text-emerald-600" />
+              <span>Mulai Chat WhatsApp (+{WHATSAPP_BOT_NUMBER})</span>
+              <ExternalLink size={11} />
+            </a>
+            <p className="mt-1.5 text-xs text-[var(--ink-muted)]">
+              Kirim pesan pertama untuk memulai percakapan: “Halo BotKos, saya ingin menghubungkan WhatsApp saya.”
+            </p>
           </div>
         )}
       </div>
