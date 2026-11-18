@@ -107,7 +107,8 @@ export default function AdminPage() {
       </section>
 
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/admin/billing" className="button-primary">Review billing</Link>
+        <Link href="/admin/setup" className="button-primary">Bantu setup kamar owner</Link>
+        <Link href="/admin/billing" className="button-secondary">Review billing</Link>
         <Link href="/admin/verification" className="button-secondary">Review verifikasi</Link>
         <Link href="/admin/reports" className="button-secondary">Buka laporan</Link>
       </div>
