@@ -4,6 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
 import { requireOwner } from "./lib/auth"
+import { isPricingEnabled } from "./appSettings"
 import { getTierForRoomCount, getTierLimits, getTierPrice, tierRank, type BillingCycle, type SubscriptionTier } from "./lib/subscription_tiers"
 
 const tierValidator = v.union(v.literal("free"), v.literal("starter"), v.literal("growth"), v.literal("pro"))
@@ -42,6 +43,10 @@ const getSubscriptionForOwner = async (ctx: Pick<QueryCtx, "db">, ownerId: Id<"o
 
 export const assertRoomCapacityForOwner = async (ctx: Pick<QueryCtx, "db">, ownerId: Id<"owners">, roomsToAdd = 1) => {
   const roomCount = await getRoomCountForOwner(ctx, ownerId)
+  const pricingEnabled = await isPricingEnabled(ctx)
+  if (!pricingEnabled) {
+    return { tier: "pro" as SubscriptionTier, roomCount, limit: null }
+  }
   const subscription = await getSubscriptionForOwner(ctx, ownerId)
   const tier = getEffectiveTier(subscription)
   const limit = getTierLimits(tier).maxRooms
@@ -54,6 +59,10 @@ export const assertRoomCapacityForOwner = async (ctx: Pick<QueryCtx, "db">, owne
 
 export const assertPropertyCapacityForOwner = async (ctx: Pick<QueryCtx, "db">, ownerId: Id<"owners">, propertiesToAdd = 1) => {
   const propertyCount = (await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).take(50)).length
+  const pricingEnabled = await isPricingEnabled(ctx)
+  if (!pricingEnabled) {
+    return { tier: "pro" as SubscriptionTier, propertyCount, limit: null }
+  }
   const subscription = await getSubscriptionForOwner(ctx, ownerId)
   const tier = getEffectiveTier(subscription)
   const limit = getTierLimits(tier).maxProperties
@@ -77,11 +86,26 @@ export const getMine = query({
   args: {},
   handler: async (ctx) => {
     const owner = await requireOwner(ctx)
+    const pricingEnabled = await isPricingEnabled(ctx)
     const subscription = await getSubscriptionForOwner(ctx, owner._id)
     const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", owner._id)).take(50)
     let roomCount = 0
     for (const property of properties) {
       roomCount += (await ctx.db.query("rooms").withIndex("by_property", (q) => q.eq("propertyId", property._id)).take(500)).length
+    }
+    if (!pricingEnabled) {
+      return {
+        subscription,
+        roomCount,
+        propertyCount: properties.length,
+        activeTier: "pro" as SubscriptionTier,
+        recommendedTier: "pro" as SubscriptionTier,
+        roomLimit: null,
+        propertyLimit: null,
+        roomLimitReached: false,
+        propertyLimitReached: false,
+        upgradeRequired: false,
+      }
     }
     const activeTier = getEffectiveTier(subscription)
     const recommendedTier = getTierForRoomCount(roomCount)

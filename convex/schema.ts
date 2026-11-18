@@ -777,4 +777,10 @@ export default defineSchema({
     windowStart: v.number(),
     count: v.number(),
   }).index("by_sender", ["senderKeyHash"]).index("by_window", ["windowStart"]),
+  appSettings: defineTable({
+    key: v.string(),
+    pricingEnabled: v.boolean(),
+    updatedAt: v.number(),
+    updatedByOwnerId: v.optional(v.id("owners")),
+  }).index("by_key", ["key"]),
 })

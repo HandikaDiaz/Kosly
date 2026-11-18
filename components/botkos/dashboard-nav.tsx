@@ -15,6 +15,8 @@ export function DashboardNav({ mode = "owner" }: DashboardNavProps) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const owner = useQuery(api.owners.me)
+  const settings = useQuery(api.appSettings.getPublicSettings)
+  const pricingEnabled = settings?.pricingEnabled ?? false
   const { signOut } = useAuthActions()
   const isAdmin = mode === "admin"
   const homeHref = isAdmin ? "/admin" : "/dashboard"
@@ -61,7 +63,9 @@ export function DashboardNav({ mode = "owner" }: DashboardNavProps) {
             <Link className={`nav-link ${pathname.startsWith("/dashboard/rentals") ? "nav-link-active" : ""}`} href="/dashboard/rentals"><Clock3 size={16} />Sewa kamar</Link>
             <Link className={`nav-link ${pathname.startsWith("/dashboard/tenants") ? "nav-link-active" : ""}`} href="/dashboard/tenants"><Users size={16} />Tenant</Link>
             <Link className={`nav-link ${pathname.startsWith("/dashboard/payments") ? "nav-link-active" : ""}`} href="/dashboard/payments"><ReceiptText size={16} />Pembayaran</Link>
-            <Link className={`nav-link ${pathname.startsWith("/dashboard/billing") ? "nav-link-active" : ""}`} href="/dashboard/billing"><WalletCards size={16} />Langganan</Link>
+            {pricingEnabled ? (
+              <Link className={`nav-link ${pathname.startsWith("/dashboard/billing") ? "nav-link-active" : ""}`} href="/dashboard/billing"><WalletCards size={16} />Langganan</Link>
+            ) : null}
           </>}
         </nav>
 

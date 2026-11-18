@@ -128,6 +128,76 @@ export const getOverview = query({
     })
     const monthlyRevenue = monthKeys.map((period) => ({ period, amount: allPayments.filter((payment) => payment.status === "confirmed" && new Date(payment.paidAt).toISOString().slice(0, 7) === period).reduce((sum, payment) => sum + payment.amount, 0) }))
     const propertyStats = propertyData.map(({ property, rooms, tenants, payments, charges }) => ({ propertyId: property._id, propertyName: property.name, occupancyRate: rooms.length ? Math.round((rooms.filter((room) => room.status === "occupied").length / rooms.length) * 100) : 0, confirmedAmount: payments.filter((payment) => payment.status === "confirmed").reduce((sum, payment) => sum + payment.amount, 0), overdueCharges: charges.filter((charge) => charge.status === "unpaid" && charge.dueDate < args.now).length, activeTenants: tenants.filter((tenant) => tenant.status === "active").length }))
+    // Current month key in WIB (UTC+7)
+    const jakartaNow = new Date(args.now + 7 * 60 * 60 * 1000)
+    const currentMonthKey = jakartaNow.toISOString().slice(0, 7)
+
+    const currentMonthCharges = allCharges.filter(
+      (charge) => charge.period === currentMonthKey && charge.status !== "waived"
+    )
+    const chargedTenantIdsThisMonth = new Set(currentMonthCharges.map((charge) => charge.tenantId))
+    const activeTenantsWithoutCharge = allTenants.filter(
+      (tenant) => tenant.status === "active" && !chargedTenantIdsThisMonth.has(tenant._id)
+    )
+    const fallbackRentThisMonth = activeTenantsWithoutCharge.reduce((sum, tenant) => {
+      const room = allRooms.find((r) => r._id === tenant.roomId)
+      return sum + (room?.monthlyRent ?? 0)
+    }, 0)
+
+    const expectedMonthlyRent =
+      currentMonthCharges.reduce((sum, charge) => sum + charge.amount, 0) + fallbackRentThisMonth
+
+    const collectedMonthlyRent = allPayments
+      .filter((payment) => {
+        if (payment.status !== "confirmed") return false
+        const period =
+          payment.billingPeriod ??
+          new Date(payment.paidAt + 7 * 60 * 60 * 1000).toISOString().slice(0, 7)
+        return period === currentMonthKey
+      })
+      .reduce((sum, payment) => sum + payment.amount, 0)
+
+    const unpaidCharges = allCharges
+      .filter((charge) => charge.status === "unpaid")
+      .sort((a, b) => a.dueDate - b.dueDate)
+      .slice(0, 15)
+      .map((charge) => {
+        const property = propertyData.find((item) => item.property._id === charge.propertyId)?.property
+        const tenant = allTenants.find((item) => item._id === charge.tenantId)
+        const room = allRooms.find((item) => item._id === charge.roomId)
+        return {
+          _id: charge._id,
+          propertyId: charge.propertyId,
+          propertyName: property?.name ?? "Properti",
+          tenantName: tenant?.name ?? "Penghuni",
+          roomNumber: room?.roomNumber ?? "-",
+          amount: charge.amount,
+          dueDate: charge.dueDate,
+          period: charge.period,
+          isOverdue: charge.dueDate < args.now,
+        }
+      })
+
+    const vacatingTenants = allTenants
+      .filter(
+        (tenant) =>
+          tenant.status === "active" &&
+          (tenant.lifecycle_status === "akan_pindah" || tenant.leaseDecision === "not_continuing")
+      )
+      .map((tenant) => {
+        const property = propertyData.find((item) => item.property._id === tenant.propertyId)?.property
+        const room = allRooms.find((item) => item._id === tenant.roomId)
+        return {
+          _id: tenant._id,
+          propertyId: tenant.propertyId,
+          propertyName: property?.name ?? "Properti",
+          tenantName: tenant.name,
+          roomNumber: room?.roomNumber ?? "-",
+          moveOutDate: tenant.move_out_date ?? tenant.leaseEndsAt ?? null,
+        }
+      })
+      .sort((a, b) => (a.moveOutDate ?? Number.MAX_SAFE_INTEGER) - (b.moveOutDate ?? Number.MAX_SAFE_INTEGER))
+
     const recentPayments = allPayments.sort((a, b) => b.paidAt - a.paidAt).slice(0, 10).map((payment) => {
       const property = propertyData.find((item) => item.property._id === payment.propertyId)?.property
       const tenant = allTenants.find((item) => item._id === payment.tenantId)
@@ -147,10 +217,17 @@ export const getOverview = query({
         overduePayments: allCharges.filter((charge) => charge.status === "unpaid" && charge.dueDate < args.now).length,
         activeTenants: allTenants.filter((tenant) => tenant.status === "active").length,
         activeBookings: allBookings.length,
+        unpaidChargesCount: allCharges.filter((charge) => charge.status === "unpaid").length,
+        vacatingRoomsCount: vacatingTenants.length,
         confirmedAmount: allPayments.filter((payment) => payment.status === "confirmed").reduce((sum, payment) => sum + payment.amount, 0),
+        expectedMonthlyRent,
+        collectedMonthlyRent,
+        unpaidMonthlyRent: Math.max(0, expectedMonthlyRent - collectedMonthlyRent),
       },
       analytics: { monthlyRevenue, propertyStats },
       recentPayments,
+      unpaidCharges,
+      vacatingTenants,
     }
   },
 })

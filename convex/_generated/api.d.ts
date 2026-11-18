@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as appSettings from "../appSettings.js";
 import type * as applicationFlow from "../applicationFlow.js";
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
@@ -39,9 +40,11 @@ import type * as lib_applicationBookingSync from "../lib/applicationBookingSync.
 import type * as lib_applicationReply from "../lib/applicationReply.js";
 import type * as lib_applicationRules from "../lib/applicationRules.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_botkosLogoBase64 from "../lib/botkosLogoBase64.js";
 import type * as lib_consentTexts from "../lib/consentTexts.js";
 import type * as lib_kosInfoRules from "../lib/kosInfoRules.js";
 import type * as lib_locationVerification from "../lib/locationVerification.js";
+import type * as lib_monthlyReportPdf from "../lib/monthlyReportPdf.js";
 import type * as lib_ownerTrustRules from "../lib/ownerTrustRules.js";
 import type * as lib_paymentAdapter from "../lib/paymentAdapter.js";
 import type * as lib_paymentClassification from "../lib/paymentClassification.js";
@@ -98,6 +101,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  appSettings: typeof appSettings;
   applicationFlow: typeof applicationFlow;
   applications: typeof applications;
   auth: typeof auth;
@@ -128,9 +132,11 @@ declare const fullApi: ApiFromModules<{
   "lib/applicationReply": typeof lib_applicationReply;
   "lib/applicationRules": typeof lib_applicationRules;
   "lib/auth": typeof lib_auth;
+  "lib/botkosLogoBase64": typeof lib_botkosLogoBase64;
   "lib/consentTexts": typeof lib_consentTexts;
   "lib/kosInfoRules": typeof lib_kosInfoRules;
   "lib/locationVerification": typeof lib_locationVerification;
+  "lib/monthlyReportPdf": typeof lib_monthlyReportPdf;
   "lib/ownerTrustRules": typeof lib_ownerTrustRules;
   "lib/paymentAdapter": typeof lib_paymentAdapter;
   "lib/paymentClassification": typeof lib_paymentClassification;

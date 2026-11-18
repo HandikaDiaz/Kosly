@@ -3,6 +3,7 @@ import { v } from "convex/values"
 import type { Id } from "../_generated/dataModel"
 import { getTierForRoomCount, tierRank } from "../lib/subscription_tiers"
 import { getEffectiveTier } from "../subscriptions"
+import { isPricingEnabled } from "../appSettings"
 import type { BotChannel } from "./types"
 import {
   buildStatusMessage,
@@ -133,7 +134,10 @@ export const getResponse = internalQuery({
         totalRooms: rooms.length,
       })
     }
-    const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).unique()
+    const pricingEnabled = await isPricingEnabled(ctx)
+    const subscription = pricingEnabled
+      ? await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId)).unique()
+      : null
     let subscriptionAttention: string | undefined
     if (subscription) {
       const totalRooms = propertyDataList.reduce((sum, property) => sum + property.totalRooms, 0)

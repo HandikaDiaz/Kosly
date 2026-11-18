@@ -7,13 +7,8 @@ import {
   ArrowLeft,
   Building2,
   DoorOpen,
-  ExternalLink,
-  FileText,
-  Globe,
   LayoutDashboard,
   MapPin,
-  ShieldCheck,
-  Star,
   Users,
 } from "lucide-react"
 import { useQuery } from "convex/react"
@@ -32,9 +27,6 @@ const tabs: TabDefinition[] = [
   { tab: "summary", label: "Ringkasan", icon: LayoutDashboard },
   { tab: "rooms", label: "Kamar", icon: DoorOpen },
   { tab: "tenants", label: "Penghuni", icon: Users },
-  { tab: "public", label: "Publik", icon: Globe },
-  { tab: "location", label: "Lokasi", icon: MapPin },
-  { tab: "reviews", label: "Ulasan", icon: Star },
 ]
 
 export function PropertyTabs({ children }: { children: React.ReactNode }) {
@@ -109,8 +101,6 @@ export function PropertyTabs({ children }: { children: React.ReactNode }) {
       return pathname.includes(`/properties/${params.propertyId}/${subpath}`)
     })?.tab ?? "summary"
 
-  const publicUrl = `/kos/${property.publicSlug ?? property.slug}`
-
   return (
     <div className="min-w-0 bg-[var(--background)]">
       {/* ── Top Bar with Back Navigation & Quick Header ── */}
@@ -128,21 +118,9 @@ export function PropertyTabs({ children }: { children: React.ReactNode }) {
               />
               <span>Daftar Properti</span>
             </Link>
-
-            {property.isPublished && (
-              <Link
-                href={publicUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--wood)] hover:underline"
-              >
-                <span>Lihat Halaman Publik</span>
-                <ExternalLink size={12} />
-              </Link>
-            )}
           </div>
 
-          {/* Property Name & Badges */}
+          {/* Property Name */}
           <div className="mt-2.5 flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:justify-between">
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-xl font-bold tracking-tight text-[var(--ink)] sm:text-2xl">
@@ -152,31 +130,6 @@ export function PropertyTabs({ children }: { children: React.ReactNode }) {
                 <MapPin size={12} className="shrink-0 text-[var(--wood)]" />
                 <span className="truncate">{property.address}</span>
               </p>
-            </div>
-
-            {/* Quick Status Chips */}
-            <div className="flex shrink-0 items-center gap-1.5 pt-1 sm:pt-0">
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                  badges.isPublished
-                    ? "bg-emerald-100 text-emerald-800"
-                    : "bg-stone-100 text-stone-600"
-                }`}
-              >
-                <Globe size={10} />
-                {badges.isPublished ? "Dipublikasikan" : "Draft"}
-              </span>
-
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                  badges.locationVerified
-                    ? "bg-sky-100 text-sky-800"
-                    : "bg-amber-100 text-amber-800"
-                }`}
-              >
-                <ShieldCheck size={10} />
-                {badges.locationVerified ? "Lokasi Valid" : "Lokasi Belum"}
-              </span>
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
 import type { QueryCtx } from "./_generated/server"
 import { getEffectiveTier } from "./subscriptions"
+import { isPricingEnabled } from "./appSettings"
 import { jakartaParts, periodOffset, periodOf } from "../lib/rent-date"
 
 const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
@@ -45,15 +46,30 @@ const calculatePeriod = async (ctx: Pick<QueryCtx, "db">, propertyId: Id<"proper
     else result.settlement += payment.amount
     return result
   }, { monthlyRent: 0, dp: 0, settlement: 0 })
-  const overdueCharges = await ctx.db.query("rent_charges").withIndex("by_property_and_status", (q) => q.eq("propertyId", propertyId).eq("status", "unpaid")).take(1000)
+  const allCharges = await ctx.db.query("rent_charges").withIndex("by_property_and_status", (q) => q.eq("propertyId", propertyId)).take(1000)
+  const periodCharges = allCharges.filter((charge) => charge.period === period && charge.status !== "waived")
+  const chargedTenantIds = new Set(periodCharges.map((charge) => String(charge.tenantId)))
+  const fallbackExpectedRent = tenants
+    .filter((tenant) => occupiedRoomIds.has(String(tenant.roomId)) && tenant.status === "active" && !chargedTenantIds.has(String(tenant._id)))
+    .reduce((sum, tenant) => sum + (rooms.find((room) => room._id === tenant.roomId)?.monthlyRent ?? 0), 0)
+  const expectedRent = periodCharges.reduce((sum, charge) => sum + charge.amount, 0) + fallbackExpectedRent
+
+  const overdueCharges = allCharges.filter((charge) => charge.status === "unpaid")
   const overdue = overdueCharges.filter((charge) => charge.dueDate <= bounds.end).map((charge) => {
     const tenant = tenants.find((item) => item._id === charge.tenantId)
     const room = rooms.find((item) => item._id === charge.roomId)
-    return tenant && room ? { name: tenant.name, roomNumber: room.roomNumber, daysLate: Math.max(1, Math.floor((bounds.end - charge.dueDate) / dayMs)) } : null
-  }).filter((item: { name: string; roomNumber: string; daysLate: number } | null): item is { name: string; roomNumber: string; daysLate: number } => Boolean(item))
+    return tenant && room ? { name: tenant.name, roomNumber: room.roomNumber, daysLate: Math.max(1, Math.floor((bounds.end - charge.dueDate) / dayMs)), amount: charge.amount } : null
+  }).filter((item: { name: string; roomNumber: string; daysLate: number; amount: number } | null): item is { name: string; roomNumber: string; daysLate: number; amount: number } => Boolean(item))
   const newTenants = tenants.filter((tenant) => tenant.startedAt >= bounds.start && tenant.startedAt < bounds.end).map((tenant) => ({ roomNumber: rooms.find((room) => room._id === tenant.roomId)?.roomNumber ?? "-", name: tenant.name, date: jakartaParts(tenant.startedAt).day }))
   const movedOut = tenants.filter((tenant) => tenant.move_out_date && tenant.move_out_date >= bounds.start && tenant.move_out_date < bounds.end).map((tenant) => ({ roomNumber: rooms.find((room) => room._id === tenant.roomId)?.roomNumber ?? "-", name: tenant.name, date: jakartaParts(tenant.move_out_date as number).day }))
-  return { occupied, vacant, booked, total: rooms.length, occupancyRate: rooms.length ? Math.round((occupied / rooms.length) * 100) : 0, cash, overdue, newTenants, movedOut }
+  const vacating = tenants
+    .filter((tenant) => tenant.status === "active" && (tenant.lifecycle_status === "akan_pindah" || tenant.leaseDecision === "not_continuing"))
+    .map((tenant) => ({
+      roomNumber: rooms.find((room) => room._id === tenant.roomId)?.roomNumber ?? "-",
+      name: tenant.name,
+      moveOutDate: tenant.move_out_date ?? tenant.leaseEndsAt ?? null,
+    }))
+  return { occupied, vacant, booked, total: rooms.length, occupancyRate: rooms.length ? Math.round((occupied / rooms.length) * 100) : 0, expectedRent, cash, overdue, newTenants, movedOut, vacating }
 }
 
 export const getReportData = internalQuery({
@@ -64,7 +80,7 @@ export const getReportData = internalQuery({
     const current = await calculatePeriod(ctx, args.propertyId, args.period)
     const previous = await calculatePeriod(ctx, args.propertyId, previousPeriod(args.period))
     if (!current || !previous) return null
-    return { property: { name: property.name, slug: property.slug }, period: args.period, label: periodBounds(args.period).label, current, previous }
+    return { property: { name: property.name, slug: property.slug, address: property.address }, period: args.period, label: periodBounds(args.period).label, current, previous }
   },
 })
 
@@ -79,8 +95,17 @@ export const scheduleForEligibleOwners = internalMutation({
   args: {},
   handler: async (ctx) => {
     const period = latestCompletedPeriod()
-    const subscriptions = await ctx.db.query("subscriptions").withIndex("by_status", (q) => q.eq("status", "active")).take(500)
+    const pricingEnabled = await isPricingEnabled(ctx)
     let scheduled = 0
+    if (!pricingEnabled) {
+      const properties = await ctx.db.query("properties").take(500)
+      for (const property of properties.filter((item) => item.isActive)) {
+        await ctx.scheduler.runAfter(0, internal.monthlyReportsActions.generateAndDeliver, { ownerId: property.ownerId, propertyId: property._id, period })
+        scheduled += 1
+      }
+      return { scheduled, period }
+    }
+    const subscriptions = await ctx.db.query("subscriptions").withIndex("by_status", (q) => q.eq("status", "active")).take(500)
     for (const subscription of subscriptions) {
       if (getEffectiveTier(subscription) !== "growth" && getEffectiveTier(subscription) !== "pro") continue
       const properties = await ctx.db.query("properties").withIndex("by_owner", (q) => q.eq("ownerId", subscription.ownerId)).take(50)

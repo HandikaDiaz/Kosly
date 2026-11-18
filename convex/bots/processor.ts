@@ -9,6 +9,7 @@ import { reviewIdentityForAdmin, reviewPropertyForAdmin } from "../verifications
 import { updateStatusForAdmin } from "../reports"
 import { getTierForRoomCount, getTierPrice, tierRank, type BillingCycle } from "../lib/subscription_tiers"
 import { getEffectiveTier, getRoomCountForOwner } from "../subscriptions"
+import { isPricingEnabled } from "../appSettings"
 import { createRoomForOwnerInContext, updateRoomForOwnerInContext } from "../rooms"
 import { confirmPaymentForOwner, rejectPaymentForOwner } from "../payments"
 import { createPaymentReference, createQueueReference, parseBotCommand } from "./commands"
@@ -49,6 +50,7 @@ const privacyReply = (baseUrl: string | undefined, reviewed: string | undefined)
 const propertyReportReply = (baseUrl: string | undefined, value: string) => baseUrl && value.trim() ? `Laporkan kos melalui formulir ini: ${baseUrl.replace(/\/+$/, "")}/kos/${encodeURIComponent(value.trim())}/lapor` : "Kos tidak ditemukan."
 
 const getOwnerSubscriptionTier = async (ctx: MutationCtx, ownerId: Id<"owners">) => {
+  if (!(await isPricingEnabled(ctx))) return "pro" as const
   const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", ownerId)).unique()
   return getEffectiveTier(subscription)
 }
@@ -411,6 +413,9 @@ export const processEvent = internalMutation({
     const query = parseQueryCommand(args.text ?? "")
     if (query === "status" || query === "unpaid" || query === "vacant") return { status: "query" as const, query, ownerId: link.ownerId, channel: args.channel, chatId }
     if (parsed.kind === "subscription") {
+      if (!(await isPricingEnabled(ctx))) {
+        return response(args.channel, chatId, "🔑 *Akses Uji Coba Gratis*\n\nSemua fitur dan command BotKos saat ini terbuka penuh tanpa batasan tier atau jumlah kamar.")
+      }
       const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", link.ownerId)).unique()
       const rooms = await getRoomCountForOwner(ctx, link.ownerId)
       const tier = subscription?.tier ?? "free"
@@ -418,6 +423,9 @@ export const processEvent = internalMutation({
       return response(args.channel, chatId, `🔑 *Langganan BotKos*\n\nTier aktif: ${tier}\nJumlah kamar: ${rooms}\nStatus: ${subscription?.status ?? "active"}\nJatuh tempo: ${dateText(subscription?.currentPeriodEnd)}${tierRank[recommended] > tierRank[tier] ? `\n\n⚠️ *Perlu upgrade*\nJumlah kamar Anda sudah masuk ke tier ${recommended}.\n\n_Ketik ${commandForChannel(args.channel, "upgrade")} untuk melihat pilihan._` : ""}`)
     }
     if (parsed.kind === "upgrade") {
+      if (!(await isPricingEnabled(ctx))) {
+        return response(args.channel, chatId, "🔑 *Tidak Perlu Upgrade*\n\nSaat ini seluruh fitur BotKos terbuka gratis tanpa batas tier atau jumlah kamar.")
+      }
       const subscription = await ctx.db.query("subscriptions").withIndex("by_owner", (q) => q.eq("ownerId", link.ownerId)).unique()
       const activeTier = subscription?.tier ?? "free"
       const tiers = (["starter", "growth", "pro"] as const).filter((tier) => tierRank[tier] > tierRank[activeTier])

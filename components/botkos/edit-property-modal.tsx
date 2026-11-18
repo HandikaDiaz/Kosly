@@ -7,7 +7,7 @@ import type { Id } from "@/convex/_generated/dataModel"
 import { api } from "@/convex/_generated/api"
 import { ImageLightbox } from "./image-lightbox"
 import { MultiImageUploadField } from "./multi-image-upload-field"
-import { X, Trash2, EyeOff, Eye } from "lucide-react"
+import { X, Trash2 } from "lucide-react"
 
 export type EditablePropertyPhoto = { _id: Id<"property_photos">; storageId: Id<"_storage">; url: string | null; caption?: string }
 
@@ -20,13 +20,10 @@ interface EditPropertyModalProps {
 
 export function EditPropertyModal({ property, photos, onClose, onSuccess }: EditPropertyModalProps) {
   const update = useMutation(api.properties.update)
-  const setActive = useMutation(api.properties.setActive)
   const generateUploadUrl = useMutation(api.propertyPhotos.generateUploadUrl)
   const [keptPhotos, setKeptPhotos] = useState(photos)
   const [newPhotos, setNewPhotos] = useState<File[]>([])
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; alt: string } | null>(null)
-  const [isActive, setIsActive] = useState(property.isActive)
-  const [togglingActive, setTogglingActive] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const id = useId()
@@ -38,19 +35,6 @@ export function EditPropertyModal({ property, photos, onClose, onSuccess }: Edit
     document.addEventListener("keydown", handleEscape)
     return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", handleEscape) }
   }, [onClose])
-
-  const handleToggleActive = async () => {
-    setTogglingActive(true)
-    setError(null)
-    try {
-      await setActive({ propertyId: property._id, isActive: !isActive })
-      setIsActive((prev) => !prev)
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Status properti gagal diubah.")
-    } finally {
-      setTogglingActive(false)
-    }
-  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -86,33 +70,6 @@ export function EditPropertyModal({ property, photos, onClose, onSuccess }: Edit
             <div><label htmlFor={`${id}-name`} className="field-label">Nama properti</label><input id={`${id}-name`} className="field-input" name="name" defaultValue={property.name} required /></div>
             <div><label htmlFor={`${id}-slug`} className="field-label">Link pendaftaran</label><input id={`${id}-slug`} className="field-input" name="slug" defaultValue={property.slug} required /></div>
             <div className="sm:col-span-2"><label htmlFor={`${id}-address`} className="field-label">Alamat properti</label><textarea id={`${id}-address`} className="field-input min-h-24 resize-y" name="address" defaultValue={property.address} required /></div>
-          </div>
-
-          {/* ── Status Aktif/Nonaktif (owner-controlled) ── */}
-          <div className="flex items-center justify-between gap-4 border border-[var(--line)] p-4">
-            <div>
-              <p className="text-sm font-semibold text-[var(--ink)]">Status properti</p>
-              <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
-                {isActive
-                  ? "Aktif - link pendaftaran dapat diakses penyewa."
-                  : "Nonaktif - link pendaftaran tidak dapat diakses penyewa."}
-              </p>
-            </div>
-            <button
-              type="button"
-              id={`${id}-toggle-active`}
-              onClick={() => void handleToggleActive()}
-              disabled={togglingActive || submitting}
-              className={`inline-flex shrink-0 items-center gap-2 border px-3 py-2 text-xs font-semibold transition-colors ${
-                isActive
-                  ? "border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100"
-                  : "border-[var(--line)] bg-[var(--background)] text-[var(--ink-muted)] hover:border-[var(--wood)] hover:text-[var(--ink)]"
-              }`}
-              aria-label={isActive ? "Nonaktifkan properti" : "Aktifkan properti"}
-            >
-              {isActive ? <EyeOff size={14} /> : <Eye size={14} />}
-              {togglingActive ? "Memperbarui…" : isActive ? "Nonaktifkan" : "Aktifkan"}
-            </button>
           </div>
 
           <div className="border-t border-[var(--line)] pt-5">

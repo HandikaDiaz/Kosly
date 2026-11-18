@@ -1,7 +1,8 @@
 "use client"
 
-import { CheckCircle2, Copy, ExternalLink, MessageCircle, Send, Unplug } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Copy, ExternalLink, MessageCircle, Send, Unplug, X } from "lucide-react"
 import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { useMutation, useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 
@@ -99,15 +100,14 @@ const WHATSAPP_STEPS = [
   },
 ]
 
-const BOTKOS_ABOUT = "BotKos adalah asisten pengelolaan kos untuk membantu owner memantau kamar, tenant, pembayaran, langganan, dan laporan langsung dari chat."
+const BOTKOS_ABOUT = "BotKos adalah asisten pengelolaan kos untuk membantu owner memantau kamar, penghuni, pembayaran, dan laporan langsung dari chat."
 
 const COMMAND_PREVIEW = [
   ["help", "Daftar command"],
   ["status", "Ringkasan kos"],
   ["belum_bayar", "Tagihan tertunda"],
   ["kamar_kosong", "Kamar tersedia"],
-  ["langganan", "Status tier"],
-  ["upgrade", "Pilihan upgrade"],
+  ["laporan", "Laporan bulanan"],
 ] as const
 
 // ─── step list component ─────────────────────────────────────────────────────
@@ -139,12 +139,24 @@ export function BotChannelCard({ channel }: { channel: Channel }) {
   const [chatId, setChatId] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [connecting, setConnecting] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   const connect = useMutation(api.botLinks.connect)
   const disconnect = useMutation(api.botLinks.disconnect)
 
   useEffect(() => { if (link?.chatId) setChatId(link.chatId) }, [link?.chatId])
 
+  useEffect(() => {
+    if (!showSuccessModal) return
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowSuccessModal(false)
+    }
+    document.addEventListener("keydown", handleEscape)
+    return () => document.removeEventListener("keydown", handleEscape)
+  }, [showSuccessModal])
+
   const handleConnect = async () => {
+    setConnecting(true)
     try {
       setError(null)
       await connect({
@@ -152,8 +164,11 @@ export function BotChannelCard({ channel }: { channel: Channel }) {
         chatId,
         displayName: isTelegram ? "Telegram owner" : "WhatsApp owner",
       })
+      setShowSuccessModal(true)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Channel belum dapat dihubungkan.")
+    } finally {
+      setConnecting(false)
     }
   }
 
@@ -249,6 +264,17 @@ export function BotChannelCard({ channel }: { channel: Channel }) {
 
       {/* ── steps ── */}
       <div className="bot-card-steps-wrap">
+        {!isTelegram ? (
+          <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs leading-relaxed text-amber-950">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-700" />
+            <div>
+              <p className="font-semibold">Kebijakan 24 Jam Meta (WhatsApp)</p>
+              <p className="mt-0.5 text-amber-900">
+                Sesuai kebijakan resmi Meta, jika pemilik kos <strong>tidak mengirim chat ke bot dalam 24 jam</strong>, notifikasi otomatis tidak dapat terkirim. Cukup kirim pesan apa saja (misal: <code className="bot-card-code">status</code>) ke bot untuk mengaktifkan kembali jendela 24 jam.
+              </p>
+            </div>
+          </div>
+        ) : null}
         <p className="bot-card-steps-heading">Cara menghubungkan</p>
         <StepList steps={steps} />
       </div>
@@ -298,14 +324,82 @@ export function BotChannelCard({ channel }: { channel: Channel }) {
             <button
               type="button"
               onClick={() => void handleConnect()}
-              disabled={!chatId.trim()}
+              disabled={!chatId.trim() || connecting}
               className="button-primary"
             >
-              Hubungkan {isTelegram ? "Telegram" : "WhatsApp"}
+              {connecting ? "Menghubungkan…" : `Hubungkan ${isTelegram ? "Telegram" : "WhatsApp"}`}
             </button>
           )}
         </div>
       </div>
+
+      {showSuccessModal && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+              role="presentation"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) setShowSuccessModal(false)
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={`${channel}-connect-modal-title`}
+                className="relative w-full max-w-md rounded-2xl border border-[var(--line)] bg-[#fffefa] p-6 shadow-2xl"
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowSuccessModal(false)}
+                  aria-label="Tutup notifikasi"
+                  className="absolute right-4 top-4 rounded-lg p-1.5 text-[var(--ink-muted)] hover:bg-stone-100 hover:text-[var(--ink)]"
+                >
+                  <X size={18} />
+                </button>
+
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                  <CheckCircle2 size={24} />
+                </div>
+
+                <h3
+                  id={`${channel}-connect-modal-title`}
+                  className="mt-4 text-lg font-bold text-[var(--ink)]"
+                >
+                  {isTelegram ? "Telegram Berhasil Terhubung!" : "WhatsApp Berhasil Terhubung!"}
+                </h3>
+
+                <p className="mt-2 text-sm leading-6 text-[var(--ink-muted)]">
+                  {isTelegram
+                    ? "BotKos siap mengirimkan notifikasi bukti pembayaran penyewa dan ringkasan kos langsung ke Telegram Anda."
+                    : "Nomor WhatsApp Anda sudah terhubung dengan BotKos untuk menerima notifikasi dan mengecek status kos lewat chat."}
+                </p>
+
+                {!isTelegram ? (
+                  <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs leading-relaxed text-amber-950">
+                    <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-700" />
+                    <div>
+                      <p className="font-bold">Penting: Kebijakan 24 Jam Meta</p>
+                      <p className="mt-1 text-amber-900">
+                        Jika Anda <strong>tidak chat bot WhatsApp dalam 24 jam terakhir</strong>, notifikasi otomatis tidak dapat terkirim. Kirim pesan apa saja (misal: <code className="bot-card-code">status</code>) ke bot agar notifikasi tetap aktif, atau hubungkan <strong>Telegram</strong> sebagai cadangan tanpa batas 24 jam.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowSuccessModal(false)}
+                    className="button-primary min-h-10 rounded-xl px-5 text-sm font-semibold"
+                  >
+                    Mengerti
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   )
 }

@@ -5,14 +5,9 @@ import {
   AlertCircle,
   ArrowRight,
   Building2,
-  DoorOpen,
-  ExternalLink,
-  Globe,
-  Home,
   MapPin,
   Pencil,
   Plus,
-  ShieldCheck,
   Sparkles,
 } from "lucide-react"
 import { useQuery } from "convex/react"
@@ -55,7 +50,7 @@ export function PropertiesStatusPage() {
   const totalOccupied = properties.reduce((acc, p) => acc + p.roomOccupied, 0)
   const totalAvailable = properties.reduce((acc, p) => acc + p.roomAvailable, 0)
   const totalActions = properties.reduce(
-    (acc, p) => acc + (p.applicationsOpen + p.reviewsUnreplied),
+    (acc, p) => acc + p.applicationsOpen,
     0
   )
 
@@ -72,7 +67,7 @@ export function PropertiesStatusPage() {
             Properti &amp; Kamar
           </h1>
           <p className="mt-1 text-xs text-[var(--ink-muted)] sm:text-sm">
-            Pantau status keterisian kamar, verifikasi lokasi, dan kelola calon penyewa.
+            Pantau status keterisian kamar, penghuni, dan kelola calon penyewa.
           </p>
         </div>
 
@@ -144,7 +139,7 @@ export function PropertiesStatusPage() {
               Ada {totalActions} hal yang perlu perhatian Anda
             </p>
             <p className="text-amber-800/80 text-[11px] sm:text-xs">
-              Calon penyewa baru atau ulasan menunggu balasan Anda.
+              Ada pengajuan calon penyewa yang menunggu ditinjau.
             </p>
           </div>
         </div>
@@ -154,12 +149,11 @@ export function PropertiesStatusPage() {
       {properties.length > 0 ? (
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {properties.map((property) => {
-            const actionCount = property.applicationsOpen + property.reviewsUnreplied
+            const actionCount = property.applicationsOpen
             const occupancyPct =
               property.roomTotal > 0
                 ? Math.round((property.roomOccupied / property.roomTotal) * 100)
                 : 0
-            const publicUrl = `/kos/${property.publicSlug ?? property.slug}`
 
             return (
               <div
@@ -187,31 +181,6 @@ export function PropertiesStatusPage() {
 
                   {/* Gradient overlay for badges readability */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/25" />
-
-                  {/* Status Badges Overlay (Top-Left) */}
-                  <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md shadow-sm ${
-                        property.isPublished
-                          ? "bg-emerald-600/90 text-white"
-                          : "bg-stone-800/80 text-stone-200"
-                      }`}
-                    >
-                      <Globe size={10} />
-                      {property.isPublished ? "Dipublikasikan" : "Draft"}
-                    </span>
-
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md shadow-sm ${
-                        property.locationVerified
-                          ? "bg-sky-600/90 text-white"
-                          : "bg-amber-600/90 text-white"
-                      }`}
-                    >
-                      <ShieldCheck size={10} />
-                      {property.locationVerified ? "Lokasi Valid" : "Cek Lokasi"}
-                    </span>
-                  </div>
 
                   {/* Action Badge (Top-Right) */}
                   {actionCount > 0 && (
@@ -300,19 +269,6 @@ export function PropertiesStatusPage() {
                       <span>Kelola Properti</span>
                       <ArrowRight size={14} />
                     </Link>
-
-                    {property.isPublished && (
-                      <Link
-                        href={publicUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[var(--line)] bg-white px-3 text-xs font-semibold text-[var(--ink-muted)] shadow-sm transition hover:bg-[var(--background)] hover:text-[var(--ink)]"
-                        title="Lihat halaman kos publik"
-                      >
-                        <ExternalLink size={14} />
-                        <span className="hidden sm:inline">Publik</span>
-                      </Link>
-                    )}
                   </div>
                 </div>
               </div>

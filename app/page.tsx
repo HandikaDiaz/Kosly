@@ -16,6 +16,8 @@ import {
 } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
 import { useEffect, useState } from "react"
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
 import { BotKosLogo } from "@/components/botkos/botkos-logo"
 import { AuthAwareLink } from "@/components/botkos/auth-aware-link"
 import { SceneExplainer } from "@/components/landing/scene-explainer"
@@ -61,8 +63,8 @@ const FEATURES = [
   },
   {
     icon: ShieldCheck,
-    title: "Verifikasi & Kepercayaan",
-    desc: "Foto KTP, foto kamar, dan bukti transfer tersimpan rapi. Semua keputusan tetap ada di tangan pemilik.",
+    title: "Estimasi Kas & Kamar Kosong",
+    desc: "Hitung uang sewa yang seharusnya masuk bulan ini, pantau jatuh tempo, dan lihat kamar yang akan kosong sebelum kas berkurang.",
   },
 ]
 
@@ -119,6 +121,8 @@ const HERO_ROWS = [
 export default function LandingPage() {
   const reduced = useReducedMotion()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const settings = useQuery(api.appSettings.getPublicSettings)
+  const pricingEnabled = settings?.pricingEnabled ?? false
   const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
@@ -171,7 +175,7 @@ export default function LandingPage() {
           <li><a href="#masalah" className="lp-nav-link">Masalah</a></li>
           <li><a href="#cara-kerja" className="lp-nav-link">Cara Kerja</a></li>
           <li><a href="#fitur" className="lp-nav-link">Fitur</a></li>
-          <li><Link href="/harga" className="lp-nav-link">Harga</Link></li>
+          {pricingEnabled ? <li><Link href="/harga" className="lp-nav-link">Harga</Link></li> : null}
         </ul>
         <div className="lp-nav-actions">
           <AuthAwareLink authenticatedHref="/dashboard" className="lp-btn-ghost lp-nav-cta">
@@ -196,7 +200,7 @@ export default function LandingPage() {
               ["Masalah", "#masalah"],
               ["Cara Kerja", "#cara-kerja"],
               ["Fitur", "#fitur"],
-              ["Harga", "/harga"],
+              ...(pricingEnabled ? [["Harga", "/harga"]] : []),
             ].map(([label, href]) => (
               href.startsWith("/") ? (
                 <Link key={href} href={href} className="lp-mobile-link" onClick={() => setMobileMenuOpen(false)}>{label}</Link>
@@ -478,52 +482,54 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing ── */}
-      <section id="harga" className="lp-section">
-        <div className="lp-container">
-          <ScrollReveal>
-            <div style={{ textAlign: "center" }}>
-              <span className="lp-eyebrow">Harga</span>
-              <h2 className="lp-section-title">Transparan dari awal</h2>
-              <p className="lp-section-sub" style={{ marginLeft: "auto", marginRight: "auto", textAlign: "center" }}>
-                Mulai gratis, upgrade sesuai kebutuhan. Tidak ada biaya tersembunyi.
-              </p>
-            </div>
-          </ScrollReveal>
+      {pricingEnabled ? (
+        <section id="harga" className="lp-section">
+          <div className="lp-container">
+            <ScrollReveal>
+              <div style={{ textAlign: "center" }}>
+                <span className="lp-eyebrow">Harga</span>
+                <h2 className="lp-section-title">Transparan dari awal</h2>
+                <p className="lp-section-sub" style={{ marginLeft: "auto", marginRight: "auto", textAlign: "center" }}>
+                  Mulai gratis, upgrade sesuai kebutuhan. Tidak ada biaya tersembunyi.
+                </p>
+              </div>
+            </ScrollReveal>
 
-          <div className="lp-pricing-grid">
-            {PRICING.map((plan, i) => (
-              <ScrollReveal key={plan.tier} delay={0.1 + i * 0.1}>
-                <div className={`lp-pricing-card ${plan.featured ? "lp-pricing-card-featured" : ""}`}>
-                  {plan.badge && (
-                    <div className="lp-pricing-badge">{plan.badge}</div>
-                  )}
-                  <div className="lp-pricing-tier">{plan.tier}</div>
-                  <div className="lp-pricing-price">
-                    {plan.price}
-                    {plan.period && <span>{plan.period}</span>}
+            <div className="lp-pricing-grid">
+              {PRICING.map((plan, i) => (
+                <ScrollReveal key={plan.tier} delay={0.1 + i * 0.1}>
+                  <div className={`lp-pricing-card ${plan.featured ? "lp-pricing-card-featured" : ""}`}>
+                    {plan.badge && (
+                      <div className="lp-pricing-badge">{plan.badge}</div>
+                    )}
+                    <div className="lp-pricing-tier">{plan.tier}</div>
+                    <div className="lp-pricing-price">
+                      {plan.price}
+                      {plan.period && <span>{plan.period}</span>}
+                    </div>
+                    <div className="lp-pricing-desc">{plan.desc}</div>
+                    <div className="lp-pricing-divider" />
+                    <ul className="lp-pricing-features">
+                      {plan.features.map((feat) => (
+                        <li key={feat} className="lp-pricing-feature-item">{feat}</li>
+                      ))}
+                    </ul>
+                    <AuthAwareLink
+                      authenticatedHref="/dashboard/billing"
+                      className={`lp-pricing-cta ${plan.featured ? "lp-pricing-cta-featured" : "lp-pricing-cta-ghost"}`}
+                    >
+                      {plan.cta}
+                    </AuthAwareLink>
                   </div>
-                  <div className="lp-pricing-desc">{plan.desc}</div>
-                  <div className="lp-pricing-divider" />
-                  <ul className="lp-pricing-features">
-                    {plan.features.map((feat) => (
-                      <li key={feat} className="lp-pricing-feature-item">{feat}</li>
-                    ))}
-                  </ul>
-                  <AuthAwareLink
-                    authenticatedHref="/dashboard/billing"
-                    className={`lp-pricing-cta ${plan.featured ? "lp-pricing-cta-featured" : "lp-pricing-cta-ghost"}`}
-                  >
-                    {plan.cta}
-                  </AuthAwareLink>
-                </div>
-              </ScrollReveal>
-            ))}
+                </ScrollReveal>
+              ))}
+            </div>
+            <div className="mt-9 text-center">
+              <Link href="/harga" className="lp-btn-ghost">Lihat semua tier dan fitur <ArrowUpRight size={16} /></Link>
+            </div>
           </div>
-          <div className="mt-9 text-center">
-            <Link href="/harga" className="lp-btn-ghost">Lihat semua tier dan fitur <ArrowUpRight size={16} /></Link>
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* ── Closing CTA ── */}
       <section className="lp-cta-section">
@@ -533,7 +539,15 @@ export default function LandingPage() {
             <ScrollReveal>
               <h2 className="lp-cta-title">
                 Mulai sekarang,<br />
-                <em>gratis selamanya</em> untuk 5 kamar
+                {pricingEnabled ? (
+                  <>
+                    <em>gratis selamanya</em> untuk 5 kamar
+                  </>
+                ) : (
+                  <>
+                    <em>gratis</em> untuk kelola kos Anda
+                  </>
+                )}
               </h2>
               <p className="lp-cta-sub">
                 Tidak perlu kartu kredit. Tidak perlu penyewa install aplikasi.

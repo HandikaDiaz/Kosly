@@ -457,21 +457,16 @@ export function PropertyTenantsPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-[var(--ink)] sm:text-base">
-                  Pengajuan Sewa & Sengketa
+                  Pengajuan Sewa
                 </h3>
                 {badges.applicationsOpen > 0 && (
                   <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white">
                     {badges.applicationsOpen} Pengajuan Baru
                   </span>
                 )}
-                {badges.disputesOpen > 0 && (
-                  <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
-                    {badges.disputesOpen} Sengketa
-                  </span>
-                )}
               </div>
               <p className="text-xs text-[var(--ink-muted)]">
-                Calon penyewa yang mendaftar lewat web publik kos dan sanggahan catatan pembayaran
+                Daftar calon penyewa baru yang mendaftar melalui link pendaftaran kos (<span className="font-mono">/{property.slug}/daftar</span>). Anda bisa meninjau, menerima, atau menolak pengajuan sebelum mereka resmi menjadi penghuni.
               </p>
             </div>
           </div>
@@ -491,6 +486,10 @@ export function PropertyTenantsPage() {
         {/* Content expanded */}
         {showApplications && (
           <div className="mt-6 space-y-6 border-t border-[var(--line)] pt-6">
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--background)] p-3.5 text-xs leading-relaxed text-[var(--ink-muted)]">
+              <strong className="text-[var(--ink)]">Fungsi fitur ini:</strong> Jika ada calon penghuni baru yang ingin menyewa kamar, bagikan link{" "}
+              <span className="font-mono font-semibold text-[var(--wood)]">/{property.slug}/daftar</span>. Data pengajuan mereka akan masuk ke sini agar Anda bisa mengecek kamar yang dipilih, menyetujui pengajuan, atau menolak jika kamar sudah penuh.
+            </div>
             <RentalApplicationsSection propertyId={id} />
             <OwnerDisputesSection propertyId={id} />
           </div>

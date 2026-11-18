@@ -7,6 +7,8 @@ import type { Id } from "./_generated/dataModel"
 import { sendTelegramDocument } from "./bots/telegram"
 import { sendWhatsAppDocument, uploadWhatsAppDocument } from "./bots/whatsapp"
 import { propertyTabUrl } from "./lib/propertyTabs"
+import { createMonthlyReportPdf } from "./lib/monthlyReportPdf"
+import { BOTKOS_LOGO_BASE64 } from "./lib/botkosLogoBase64"
 
 type BotLink = {
   channel: "telegram" | "whatsapp"
@@ -23,15 +25,30 @@ type SimulationTarget = {
 } | null
 
 type ReportSection = {
-  property: { name: string; slug: string }
+  property: { name: string; slug: string; address?: string }
   period: string
   label: string
-  current: { occupied: number; vacant: number; booked: number; total: number; occupancyRate: number; cash: { monthlyRent: number; dp: number; settlement: number }; overdue: Array<{ name: string; roomNumber: string; daysLate: number }>; newTenants: Array<{ roomNumber: string; name: string; date: number }>; movedOut: Array<{ roomNumber: string; name: string; date: number }> }
+  current: {
+    occupied: number
+    vacant: number
+    booked: number
+    total: number
+    occupancyRate: number
+    expectedRent?: number
+    cash: { monthlyRent: number; dp: number; settlement: number }
+    overdue: Array<{ name: string; roomNumber: string; daysLate: number; amount?: number }>
+    newTenants: Array<{ roomNumber: string; name: string; date: number }>
+    movedOut: Array<{ roomNumber: string; name: string; date: number }>
+    vacating?: Array<{ roomNumber: string; name: string; moveOutDate: number | null }>
+  }
   previous: { occupied: number; occupancyRate: number; cash: { monthlyRent: number; dp: number; settlement: number } }
 }
 
 const rupiah = (value: number) => `Rp ${value.toLocaleString("id-ID")}`
 const safe = (value: string) => value.normalize("NFKD").replace(/[^\x20-\x7E]/g, "?")
+
+const loadReportLogoBytes = async (): Promise<Uint8Array> =>
+  Uint8Array.from(Buffer.from(BOTKOS_LOGO_BASE64, "base64"))
 
 const buildReportText = (report: ReportSection, generatedAt: Date, propertyId: Id<"properties">) => {
   const current = report.current
@@ -72,26 +89,16 @@ const buildReportText = (report: ReportSection, generatedAt: Date, propertyId: I
   return lines
 }
 
-const createPdf = (lines: string[]) => {
-  const content = ["BT", "/F1 10 Tf", "50 790 Td", ...lines.flatMap((line) => [`(${safe(line).replace(/[()\\]/g, "\\$&")}) Tj`, "0 -15 Td"]), "ET"].join("\n")
-  const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>", "<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>", `<< /Length ${content.length} >>\nstream\n${content}\nendstream`]
-  let pdf = "%PDF-1.4\n"
-  const offsets: number[] = [0]
-  objects.forEach((object, index) => { offsets.push(pdf.length); pdf += `${index + 1} 0 obj\n${object}\nendobj\n` })
-  const xref = pdf.length
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n `).join("\n")}\ntrailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`
-  return new TextEncoder().encode(pdf)
-}
-
 export const generateAndDeliver = internalAction({
   args: { ownerId: v.id("owners"), propertyId: v.id("properties"), period: v.string() },
   handler: async (ctx, args) => {
     const report = await ctx.runQuery(internal.monthlyReports.getReportData, args) as ReportSection | null
     if (!report) return { delivered: 0, saved: false }
     const generatedAt = new Date()
-    const bytes = createPdf(buildReportText(report, generatedAt, args.propertyId))
+    const logoBytes = await loadReportLogoBytes()
+    const bytes = await createMonthlyReportPdf(report, generatedAt, logoBytes)
     const fileName = `botkos-laporan-${report.property.slug}-${args.period}.pdf`
-    const storageId = await ctx.storage.store(new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }))
+    const storageId = await ctx.storage.store(new Blob([bytes.slice().buffer], { type: "application/pdf" }))
     await ctx.runMutation(internal.monthlyReports.saveReport, { ownerId: args.ownerId, propertyId: args.propertyId, period: args.period, storageId, fileName })
     const links = (await ctx.runQuery(internal.notifications.getOwnerBotLinks, { ownerId: args.ownerId })) as BotLink[]
     const caption = `BotKos - Laporan ${report.property.name} (${report.label})`
@@ -198,9 +205,10 @@ export const simulateMonthlyReport = action({
 
     const generatedAt = new Date()
     const textLines = buildReportText(report, generatedAt, args.propertyId ?? target?.propertyId ?? "unknown" as Id<"properties">)
-    const bytes = createPdf(textLines)
+    const logoBytes = await loadReportLogoBytes()
+    const bytes = await createMonthlyReportPdf(report, generatedAt, logoBytes)
     const fileName = `botkos-laporan-${report.property.slug}-${period}.pdf`
-    const storageId = await ctx.storage.store(new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }))
+    const storageId = await ctx.storage.store(new Blob([bytes.slice().buffer], { type: "application/pdf" }))
     const pdfUrl = await ctx.storage.getUrl(storageId)
 
     if (target) {
